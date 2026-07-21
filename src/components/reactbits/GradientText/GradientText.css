@@ -1,0 +1,78 @@
+.animated-gradient-text {
+  position: relative;
+  display: inline-flex;
+  max-width: fit-content;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  border-radius: 1.25rem;
+  overflow: visible;
+}
+
+.animated-gradient-text.with-border {
+  padding: 0.35rem 0.75rem;
+}
+
+.gradient-overlay {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-image: linear-gradient(var(--rb-gradient-angle), var(--rb-gradient-colors));
+  background-size: var(--rb-gradient-size);
+  animation: rb-gradient-pan var(--rb-gradient-speed) ease-in-out infinite alternate;
+  pointer-events: none;
+}
+
+.gradient-overlay::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: -1;
+  width: calc(100% - 2px);
+  height: calc(100% - 2px);
+  border-radius: inherit;
+  background-color: #120f17;
+  transform: translate(-50%, -50%);
+}
+
+.text-content,
+.rb-gradient-text {
+  background-image: linear-gradient(var(--rb-gradient-angle), var(--rb-gradient-colors));
+  background-size: var(--rb-gradient-size);
+  background-repeat: repeat;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: rb-gradient-pan var(--rb-gradient-speed) ease-in-out infinite alternate;
+}
+
+.rb-gradient-text .split-parent,
+.rb-gradient-text .rb-split-word,
+.rb-gradient-text .rb-split-char {
+  background-image: linear-gradient(var(--rb-gradient-angle), var(--rb-gradient-colors));
+  background-size: var(--rb-gradient-size);
+  background-repeat: repeat;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: rb-gradient-pan var(--rb-gradient-speed) ease-in-out infinite alternate;
+}
+
+.animated-gradient-text.pause-on-hover:hover .text-content,
+.animated-gradient-text.pause-on-hover:hover .gradient-overlay {
+  animation-play-state: paused;
+}
+
+@keyframes rb-gradient-pan {
+  from { background-position: 0% 50%; }
+  to { background-position: 100% 50%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .text-content,
+  .rb-gradient-text,
+  .gradient-overlay {
+    animation: none;
+  }
+}

@@ -1,0 +1,1071 @@
+/* ==========================================================================
+   Public Enrollment Information — Modern Enrollment Experience
+   Visual identity: fresh, structured, premium, education-oriented.
+   Distinct from News (editorial) and Announcements (urgent/alert).
+   ========================================================================== */
+
+/* ---------- Design Tokens ---------- */
+.reg-page {
+  /* Foundation */
+  --reg-ink: #0a0f1a;
+  --reg-deep: #0b1120;
+  --reg-navy: #101828;
+  --reg-slate: #1e293b;
+  --reg-cream: #faf7f0;
+  --reg-paper: #fffdf7;
+
+  /* Brand */
+  --reg-emerald: #047857;
+  --reg-emerald-bright: #10b981;
+  --reg-emerald-deep: #065f46;
+  --reg-emerald-soft: #d1fae5;
+
+  /* Accents */
+  --reg-cyan: #62dfff;
+  --reg-violet: #8b5cf6;
+  --reg-amber: #f0c35a;
+  --reg-amber-soft: #fef3c7;
+
+  /* Semantic */
+  --reg-muted: rgba(10, 15, 26, 0.52);
+  --reg-muted-soft: rgba(10, 15, 26, 0.38);
+  --reg-border: rgba(10, 15, 26, 0.06);
+  --reg-border-med: rgba(10, 15, 26, 0.1);
+  --reg-border-strong: rgba(10, 15, 26, 0.15);
+  --reg-surface: rgba(255, 255, 255, 0.78);
+  --reg-surface-raised: rgba(255, 255, 255, 0.95);
+  --reg-surface-glass: rgba(255, 253, 247, 0.6);
+
+  /* Depth */
+  --reg-shadow-xs: 0 1px 2px rgba(0,0,0,0.04);
+  --reg-shadow-sm: 0 1px 4px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.03);
+  --reg-shadow-md: 0 4px 20px rgba(0,0,0,0.06), 0 2px 6px rgba(0,0,0,0.03);
+  --reg-shadow-lg: 0 12px 40px rgba(0,0,0,0.08), 0 4px 12px rgba(0,0,0,0.04);
+  --reg-shadow-xl: 0 20px 60px rgba(0,0,0,0.1), 0 8px 20px rgba(0,0,0,0.05);
+
+  /* Radii */
+  --reg-r-sm: 0.625rem;
+  --reg-r-md: 0.875rem;
+  --reg-r-lg: 1.125rem;
+  --reg-r-xl: 1.5rem;
+
+  background: var(--reg-cream);
+  color: var(--reg-ink);
+  min-height: 100dvh;
+  -webkit-font-smoothing: antialiased;
+}
+
+.dark .reg-page {
+  --reg-ink: #e8ecf4;
+  --reg-cream: #050c18;
+  --reg-paper: #0a1425;
+  --reg-muted: rgba(232, 236, 244, 0.52);
+  --reg-muted-soft: rgba(232, 236, 244, 0.35);
+  --reg-border: rgba(255, 255, 255, 0.06);
+  --reg-border-med: rgba(255, 255, 255, 0.1);
+  --reg-border-strong: rgba(255, 255, 255, 0.15);
+  --reg-surface: rgba(255, 255, 255, 0.04);
+  --reg-surface-raised: rgba(255, 255, 255, 0.07);
+  --reg-surface-glass: rgba(10, 20, 37, 0.6);
+
+  background: var(--reg-cream);
+  color: var(--reg-ink);
+}
+
+/* ---------- Container ---------- */
+.reg-container {
+  width: min(100% - 1.5rem, 72rem);
+  margin-inline: auto;
+}
+
+/* ==========================================================================
+   Intro Section (Hero replacement — split layout)
+   Unlike News/Announcements editorial hero, this is an enrollment-first
+   split layout with category preview cards on the right.
+   ========================================================================== */
+.reg-intro {
+  position: relative;
+  overflow: hidden;
+  background: var(--reg-deep);
+  padding: clamp(5.5rem, 8vw, 7.5rem) 0 clamp(2.5rem, 4vw, 3.5rem);
+}
+
+.dark .reg-intro {
+  background: #020810;
+}
+
+/* Background decoration */
+.reg-intro__bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.reg-intro__orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+}
+
+.reg-intro__orb--1 {
+  width: 500px;
+  height: 500px;
+  top: -15%;
+  left: -8%;
+  background: radial-gradient(circle, rgba(4, 120, 87, 0.2), transparent 70%);
+}
+
+.reg-intro__orb--2 {
+  width: 400px;
+  height: 400px;
+  bottom: -20%;
+  right: -5%;
+  background: radial-gradient(circle, rgba(98, 223, 255, 0.1), transparent 70%);
+}
+
+.reg-intro__pattern {
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(circle at 1px 1px, rgba(255,255,255,0.025) 1px, transparent 0);
+  background-size: 32px 32px;
+}
+
+.reg-intro__inner {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: clamp(2rem, 4vw, 3rem);
+  align-items: center;
+}
+
+@media (min-width: 900px) {
+  .reg-intro__inner {
+    grid-template-columns: 1.1fr 0.9fr;
+  }
+}
+
+/* Text side */
+.reg-intro__breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.8125rem;
+  color: rgba(255, 255, 255, 0.45);
+  margin-bottom: 1.25rem;
+}
+
+.reg-intro__breadcrumb a {
+  color: rgba(255, 255, 255, 0.55);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.reg-intro__breadcrumb a:hover {
+  color: var(--reg-emerald-bright);
+}
+
+.reg-intro h1 {
+  font-size: clamp(1.875rem, 4vw, 3rem);
+  font-weight: 800;
+  line-height: 1.12;
+  color: #fff;
+  margin: 0 0 1rem;
+  max-width: 36rem;
+  letter-spacing: -0.03em;
+}
+
+.reg-intro h1 em {
+  font-style: normal;
+  background: linear-gradient(135deg, var(--reg-emerald-bright), var(--reg-cyan));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.reg-intro__lead {
+  font-size: clamp(0.875rem, 1.4vw, 1rem);
+  line-height: 1.65;
+  color: rgba(255, 255, 255, 0.55);
+  max-width: 34rem;
+  margin: 0 0 1.5rem;
+}
+
+/* Method highlights — 2x2 grid in hero, right side */
+.reg-intro__highlights {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+}
+
+@media (min-width: 500px) {
+  .reg-intro__highlights {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.reg-highlight {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.625rem 0.875rem;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--reg-r-md);
+  background: rgba(255, 255, 255, 0.03);
+  transition: border-color 0.25s ease;
+}
+
+.reg-highlight:hover {
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.reg-highlight__icon-wrap {
+  width: 2rem;
+  height: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(16, 185, 129, 0.1);
+  border-radius: var(--reg-r-sm);
+  flex-shrink: 0;
+}
+
+.reg-highlight__icon {
+  width: 1rem;
+  height: 1rem;
+  color: var(--reg-emerald-bright);
+}
+
+.reg-highlight__text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.0625rem;
+  min-width: 0;
+}
+
+.reg-highlight__label {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.9);
+  line-height: 1.2;
+}
+
+.reg-highlight__desc {
+  font-size: 0.6875rem;
+  color: rgba(255, 255, 255, 0.4);
+  line-height: 1.3;
+}
+
+/* ==========================================================================
+   Category Navigator (sticky rail)
+   Distinct from News/Announcements: elevated surface, animated indicator,
+   vertical icon+text stacking on mobile, horizontal rail on desktop.
+   ========================================================================== */
+.reg-nav {
+  position: sticky;
+  top: 4rem; /* below navbar */
+  z-index: 40;
+  background: var(--reg-surface-glass);
+  backdrop-filter: blur(16px) saturate(1.4);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  border-bottom: 1px solid var(--reg-border);
+  padding: 0.75rem 0;
+}
+
+.dark .reg-nav {
+  background: rgba(5, 12, 24, 0.75);
+}
+
+.reg-nav__rail {
+  display: flex;
+  gap: 0.375rem;
+  background: var(--reg-surface);
+  border: 1px solid var(--reg-border-med);
+  border-radius: var(--reg-r-lg);
+  padding: 0.25rem;
+  box-shadow: var(--reg-shadow-sm);
+}
+
+.reg-nav__btn {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  border-radius: var(--reg-r-md);
+  padding: 0.6rem 1rem;
+  cursor: pointer;
+  transition: color 0.25s ease;
+  font-family: inherit;
+  z-index: 1;
+}
+
+.reg-nav__btn-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.reg-nav__btn-icon {
+  font-size: 1rem;
+}
+
+.reg-nav__btn-text {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--reg-muted);
+  transition: color 0.25s ease;
+}
+
+.reg-nav__btn--active .reg-nav__btn-text {
+  color: #fff;
+}
+
+.reg-nav__btn:hover:not(.reg-nav__btn--active) .reg-nav__btn-text {
+  color: var(--reg-ink);
+}
+
+.reg-nav__indicator {
+  position: absolute;
+  inset: 0;
+  background: var(--reg-emerald);
+  border-radius: var(--reg-r-md);
+  box-shadow: 0 2px 8px rgba(4, 120, 87, 0.25);
+  z-index: 0;
+}
+
+/* ==========================================================================
+   Content Canvas (main area)
+   Balanced 2-column grid: fees + requirements/notes.
+   On mobile: single column stack.
+   ========================================================================== */
+.reg-canvas {
+  max-width: 68rem;
+  margin: 0 auto;
+}
+
+.reg-canvas__banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: clamp(1.5rem, 3vw, 2rem);
+  padding: 1.25rem 1.5rem;
+  background: var(--reg-surface-raised);
+  border: 1px solid var(--reg-border);
+  border-radius: var(--reg-r-xl);
+  box-shadow: var(--reg-shadow-xs);
+}
+
+.reg-canvas__banner-icon {
+  font-size: 2rem;
+  flex-shrink: 0;
+  width: 3.5rem;
+  height: 3.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(4, 120, 87, 0.07);
+  border: 1px solid rgba(4, 120, 87, 0.12);
+  border-radius: var(--reg-r-md);
+}
+
+.dark .reg-canvas__banner-icon {
+  background: rgba(16, 185, 129, 0.08);
+  border-color: rgba(16, 185, 129, 0.15);
+}
+
+.reg-canvas__banner-text h2 {
+  font-size: clamp(1.25rem, 2.2vw, 1.5rem);
+  font-weight: 800;
+  margin: 0 0 0.25rem;
+  color: var(--reg-ink);
+  letter-spacing: -0.02em;
+}
+
+.reg-canvas__banner-text p {
+  font-size: 0.875rem;
+  color: var(--reg-muted);
+  margin: 0;
+  line-height: 1.55;
+}
+
+.reg-canvas__grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: clamp(1rem, 2vw, 1.5rem);
+}
+
+@media (min-width: 768px) {
+  .reg-canvas__grid {
+    grid-template-columns: 1fr 1fr;
+    gap: clamp(1.25rem, 2.5vw, 1.75rem);
+  }
+}
+
+.reg-canvas__side {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(1rem, 2vw, 1.5rem);
+}
+
+/* ==========================================================================
+   Fee Module
+   Editorial numbered list with dot leaders.
+   Distinct visual: numbered index, dotted line connector, bold amount.
+   Premium feel without SaaS pricing table look.
+   ========================================================================== */
+.reg-fee {
+  background: var(--reg-surface-raised);
+  border: 1px solid var(--reg-border);
+  border-radius: var(--reg-r-xl);
+  padding: clamp(1.25rem, 2.5vw, 1.75rem);
+  box-shadow: var(--reg-shadow-md);
+}
+
+.reg-fee__header {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  margin-bottom: 1.25rem;
+}
+
+.reg-fee__icon-wrap {
+  width: 2.5rem;
+  height: 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--reg-emerald), var(--reg-emerald-deep));
+  border-radius: var(--reg-r-sm);
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.reg-fee__title {
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: var(--reg-ink);
+  margin: 0;
+  line-height: 1.2;
+}
+
+.reg-fee__subtitle {
+  font-size: 0.75rem;
+  color: var(--reg-muted-soft);
+  margin: 0.125rem 0 0;
+}
+
+.reg-fee__list {
+  display: flex;
+  flex-direction: column;
+}
+
+.reg-fee__row {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: baseline;
+  gap: 0.625rem;
+  padding: 0.7rem 0;
+  border-bottom: 1px solid var(--reg-border);
+}
+
+.reg-fee__row:last-of-type {
+  border-bottom: none;
+}
+
+.reg-fee__row--muted {
+  opacity: 0.4;
+}
+
+.reg-fee__row--muted .reg-fee__name {
+  text-decoration: line-through;
+}
+
+.reg-fee__emoji {
+  font-size: 1rem;
+  flex-shrink: 0;
+  margin-top: 0.05rem;
+}
+
+.reg-fee__name {
+  font-size: 0.9375rem;
+  color: var(--reg-muted);
+  white-space: nowrap;
+}
+
+.reg-fee__dots {
+  flex: 1;
+  border-bottom: 1.5px dotted var(--reg-border-strong);
+  min-width: 1.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.reg-fee__amount {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--reg-ink);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  text-align: right;
+}
+
+/* Total bar */
+.reg-fee__total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 0.75rem;
+  padding: 0.875rem 1rem;
+  background: linear-gradient(135deg, rgba(4, 120, 87, 0.06), rgba(16, 185, 129, 0.03));
+  border: 1px solid rgba(4, 120, 87, 0.12);
+  border-radius: var(--reg-r-md);
+}
+
+.dark .reg-fee__total {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(16, 185, 129, 0.04));
+  border-color: rgba(16, 185, 129, 0.18);
+}
+
+.reg-fee__total-label {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--reg-emerald-deep);
+}
+
+.dark .reg-fee__total-label {
+  color: var(--reg-emerald-bright);
+}
+
+.reg-fee__total-amount {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--reg-emerald);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+/* ==========================================================================
+   Requirements Panel
+   Clean checklist with numbered items and check icons.
+   Light, scannable, not heavy like a card.
+   ========================================================================== */
+.reg-req {
+  background: var(--reg-surface-raised);
+  border: 1px solid var(--reg-border);
+  border-radius: var(--reg-r-xl);
+  padding: clamp(1.25rem, 2.5vw, 1.5rem);
+  box-shadow: var(--reg-shadow-sm);
+}
+
+.reg-req__header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.reg-req__icon-wrap {
+  width: 2.25rem;
+  height: 2.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(4, 120, 87, 0.08);
+  border: 1px solid rgba(4, 120, 87, 0.12);
+  border-radius: var(--reg-r-sm);
+  color: var(--reg-emerald);
+  flex-shrink: 0;
+}
+
+.dark .reg-req__icon-wrap {
+  background: rgba(16, 185, 129, 0.1);
+  border-color: rgba(16, 185, 129, 0.18);
+}
+
+.reg-req__title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--reg-ink);
+  margin: 0;
+}
+
+.reg-req__subtitle {
+  font-size: 0.6875rem;
+  color: var(--reg-muted-soft);
+  margin: 0.125rem 0 0;
+}
+
+.reg-req__list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.reg-req__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  padding: 0.55rem 0;
+}
+
+.reg-req__item + .reg-req__item {
+  border-top: 1px solid var(--reg-border);
+}
+
+.reg-req__check {
+  width: 1.125rem;
+  height: 1.125rem;
+  color: var(--reg-emerald);
+  flex-shrink: 0;
+  margin-top: 0.15rem;
+}
+
+.reg-req__text {
+  font-size: 0.875rem;
+  color: var(--reg-muted);
+  line-height: 1.55;
+}
+
+/* ==========================================================================
+   Notes Panel
+   Contextual information: subtle background, info icon, calm treatment.
+   Not an alert, not an error — informational context.
+   ========================================================================== */
+.reg-notes {
+  background: rgba(4, 120, 87, 0.03);
+  border: 1px solid rgba(4, 120, 87, 0.08);
+  border-radius: var(--reg-r-xl);
+  padding: clamp(1rem, 2vw, 1.25rem);
+}
+
+.dark .reg-notes {
+  background: rgba(16, 185, 129, 0.04);
+  border-color: rgba(16, 185, 129, 0.1);
+}
+
+.reg-notes__header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  color: var(--reg-emerald-deep);
+}
+
+.dark .reg-notes__header {
+  color: var(--reg-emerald-bright);
+}
+
+.reg-notes__title {
+  font-size: 0.875rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.reg-notes__list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.reg-notes__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.reg-notes__check {
+  width: 1rem;
+  height: 1rem;
+  color: var(--reg-emerald);
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+}
+
+.reg-notes__text {
+  font-size: 0.8125rem;
+  color: var(--reg-muted);
+  line-height: 1.55;
+}
+
+/* ==========================================================================
+   Closing CTA
+   Distinct from generic CTA components. Uses education-themed treatment.
+   ========================================================================== */
+.reg-cta {
+  position: relative;
+  overflow: hidden;
+  background: var(--reg-deep);
+  padding: clamp(3rem, 6vw, 5rem) 0;
+}
+
+.dark .reg-cta {
+  background: #020810;
+}
+
+.reg-cta__bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.reg-cta__orb {
+  position: absolute;
+  width: 400px;
+  height: 400px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(4, 120, 87, 0.15), transparent 70%);
+  filter: blur(60px);
+}
+
+.reg-cta__inner {
+  position: relative;
+  z-index: 1;
+}
+
+.reg-cta__content {
+  text-align: center;
+  max-width: 36rem;
+  margin: 0 auto;
+}
+
+.reg-cta__icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  color: var(--reg-emerald-bright);
+  margin: 0 auto 1rem;
+}
+
+.reg-cta__content h2 {
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  font-weight: 800;
+  color: #fff;
+  margin: 0 0 0.75rem;
+  letter-spacing: -0.02em;
+}
+
+.reg-cta__content p {
+  font-size: clamp(0.875rem, 1.5vw, 1rem);
+  color: rgba(255, 255, 255, 0.55);
+  line-height: 1.65;
+  margin: 0 0 1.75rem;
+}
+
+.reg-cta__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: center;
+}
+
+.reg-cta__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.7rem 1.5rem;
+  border-radius: 100px;
+  font-size: 0.875rem;
+  font-weight: 700;
+  text-decoration: none;
+  transition: all 0.25s ease;
+  font-family: inherit;
+}
+
+.reg-cta__btn--primary {
+  background: var(--reg-emerald);
+  color: #fff;
+  border: none;
+  box-shadow: 0 2px 12px rgba(4, 120, 87, 0.25);
+}
+
+.reg-cta__btn--primary:hover {
+  background: var(--reg-emerald-deep);
+  box-shadow: 0 4px 20px rgba(4, 120, 87, 0.35);
+  transform: translateY(-1px);
+}
+
+.reg-cta__btn--secondary {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.reg-cta__btn--secondary:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+/* ==========================================================================
+   Loading & States
+   ========================================================================== */
+.reg-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 3rem 1rem;
+  color: var(--reg-muted);
+  font-size: 0.875rem;
+}
+
+.reg-loading svg {
+  animation: reg-spin 1s linear infinite;
+}
+
+@keyframes reg-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Skeleton */
+.reg-skeleton {
+  padding-top: clamp(5.5rem, 8vw, 7.5rem);
+}
+
+.reg-skeleton__hero {
+  height: clamp(12rem, 20vw, 18rem);
+  background: linear-gradient(180deg, var(--reg-deep), var(--reg-navy));
+}
+
+.reg-skeleton__nav {
+  display: flex;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 1rem 1.5rem;
+  background: var(--reg-surface-glass);
+}
+
+.reg-skeleton__card {
+  width: 10rem;
+  height: 2.5rem;
+  border-radius: var(--reg-r-md);
+  animation: reg-pulse 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  background: var(--reg-border-strong);
+}
+
+.reg-skeleton__body {
+  padding: clamp(2rem, 4vw, 3rem) 1.5rem;
+}
+
+.reg-skeleton__block {
+  height: 16rem;
+  border-radius: var(--reg-r-xl);
+  animation: reg-pulse 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  background: var(--reg-border-strong);
+  margin-bottom: 1rem;
+}
+
+.reg-skeleton__block--sm {
+  height: 8rem;
+}
+
+@keyframes reg-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* Empty & Error */
+.reg-empty {
+  text-align: center;
+  padding: clamp(3rem, 6vw, 5rem) 1rem;
+  color: var(--reg-muted);
+}
+
+.reg-empty svg {
+  width: 2.75rem;
+  height: 2.75rem;
+  margin: 0 auto 1rem;
+  opacity: 0.3;
+}
+
+.reg-empty h3 {
+  font-size: 1.125rem;
+  font-weight: 700;
+  margin: 0 0 0.5rem;
+  color: var(--reg-ink);
+}
+
+.reg-empty p {
+  font-size: 0.875rem;
+  max-width: 26rem;
+  margin: 0 auto;
+  line-height: 1.6;
+}
+
+.reg-retry {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin-top: 1rem;
+  padding: 0.55rem 1.25rem;
+  border: 1px solid var(--reg-border-strong);
+  border-radius: 100px;
+  background: var(--reg-surface-raised);
+  color: var(--reg-emerald);
+  font-weight: 600;
+  font-size: 0.8125rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.reg-retry:hover {
+  background: var(--reg-emerald);
+  color: #fff;
+  border-color: var(--reg-emerald);
+}
+
+/* ==========================================================================
+   Admin Enrollment Tab (existing — preserved)
+   ========================================================================== */
+.enrollment-admin {
+  padding: 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--reg-border);
+  background: var(--reg-surface);
+}
+
+.enrollment-admin__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--reg-border);
+}
+
+.enrollment-admin__header h3 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.enrollment-admin__category {
+  padding: 1rem;
+  border: 1px solid var(--reg-border);
+  border-radius: 0.75rem;
+  margin-bottom: 1rem;
+  background: var(--reg-surface-raised);
+}
+
+.enrollment-admin__category-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.enrollment-admin__category-header h4 {
+  font-weight: 700;
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.enrollment-admin__subcategory {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid var(--reg-border);
+  border-radius: 0.5rem;
+  background: rgba(0,0,0,0.01);
+}
+
+.dark .enrollment-admin__subcategory {
+  background: rgba(255,255,255,0.02);
+}
+
+.enrollment-admin__subcategory-title {
+  font-weight: 600;
+  font-size: 0.85rem;
+  margin-bottom: 0.5rem;
+  color: var(--reg-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.enrollment-admin__item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0;
+}
+
+.enrollment-admin__item .flex-1 {
+  flex: 1;
+}
+
+.enrollment-admin__item-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+/* ==========================================================================
+   Reduced Motion
+   ========================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  .reg-skeleton__block,
+  .reg-loading svg,
+  .reg-nav__indicator {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* ==========================================================================
+   Mobile refinements
+   ========================================================================== */
+@media (max-width: 640px) {
+  .reg-nav__rail {
+    flex-direction: row;
+  }
+
+  .reg-nav__btn {
+    padding: 0.55rem 0.75rem;
+  }
+
+  .reg-nav__btn-text {
+    font-size: 0.8125rem;
+  }
+
+  .reg-fee__row {
+    grid-template-columns: auto 1fr auto;
+    gap: 0.5rem;
+  }
+
+  .reg-fee__dots {
+    display: none;
+  }
+
+  .reg-fee__amount {
+    text-align: right;
+    grid-column: 3;
+  }
+
+  .reg-canvas__banner {
+    padding: 1rem;
+  }
+
+  .reg-canvas__banner-icon {
+    width: 2.75rem;
+    height: 2.75rem;
+    font-size: 1.5rem;
+  }
+
+  .reg-cta__actions {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .reg-cta__btn {
+    width: 100%;
+    max-width: 20rem;
+    justify-content: center;
+  }
+}

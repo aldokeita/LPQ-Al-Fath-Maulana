@@ -1,0 +1,94 @@
+export const BRAND_NAME = 'LPQ Al-Fath Maulana';
+export const LOCAL_LOGO = '/lpq-mark.svg';
+
+export const defaultContent = {
+  logoUrl: LOCAL_LOGO,
+  heroSlides: [],
+  slideshowTimer: 7000,
+  heroOverlayOpacity: 0.55,
+  quotas: { pagi: 0, siang: 0, sore: 0, dewasaPagi: 0, dewasaSiang: 0, dewasaMalam: 0 },
+  facilities: [],
+  testimonials: [],
+  schedules: [],
+  faqs: [],
+  ctaBackgroundUrl: '',
+  ctaBackgroundOverlayOpacity: 0.62,
+};
+
+export const safeArray = (value) => (Array.isArray(value) ? value : []);
+export const imageOf = (item) => item?.image_url || item?.cover_image_url || item?.url || item?.photo_url || '';
+export const compactNumber = (value) => new Intl.NumberFormat('id-ID').format(Number(value || 0));
+
+export const sectionReveal = (index = 0, axis = 'y') => ({
+  initial: {
+    opacity: 0,
+    y: axis === 'y' ? 30 : 0,
+    x: axis === 'x' ? -24 : 0,
+    filter: 'blur(10px)',
+  },
+  whileInView: {
+    opacity: 1,
+    y: 0,
+    x: 0,
+    filter: 'blur(0px)',
+  },
+  viewport: { once: true, amount: 0.22, margin: '-80px' },
+  transition: {
+    duration: 0.72,
+    delay: Math.min(index * 0.07, 0.22),
+    ease: [0.22, 1, 0.36, 1],
+  },
+});
+
+export const getHomepagePrograms = ({ schedules = [], quotas = {} }) => {
+  const scheduleItems = safeArray(schedules).slice(0, 3);
+  const quotaTotal = Object.values(quotas || {}).reduce((sum, value) => sum + Number(value || 0), 0);
+
+  return [
+    {
+      id: 'qiroati',
+      eyebrow: 'Metode inti',
+      title: 'Metode Qiroati',
+      description: 'Pembinaan bacaan dilakukan bertahap agar santri terbiasa membaca dengan benar, tartil, dan terpantau.',
+      route: '/metode-qiroati',
+      featured: true,
+    },
+    {
+      id: 'jadwal',
+      eyebrow: 'Jadwal belajar',
+      title: scheduleItems[0]?.title || 'Jadwal kelas',
+      description: scheduleItems.length
+        ? scheduleItems.map((item) => `${item.title || 'Sesi'} ${item.time || ''}`.trim()).join(' · ')
+        : 'Jadwal akan tampil setelah admin mengisi konten website.',
+      route: '/pendaftaran/informasi',
+    },
+    {
+      id: 'kuota',
+      eyebrow: 'Ketersediaan',
+      title: quotaTotal > 0 ? `${compactNumber(quotaTotal)} kuota tercatat` : 'Kuota sesi',
+      description: quotaTotal > 0 ? 'Kuota dibaca dari konfigurasi admin untuk membantu wali memilih sesi yang tepat.' : 'Kuota akan tampil dari Content Management.',
+      route: '/pendaftaran/informasi',
+    },
+    {
+      id: 'adab',
+      eyebrow: 'Pembinaan',
+      title: 'Adab sebelum capaian',
+      description: 'Rutinitas kelas disusun agar santri tumbuh dalam disiplin, sopan santun, dan kecintaan pada Al-Qur’an.',
+      route: '/profil',
+    },
+    {
+      id: 'wali',
+      eyebrow: 'Keluarga',
+      title: 'Pendampingan wali',
+      description: 'Informasi lembaga, pengumuman, dan perkembangan belajar mudah diikuti oleh keluarga.',
+      route: '/parenting',
+    },
+    {
+      id: 'digital',
+      eyebrow: 'Operasional',
+      title: 'Absensi digital',
+      description: 'RFID membantu pencatatan kehadiran lebih rapi tanpa mengganggu suasana belajar.',
+      route: '/login',
+    },
+  ];
+};

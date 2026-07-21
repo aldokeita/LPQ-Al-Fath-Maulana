@@ -1,0 +1,125 @@
+.lpq-dashboard-surface {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    background:
+      radial-gradient(circle at 12% 0%, hsl(187 92% 52% / 0.16), transparent 30rem),
+      radial-gradient(circle at 86% 12%, hsl(265 84% 62% / 0.14), transparent 34rem),
+      radial-gradient(circle at 52% 100%, hsl(142 76% 48% / 0.12), transparent 38rem),
+      hsl(var(--background));
+}
+
+.lpq-dashboard-surface::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -2;
+    background-image:
+      linear-gradient(to right, hsl(var(--foreground) / 0.055) 1px, transparent 1px),
+      linear-gradient(to bottom, hsl(var(--foreground) / 0.055) 1px, transparent 1px);
+    background-size: 5.25rem 5.25rem;
+    mask-image: linear-gradient(to bottom, transparent, black 8rem, black calc(100% - 8rem), transparent);
+    opacity: 0.42;
+    pointer-events: none;
+}
+
+.lpq-dashboard-surface::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background:
+      linear-gradient(180deg, hsl(var(--background) / 0.52), transparent 20rem),
+      radial-gradient(circle at 50% 50%, transparent, hsl(var(--background) / 0.8) 72%);
+    pointer-events: none;
+}
+
+.dark .lpq-dashboard-surface {
+    background:
+      radial-gradient(circle at 12% 0%, rgb(22 211 238 / 0.22), transparent 28rem),
+      radial-gradient(circle at 88% 10%, rgb(139 92 246 / 0.22), transparent 33rem),
+      radial-gradient(circle at 52% 100%, rgb(16 185 129 / 0.16), transparent 38rem),
+      #05070d;
+}
+
+.lpq-dashboard-surface > * {
+    position: relative;
+    z-index: 1;
+}
+
+.lpq-dashboard-surface h1,
+.lpq-dashboard-surface h2,
+.lpq-dashboard-surface h3 {
+    letter-spacing: -0.02em;
+}
+
+.lpq-dashboard-surface .rounded-xl,
+.lpq-dashboard-surface .rounded-2xl {
+    scroll-margin-top: 6rem;
+}
+
+.lpq-dashboard-surface .bg-white,
+.lpq-dashboard-surface .dark\:bg-slate-800:is(.dark *),
+.lpq-dashboard-surface .dark\:bg-slate-900:is(.dark *) {
+    backdrop-filter: blur(18px);
+}
+
+.dark .lpq-dashboard-surface .bg-white,
+.dark .lpq-dashboard-surface .bg-slate-50,
+.dark .lpq-dashboard-surface .bg-gray-50 {
+    background-color: rgb(255 255 255 / 0.045) !important;
+    border-color: rgb(255 255 255 / 0.1);
+}
+
+.lpq-dashboard-surface input,
+.lpq-dashboard-surface textarea,
+.lpq-dashboard-surface select {
+    transition:
+      border-color 180ms ease,
+      background-color 180ms ease,
+      box-shadow 180ms ease;
+}
+
+.dark .lpq-dashboard-surface input,
+.dark .lpq-dashboard-surface textarea,
+.dark .lpq-dashboard-surface select {
+    background-color: rgb(255 255 255 / 0.045);
+    border-color: rgb(255 255 255 / 0.1);
+    color: rgb(255 255 255 / 0.92);
+}
+
+.lpq-dashboard-surface input:focus,
+.lpq-dashboard-surface textarea:focus,
+.lpq-dashboard-surface select:focus {
+    box-shadow:
+      0 0 0 1px hsl(var(--ring) / 0.26),
+      0 0 0 4px hsl(var(--ring) / 0.1);
+}
+
+.lpq-dashboard-surface .no-scrollbar {
+    mask-image: linear-gradient(to right, transparent, black 1.5rem, black calc(100% - 1.5rem), transparent);
+}
+
+.lpq-dashboard-surface [role="tablist"] {
+    row-gap: 0.35rem;
+}
+
+.lpq-dashboard-surface [role="tab"] {
+    min-height: 2.25rem;
+}
+
+.lpq-dashboard-surface [role="dialog"] {
+    background-image:
+      radial-gradient(circle at 0% 0%, rgb(34 211 238 / 0.08), transparent 18rem),
+      radial-gradient(circle at 100% 0%, rgb(16 185 129 / 0.08), transparent 16rem);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lpq-dashboard-surface *,
+  .lpq-dashboard-surface *::before,
+  .lpq-dashboard-surface *::after {
+    transition-duration: 1ms !important;
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

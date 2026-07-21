@@ -1,0 +1,5 @@
+RobotExpressive model
+
+Model by Tomas Laulhe. Modifications by Don McCurdy.
+Source: https://threejs.org/examples/models/gltf/RobotExpressive/
+License: CC0 1.0 Universal (public domain dedication)

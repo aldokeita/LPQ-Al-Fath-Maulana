@@ -1,0 +1,52 @@
+.rb-card-swap {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  overflow: visible;
+  perspective: 950px;
+  transform: translate(16%, 6%);
+  transform-origin: bottom right;
+}
+
+.rb-card-swap__card {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 28px;
+  background: rgba(5, 8, 22, 0.72);
+  box-shadow:
+    0 28px 90px rgba(0, 0, 0, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  will-change: transform;
+}
+
+@media (max-width: 1024px) {
+  .rb-card-swap {
+    right: 50%;
+    transform: translate(50%, 2%) scale(0.9);
+    transform-origin: center bottom;
+  }
+}
+
+@media (max-width: 720px) {
+  .rb-card-swap {
+    transform: translate(50%, 6%) scale(0.68);
+  }
+}
+
+@media (max-width: 430px) {
+  .rb-card-swap {
+    transform: translate(50%, 9%) scale(0.58);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rb-card-swap__card {
+    will-change: auto;
+  }
+}

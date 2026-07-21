@@ -1,0 +1,393 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700;800&family=Montserrat:wght@400;500;700;900&family=Poppins:wght@400;500;600;700&family=Cinzel:wght@700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 130 50% 98%;
+    --foreground: 0 0% 10%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 125 54% 24%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 125 54% 24%;
+
+    --primary: 122 39% 49%; /* Bright Green #4CAF50 */
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 125 54% 24%; /* Dark Green #1B5E20 */
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 125 43% 94%;
+    --muted-foreground: 125 54% 24%;
+
+    --accent: 46 65% 52%; /* Gold #D4AF37 */
+    --accent-foreground: 125 54% 24%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 125 30% 80%;
+    --input: 125 30% 80%;
+    --ring: 125 54% 24%;
+
+    --radius: 0.75rem;
+
+    /* Glassmorphism Tokens */
+    --glass-bg: 0 0% 100%;
+    --glass-border: 0 0% 100%;
+    --glass-shadow: 125 54% 24%;
+
+    /* Status & Attendance Colors (HSL format) */
+    --status-good: 142 71% 45%;      /* Green */
+    --status-moderate: 38 92% 50%;   /* Yellow */
+    --status-poor: 0 84% 60%;        /* Red */
+
+    --status-hadir: 142 71% 45%;
+    --status-terlambat: 38 92% 50%;
+    --status-tidak-hadir: 0 84% 60%;
+
+    /* MMQ Status Colors */
+    --mmq-hadir: 142 71% 45%;
+    --mmq-terlambat: 38 92% 50%;
+    --mmq-tidak-hadir: 0 84% 60%;
+
+    /* Islamic Green TV Display Theme (Correct HSL representation) */
+    --islamic-green-primary: 142 64% 30%;   /* #1B7D3F */
+    --islamic-green-secondary: 144 72% 21%; /* #0F5C2E */
+    --islamic-green-accent: 122 39% 49%;    /* #4CAF50 */
+    --islamic-green-light: 150 40% 96%;     /* #F0F8F4 */
+  }
+
+  .dark {
+    --background: 125 54% 10%; /* Dark Forest Green Background */
+    --foreground: 87 50% 90%;
+
+    --card: 125 54% 15%;
+    --card-foreground: 87 50% 90%;
+
+    --popover: 125 54% 15%;
+    --popover-foreground: 87 50% 90%;
+
+    --primary: 122 39% 49%; /* Bright Green #4CAF50 */
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 125 54% 24%; /* Dark Green #1B5E20 */
+    --secondary-foreground: 87 50% 90%;
+
+    --muted: 125 54% 20%;
+    --muted-foreground: 87 50% 70%;
+
+    --accent: 46 65% 52%; /* Gold #D4AF37 */
+    --accent-foreground: 125 54% 10%;
+
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 87 50% 90%;
+
+    --border: 125 54% 20%;
+    --input: 125 54% 20%;
+    --ring: 122 39% 49%;
+
+    /* Glassmorphism Tokens */
+    --glass-bg: 125 54% 10%;
+    --glass-border: 87 50% 90%;
+    --glass-shadow: 125 54% 5%;
+
+    /* Status & Attendance Colors (HSL format) */
+    --status-good: 142 71% 35%;
+    --status-moderate: 38 92% 40%;
+    --status-poor: 0 84% 50%;
+
+    --status-hadir: 142 71% 35%;
+    --status-terlambat: 38 92% 40%;
+    --status-tidak-hadir: 0 84% 50%;
+
+    /* MMQ Status Colors */
+    --mmq-hadir: 142 71% 35%;
+    --mmq-terlambat: 38 92% 40%;
+    --mmq-tidak-hadir: 0 84% 50%;
+  }
+
+  .dark .lpq-dialog-surface {
+    --background: 222 30% 7%;
+    --card: 222 24% 11%;
+    --secondary: 222 18% 16%;
+    --muted: 222 16% 17%;
+    --muted-foreground: 215 15% 67%;
+    --accent: 222 16% 18%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Poppins', sans-serif;
+    scroll-behavior: smooth;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-serif;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 700;
+  }
+
+  .font-cinzel {
+    font-family: 'Cinzel', serif;
+  }
+
+  .font-outfit {
+    font-family: 'Outfit', sans-serif;
+  }
+
+  .font-poppins {
+    font-family: 'Poppins', sans-serif;
+  }
+}
+
+@layer utilities {
+  .lpq-shiny-button {
+    position: relative;
+    isolation: isolate;
+  }
+
+  .lpq-shiny-button::after {
+    content: '';
+    position: absolute;
+    inset: 1px;
+    z-index: 2;
+    border-radius: inherit;
+    background: linear-gradient(112deg, transparent 20%, rgb(255 255 255 / 0.08) 36%, rgb(255 255 255 / 0.62) 49%, rgb(165 243 252 / 0.22) 58%, transparent 76%);
+    background-position: 125% center;
+    background-size: 230% 100%;
+    opacity: 0;
+    pointer-events: none;
+    transition: background-position 620ms cubic-bezier(0.22, 1, 0.36, 1), opacity 220ms ease;
+  }
+
+  .lpq-shiny-button:hover::after,
+  .lpq-shiny-button:focus-visible::after {
+    background-position: -35% center;
+    opacity: 1;
+  }
+
+  .lpq-shiny-button:disabled::after {
+    display: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .lpq-shiny-button::after {
+      transition: opacity 160ms ease;
+    }
+
+    .lpq-shiny-button:hover::after,
+    .lpq-shiny-button:focus-visible::after {
+      background-position: center;
+    }
+  }
+
+  .card-hover {
+    @apply transition-all duration-300 ease-in-out hover:-translate-y-1 hover:shadow-lg;
+  }
+
+  .interactive-element {
+    @apply transition-all duration-200 active:scale-95 hover:opacity-90 cursor-pointer;
+  }
+
+  /* --- PREMIUM GLASSMORPHISM --- */
+  .glass-card {
+    background: hsl(var(--glass-bg) / 0.1);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid hsl(var(--glass-border) / 0.2);
+    box-shadow: 0 8px 32px hsl(var(--glass-shadow) / 0.1);
+    transition: all 0.3s ease;
+  }
+
+  .dark .glass-card {
+    background: hsl(var(--glass-bg) / 0.2);
+    border: 1px solid hsl(var(--glass-border) / 0.05);
+    box-shadow: 0 8px 32px hsl(var(--glass-shadow) / 0.3);
+  }
+
+  .glass-card:hover {
+    transform: scale(1.02);
+    box-shadow: 0 12px 40px hsl(var(--glass-shadow) / 0.15);
+  }
+
+  .dark .glass-card:hover {
+    box-shadow: 0 12px 40px hsl(var(--glass-shadow) / 0.4);
+  }
+
+  .premium-shadow {
+    box-shadow: 0 10px 30px -10px hsl(var(--glass-shadow) / 0.3);
+  }
+
+  .animate-fade-in-up {
+    animation: fadeInUp 0.6s ease-out forwards;
+  }
+
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* --- GAMIFICATION VISUALS --- */
+  @keyframes pulse-glow {
+    0%, 100% { box-shadow: 0 0 20px var(--glow-color), inset 0 0 10px var(--glow-color); }
+    50% { box-shadow: 0 0 50px var(--glow-color), inset 0 0 20px var(--glow-color); }
+  }
+
+  .animate-pulse-glow {
+    animation: pulse-glow 2s infinite;
+  }
+
+  .gradient-text {
+    @apply text-transparent bg-clip-text bg-gradient-to-r from-current via-white to-current;
+    background-size: 200% auto;
+    animation: gradient-move 3s linear infinite;
+  }
+
+  @keyframes gradient-move {
+    0% { background-position: 0% 50%; }
+    100% { background-position: 200% 50%; }
+  }
+
+  .animate-shine {
+    background: linear-gradient(to right, #b8860b 20%, #ffd700 40%, #ffd700 60%, #b8860b 80%);
+    background-size: 200% auto;
+    color: #000;
+    background-clip: text;
+    text-fill-color: transparent;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: shine 3s linear infinite;
+  }
+
+  @keyframes shine {
+    to {
+      background-position: 200% center;
+    }
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+      display: none;
+  }
+  .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+  }
+}
+
+@layer components {
+  /* --- TABLE & REPORT STYLES --- */
+  .rapor-table-container {
+    @apply w-full overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm bg-white dark:bg-slate-900;
+  }
+
+  .rapor-table {
+    @apply w-full text-sm text-left border-collapse;
+  }
+
+  .rapor-th {
+    @apply px-4 py-3 bg-slate-100 dark:bg-slate-800 font-semibold text-slate-700 dark:text-slate-200 border-b border-slate-200 dark:border-slate-700;
+  }
+
+  .rapor-td {
+    @apply px-4 py-3 border-b border-slate-100 dark:border-slate-800/50 align-middle;
+  }
+
+  .rapor-row {
+    @apply transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/30;
+  }
+
+  /* Status Badges for Tables */
+  .status-badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold;
+  }
+
+  .status-badge-good {
+    @apply bg-[hsl(var(--status-good)_/_0.15)] text-[hsl(var(--status-good))];
+  }
+
+  .status-badge-moderate {
+    @apply bg-[hsl(var(--status-moderate)_/_0.15)] text-[hsl(var(--status-moderate))];
+  }
+
+  .status-badge-poor {
+    @apply bg-[hsl(var(--status-poor)_/_0.15)] text-[hsl(var(--status-poor))];
+  }
+
+  .attendance-icon {
+    @apply transition-all duration-200 transform-gpu hover:-translate-y-[2px];
+  }
+  .attendance-icon:hover {
+    @apply shadow-md brightness-110;
+  }
+
+  .mmq-status-hadir {
+    @apply bg-[hsl(var(--mmq-hadir))] text-white;
+  }
+  .mmq-status-terlambat {
+    @apply bg-[hsl(var(--mmq-terlambat))] text-white;
+  }
+  .mmq-status-tidak-hadir {
+    @apply bg-[hsl(var(--mmq-tidak-hadir))] text-white;
+  }
+  .mmq-table-row {
+    @apply hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors border-b border-slate-100 dark:border-slate-800;
+  }
+}
+
+/* --- PRINT OPTIMIZATIONS --- */
+@media print {
+  body {
+    @apply bg-white text-black;
+  }
+
+  .print-hide {
+    display: none !important;
+  }
+
+  .print-break-inside-avoid {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .rapor-table-container {
+    @apply border-gray-300 shadow-none bg-white;
+    page-break-inside: auto;
+  }
+
+  .rapor-table {
+    page-break-inside: auto;
+  }
+
+  .rapor-row {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+
+  .rapor-th {
+    @apply bg-gray-100 text-gray-900 border-gray-300;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .status-badge-good, .status-badge-moderate, .status-badge-poor {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    border: 1px solid currentColor;
+  }
+}

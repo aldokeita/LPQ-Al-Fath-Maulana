@@ -1,0 +1,39 @@
+.split-parent,
+.rb-split-text {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0;
+  overflow: visible;
+  white-space: normal;
+  word-wrap: break-word;
+}
+
+.rb-split-word,
+.rb-split-char {
+  display: inline-block;
+  will-change: transform, opacity, filter;
+}
+
+.rb-split-word {
+  margin-right: 0.23em;
+}
+
+.rb-split-word--chars {
+  display: inline-flex;
+  margin-right: 0.23em;
+}
+
+.rb-split-space {
+  display: inline-block;
+  width: 0.23em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rb-split-word,
+  .rb-split-char {
+    transform: none !important;
+    opacity: 1 !important;
+    filter: none !important;
+  }
+}
