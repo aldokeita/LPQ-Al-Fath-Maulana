@@ -1,5 +1,5 @@
 export const BRAND_NAME = 'LPQ Al-Fath Maulana';
-export const LOCAL_LOGO = '/lpq-mark.svg';
+export const LOCAL_LOGO = '/logo-lpq-al-fath-maulana.webp';
 
 export const defaultContent = {
   logoUrl: LOCAL_LOGO,

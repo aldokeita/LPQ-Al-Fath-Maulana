@@ -17,7 +17,7 @@ const PaymentProofModal = ({ isOpen, onClose, payment }) => {
     const [isLoadingPayment, setIsLoadingPayment] = useState(false);
     const [completePayment, setCompletePayment] = useState(null);
     const [qrCodeDataURL, setQrCodeDataURL] = useState('');
-    const [receiptLogoUrl, setReceiptLogoUrl] = useState('/lpq-mark.svg');
+    const [receiptLogoUrl, setReceiptLogoUrl] = useState('/logo-lpq-al-fath-maulana.webp');
     const [paymentMessageTemplate, setPaymentMessageTemplate] = useState(DEFAULT_WHATSAPP_TEMPLATES.paymentReceipt);
 
     useEffect(() => {
@@ -53,7 +53,7 @@ const PaymentProofModal = ({ isOpen, onClose, payment }) => {
         let active = true;
         const loadReceiptLogo = async () => {
             if (!isOpen) return;
-            const logoUrl = await fetchReceiptLogoDataUrl('/lpq-mark.svg');
+            const logoUrl = await fetchReceiptLogoDataUrl('/logo-lpq-al-fath-maulana.webp');
             if (active) setReceiptLogoUrl(logoUrl);
         };
         loadReceiptLogo();
@@ -98,7 +98,7 @@ const PaymentProofModal = ({ isOpen, onClose, payment }) => {
                 cacheBust: true,
                 backgroundColor: '#ffffff',
                 pixelRatio: 2,
-                imagePlaceholder: '/lpq-mark.svg',
+                imagePlaceholder: '/logo-lpq-al-fath-maulana.webp',
             });
             const link = document.createElement('a');
             const santriName = studentName.replace(/\s+/g, '_') || 'Santri';

@@ -90,7 +90,7 @@ const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [mobileDropdown, setMobileDropdown] = useState('');
   const [scrolled, setScrolled] = useState(false);
-  const [logoUrl, setLogoUrl] = useState('/lpq-mark.svg');
+  const [logoUrl, setLogoUrl] = useState('/logo-lpq-al-fath-maulana.webp');
   const [logoFailed, setLogoFailed] = useState(false);
   const { user, signOut } = useAuth();
   const { isDark, toggleTheme } = useTheme();

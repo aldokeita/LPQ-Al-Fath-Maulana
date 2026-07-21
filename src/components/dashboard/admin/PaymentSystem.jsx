@@ -195,7 +195,7 @@ const PaymentSystem = () => {
   const [isDuplicateDialogOpen, setIsDuplicateDialogOpen] = useState(false);
   const [resetKey, setResetKey] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
-  const [receiptLogoUrl, setReceiptLogoUrl] = useState('/lpq-mark.svg');
+  const [receiptLogoUrl, setReceiptLogoUrl] = useState('/logo-lpq-al-fath-maulana.webp');
   const [historyProofPayment, setHistoryProofPayment] = useState(null);
 
   const location = useLocation();
@@ -264,7 +264,7 @@ const PaymentSystem = () => {
     let active = true;
     const loadReceiptLogo = async () => {
       if (!isReceiptOpen) return;
-      const logoUrl = await fetchReceiptLogoDataUrl('/lpq-mark.svg');
+      const logoUrl = await fetchReceiptLogoDataUrl('/logo-lpq-al-fath-maulana.webp');
       if (active) setReceiptLogoUrl(logoUrl);
     };
     loadReceiptLogo();
@@ -441,7 +441,7 @@ const PaymentSystem = () => {
         cacheBust: true,
         backgroundColor: '#ffffff',
         pixelRatio: 2,
-        imagePlaceholder: '/lpq-mark.svg',
+        imagePlaceholder: '/logo-lpq-al-fath-maulana.webp',
       });
 
       const link = document.createElement('a');

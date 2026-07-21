@@ -70,7 +70,8 @@ Skrip online sengaja tidak memiliki Project Ref aktif. Variabel `LPQ_STAGING_PRO
 
 ## Placeholder yang wajib diisi pemilik lembaga
 
-- logo dan favicon resmi;
+Logo dan favicon resmi LPQ Al-Fath Maulana sudah terpasang dari aset yang diberikan pemilik lembaga.
+
 - alamat, kota, lokasi peta, telepon, WhatsApp, email, media sosial, dan domain resmi;
 - profil, sejarah, visi, misi, nilai, fasilitas, foto, dan konten publik;
 - jadwal, kuota, biaya, persyaratan, kebijakan pendaftaran, dan kebijakan pembelajaran;

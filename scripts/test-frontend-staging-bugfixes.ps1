@@ -211,7 +211,8 @@ Add-Check "favicon and media player use stable cohesive assets" {
   $homePage = Read-Text "src/pages/HomePage.jsx"
   $player = Read-Text "src/components/MediaPlayerWidget.jsx"
   $styles = Read-Text "src/styles/admin-dashboard.css"
-  if ($index -notmatch "/lpq-mark\.svg\?v=1" -or -not (Test-Path "public/lpq-mark.svg")) { throw "sanitized SVG favicon is missing" }
+  if ($index -notmatch 'href="/favicon\.ico\?v=2"' -or -not (Test-Path "public/favicon.ico")) { throw "official favicon is missing" }
+  if (-not (Test-Path "public/favicon-16x16.png") -or -not (Test-Path "public/favicon-32x32.png") -or -not (Test-Path "public/apple-touch-icon.png")) { throw "responsive favicon assets are incomplete" }
   if ($homePage -match 'rel="icon"') { throw "homepage still overrides the stable favicon" }
   if ($player -notmatch "media-player-glass__control--active" -or $player -notmatch "media-player-glass__control--accent") { throw "media player active accents are not explicit" }
   if ($styles -notmatch "linear-gradient\(135deg, rgb\(13 148 136" -or $styles -notmatch "linear-gradient\(90deg, rgb\(13 148 136\), rgb\(37 99 235\)\)") { throw "media player teal-blue accent palette is incomplete" }
@@ -440,7 +441,7 @@ Add-Check "payment proof uses uploaded website logo as embeddable image" {
   if ($helper -notmatch "readAsDataURL") { throw "receipt logo is not embedded for html-to-image" }
   if ($modal -notmatch "fetchReceiptLogoDataUrl") { throw "payment proof modal does not load uploaded logo" }
   if ($system -notmatch "fetchReceiptLogoDataUrl") { throw "payment system receipt does not load uploaded logo" }
-  if ($modal -notmatch "imagePlaceholder: '/lpq-mark.svg'" -or $system -notmatch "imagePlaceholder: '/lpq-mark.svg'") { throw "receipt image generation lacks local image fallback" }
+  if ($modal -notmatch "imagePlaceholder: '/logo-lpq-al-fath-maulana.webp'" -or $system -notmatch "imagePlaceholder: '/logo-lpq-al-fath-maulana.webp'") { throw "receipt image generation lacks official local logo fallback" }
   if ($helper -notmatch "waitForImagesToLoad") { throw "receipt image helper does not wait for embedded logo/images" }
   if ($modal -notmatch "waitForImagesToLoad\(receiptRef\.current\)" -or $system -notmatch "waitForImagesToLoad\(receiptRef\.current\)") { throw "receipt export does not wait for images before rendering" }
 }
@@ -490,10 +491,10 @@ Add-Check "all avatar uploads are converted to bounded WebP" {
   if ($storage -notmatch "profile\.webp") { throw "deterministic WebP path changed" }
 }
 
-Add-Check "sanitized SVG is the document favicon" {
+Add-Check "official logo is the document favicon" {
   $html = Read-Text "index.html"
-  if (-not (Test-Path "public/lpq-mark.svg")) { throw "placeholder favicon asset is missing" }
-  if ($html -notmatch 'type="image/svg\+xml" href="/lpq-mark\.svg') { throw "document does not reference sanitized SVG" }
+  if (-not (Test-Path "public/logo-lpq-al-fath-maulana.webp")) { throw "official local logo asset is missing" }
+  if ($html -notmatch 'href="/favicon\.ico\?v=2"' -or $html -notmatch 'href="/apple-touch-icon\.png\?v=2"') { throw "document does not reference official favicon assets" }
 }
 
 Add-Check "level configuration saves with verified readback and drives digital attendance" {

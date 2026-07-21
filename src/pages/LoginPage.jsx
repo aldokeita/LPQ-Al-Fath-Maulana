@@ -95,7 +95,7 @@ const LoginPage = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [logoUrl, setLogoUrl] = useState('/lpq-mark.svg');
+  const [logoUrl, setLogoUrl] = useState('/logo-lpq-al-fath-maulana.webp');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState(null);
   const [fieldErrors, setFieldErrors] = useState({});
@@ -138,7 +138,7 @@ const LoginPage = () => {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'website_content', filter: 'key=eq.logoUrl' },
-        (payload) => setLogoUrl(payload.new?.content || '/lpq-mark.svg'),
+        (payload) => setLogoUrl(payload.new?.content || '/logo-lpq-al-fath-maulana.webp'),
       )
       .subscribe();
 

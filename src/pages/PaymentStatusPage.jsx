@@ -165,7 +165,7 @@ const PaymentStatusPage = () => {
               {/* HEADER SECTION (Dual Logos) */}
               <div className="px-10 pt-10 pb-6 border-b-4 border-primary/20 relative">
                   <div className="flex justify-between items-center">
-                      <img src="/lpq-mark.svg" alt="LPQ Logo" className="w-20 h-20 object-contain"/>
+                      <img src="/logo-lpq-al-fath-maulana.webp" alt="Logo LPQ Al-Fath Maulana" className="w-20 h-20 object-contain"/>
                       <div className="text-center flex-1 px-4">
                           <h1 className="text-2xl font-black text-slate-900 font-serif uppercase tracking-widest">LPQ Al-Fath Maulana</h1>
                           <h2 className="text-lg font-bold text-primary tracking-wide">Lembaga Pendidikan Al-Qur'an</h2>

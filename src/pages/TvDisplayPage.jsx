@@ -123,7 +123,7 @@ const TvDisplayPage = () => {
     const [activeClassIndex, setActiveClassIndex] = useState(0);
     const [waliQuoteIndex, setWaliQuoteIndex] = useState(0);
     const [levelConfig, setLevelConfig] = useState(null);
-    const [logoUrl, setLogoUrl] = useState('/lpq-mark.svg');
+    const [logoUrl, setLogoUrl] = useState('/logo-lpq-al-fath-maulana.webp');
 
     // Invisible Scanning State
     const [scanBuffer, setScanBuffer] = useState('');
@@ -831,7 +831,7 @@ const TvDisplayPage = () => {
         <Helmet><title>TV Display Mode - LPQ Al-Fath Maulana</title></Helmet>
         <div className={`fixed inset-0 z-50 ${isDark ? 'bg-slate-950 text-white' : 'bg-slate-100 text-slate-900'} overflow-hidden flex flex-col transition-colors duration-500`}>
             <div className={`h-20 shrink-0 ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'} border-b flex justify-between items-center px-8 shadow-lg z-20`}>
-                <div className="flex items-center gap-4"><img src={logoUrl} onError={() => setLogoUrl('/lpq-mark.svg')} alt="Logo LPQ Al-Fath Maulana" className="h-14 w-14 rounded-2xl bg-white/95 p-1.5 object-contain shadow-lg ring-1 ring-emerald-500/20" /><div><h1 className="text-2xl font-bold tracking-wider font-cinzel">LPQ AL-FATH MAULANA</h1><p className={`text-xs tracking-[0.3em] font-mono ${isDark ? 'text-[#4CAF50]' : 'text-[#1B7D3F]'}`}>INFORMATION DISPLAY SYSTEM</p></div></div>
+                <div className="flex items-center gap-4"><img src={logoUrl} onError={() => setLogoUrl('/logo-lpq-al-fath-maulana.webp')} alt="Logo LPQ Al-Fath Maulana" className="h-14 w-14 rounded-2xl bg-white/95 p-1.5 object-contain shadow-lg ring-1 ring-emerald-500/20" /><div><h1 className="text-2xl font-bold tracking-wider font-cinzel">LPQ AL-FATH MAULANA</h1><p className={`text-xs tracking-[0.3em] font-mono ${isDark ? 'text-[#4CAF50]' : 'text-[#1B7D3F]'}`}>INFORMATION DISPLAY SYSTEM</p></div></div>
                 <div className="flex items-center gap-4">
                     <Button variant="outline" size="icon" onClick={() => setManualScanOpen(true)} className="hidden md:flex" title="Manual Scan"><Keyboard className="w-5 h-5"/></Button>
                     <Button variant="outline" size="icon" onClick={toggleTheme}>{isDark ? <Sun className="w-5 h-5 text-yellow-400" /> : <Moon className="w-5 h-5 text-slate-600" />}</Button>

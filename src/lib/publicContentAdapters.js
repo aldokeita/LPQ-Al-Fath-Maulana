@@ -115,7 +115,7 @@ const blobToDataUrl = (blob) => new Promise((resolve, reject) => {
   reader.readAsDataURL(blob);
 });
 
-export const getEmbeddableImageUrl = async (url, fallback = '/lpq-mark.svg') => {
+export const getEmbeddableImageUrl = async (url, fallback = '/logo-lpq-al-fath-maulana.webp') => {
   const target = typeof url === 'string' && url.trim() ? url.trim() : fallback;
   if (target.startsWith('data:') || target.startsWith('/')) return target;
   try {
@@ -128,7 +128,7 @@ export const getEmbeddableImageUrl = async (url, fallback = '/lpq-mark.svg') => 
   }
 };
 
-export const fetchReceiptLogoDataUrl = async (fallback = '/lpq-mark.svg') => {
+export const fetchReceiptLogoDataUrl = async (fallback = '/logo-lpq-al-fath-maulana.webp') => {
   try {
     const contentMap = await fetchWebsiteContentMap({ keys: ['logoUrl'], publicOnly: true });
     return await getEmbeddableImageUrl(contentMap.logoUrl, fallback);
