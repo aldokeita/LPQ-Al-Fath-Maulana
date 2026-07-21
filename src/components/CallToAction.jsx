@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { db } from '@/lib/localDatabase';
+import { OFFICIAL_CTA_BACKGROUND } from '@/lib/institutionContent';
 
 const CallToAction = () => {
     const [backgroundUrl, setBackgroundUrl] = useState('');
@@ -16,7 +17,7 @@ const CallToAction = () => {
                 return acc;
             }, {});
 
-            setBackgroundUrl(contentMap.ctaBackgroundUrl || 'https://images.unsplash.com/photo-1584467735871-8e85353a8413?q=80&w=2070&auto=format&fit=crop');
+            setBackgroundUrl(contentMap.ctaBackgroundUrl || OFFICIAL_CTA_BACKGROUND);
             setOpacity(parseFloat(contentMap.ctaBackgroundOverlayOpacity) || 0.5);
         };
         fetchContent();

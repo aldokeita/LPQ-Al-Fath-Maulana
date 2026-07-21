@@ -22,6 +22,12 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { fetchWebsiteContentMap } from '@/lib/publicContentAdapters';
+import {
+  OFFICIAL_CONTACT,
+  OFFICIAL_FACILITIES,
+  OFFICIAL_GALLERY,
+  OFFICIAL_PROFILE,
+} from '@/lib/institutionContent';
 import '@/styles/public-profile.css';
 
 /* ---------- Animation Variants ---------- */
@@ -40,19 +46,10 @@ const staggerItem = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] } },
 };
 
-/* ---------- Placeholder content: replace through Content Management when official ---------- */
-const INSTITUTION_DESCRIPTION = [
-  'Profil resmi LPQ Al-Fath Maulana belum diisi.',
-  'Admin dapat melengkapi sejarah, metode, dan informasi lembaga melalui Content Management.',
-];
-
-const INSTITUTION_DESCRIPTION_SECONDARY = 'Informasi fasilitas, jadwal, dan program resmi belum diisi.';
-
-const VISION = 'Visi resmi LPQ Al-Fath Maulana belum diisi.';
-
-const MISSIONS = [
-  'Misi resmi LPQ Al-Fath Maulana belum diisi.',
-];
+const INSTITUTION_DESCRIPTION = OFFICIAL_PROFILE.description;
+const INSTITUTION_DESCRIPTION_SECONDARY = OFFICIAL_PROFILE.secondaryDescription;
+const VISION = OFFICIAL_PROFILE.vision;
+const MISSIONS = OFFICIAL_PROFILE.missions;
 
 const VALUES = [
   {
@@ -81,15 +78,15 @@ const VALUES = [
   },
 ];
 
-const INSTITUTION_ADDRESS = 'Alamat resmi belum diisi.';
+const INSTITUTION_ADDRESS = OFFICIAL_CONTACT.address;
 
 /* ---------- Main Component ---------- */
 const ProfilePage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [guruList, setGuruList] = useState([]);
-  const [galleryPhotos, setGalleryPhotos] = useState([]);
-  const [facilityImages, setFacilityImages] = useState([]);
+  const [galleryPhotos, setGalleryPhotos] = useState(OFFICIAL_GALLERY);
+  const [facilityImages, setFacilityImages] = useState(OFFICIAL_FACILITIES);
 
   useEffect(() => {
     let mounted = true;
@@ -192,11 +189,11 @@ const ProfilePage = () => {
       <Helmet>
         <title>Profil Lembaga - LPQ Al-Fath Maulana</title>
         <meta name="description" content="Profil, visi, misi, nilai, dan tim pengajar LPQ Al-Fath Maulana." />
-        <link rel="canonical" href="https://domain-belum-diisi.invalid/profil" />
+        <link rel="canonical" href={`${OFFICIAL_CONTACT.website}/profil`} />
         <meta property="og:title" content="Profil Lembaga - LPQ Al-Fath Maulana" />
         <meta property="og:description" content="Kenali profil LPQ Al-Fath Maulana." />
         <meta property="og:type" content="website" />
-        <meta property="og:url" content="https://domain-belum-diisi.invalid/profil" />
+        <meta property="og:url" content={`${OFFICIAL_CONTACT.website}/profil`} />
       </Helmet>
 
       <div className="prof-page">
@@ -221,7 +218,7 @@ const ProfilePage = () => {
                 Mengenal lebih dekat <em>LPQ Al-Fath Maulana</em>
               </h1>
               <p className="prof-hero__desc">
-                Informasi resmi mengenai lokasi, program, dan profil lembaga akan ditampilkan setelah diisi oleh admin.
+                Lembaga pendidikan Al-Qur'an di Baturaja dengan metode Qiroati, pembinaan adab, dan pendampingan belajar yang terstruktur.
               </p>
             </motion.div>
           </div>
@@ -482,7 +479,7 @@ const ProfilePage = () => {
                   </div>
                   <div className="prof-info-card__text">
                     <h3>Jadwal Belajar</h3>
-                    <p>Jadwal layanan resmi belum diisi.</p>
+                    <p>Senin–Jumat · 08.00–09.15, 14.00–15.15, dan 16.00–17.15 WIB</p>
                   </div>
                 </div>
               </motion.div>

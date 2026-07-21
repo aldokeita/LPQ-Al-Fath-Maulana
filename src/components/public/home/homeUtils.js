@@ -1,23 +1,48 @@
+import {
+  INSTITUTION_PROOF_POINTS,
+  OFFICIAL_CTA_BACKGROUND,
+  OFFICIAL_FACILITIES,
+  OFFICIAL_FAQS,
+  OFFICIAL_GALLERY,
+  OFFICIAL_HERO_SLIDES,
+  OFFICIAL_QUOTAS,
+  OFFICIAL_SCHEDULES,
+} from '@/lib/institutionContent';
+
 export const BRAND_NAME = 'LPQ Al-Fath Maulana';
 export const LOCAL_LOGO = '/logo-lpq-al-fath-maulana.webp';
 
 export const defaultContent = {
   logoUrl: LOCAL_LOGO,
-  heroSlides: [],
+  heroSlides: OFFICIAL_HERO_SLIDES,
   slideshowTimer: 7000,
   heroOverlayOpacity: 0.55,
-  quotas: { pagi: 0, siang: 0, sore: 0, dewasaPagi: 0, dewasaSiang: 0, dewasaMalam: 0 },
-  facilities: [],
-  testimonials: [],
-  schedules: [],
-  faqs: [],
-  ctaBackgroundUrl: '',
+  quotas: OFFICIAL_QUOTAS,
+  facilities: OFFICIAL_FACILITIES,
+  galleryPhotos: OFFICIAL_GALLERY,
+  proofPoints: INSTITUTION_PROOF_POINTS,
+  schedules: OFFICIAL_SCHEDULES,
+  faqs: OFFICIAL_FAQS,
+  ctaBackgroundUrl: OFFICIAL_CTA_BACKGROUND,
   ctaBackgroundOverlayOpacity: 0.62,
 };
 
 export const safeArray = (value) => (Array.isArray(value) ? value : []);
 export const imageOf = (item) => item?.image_url || item?.cover_image_url || item?.url || item?.photo_url || '';
 export const compactNumber = (value) => new Intl.NumberFormat('id-ID').format(Number(value || 0));
+
+export const mergeHomepageContent = (contentMap = {}) => {
+  const merged = { ...defaultContent, ...contentMap };
+  ['heroSlides', 'facilities', 'galleryPhotos', 'schedules', 'faqs', 'proofPoints'].forEach((key) => {
+    if (!Array.isArray(merged[key]) || merged[key].length === 0) merged[key] = defaultContent[key];
+  });
+
+  const quotaTotal = Object.values(merged.quotas || {}).reduce((total, value) => total + Number(value || 0), 0);
+  if (quotaTotal <= 0) merged.quotas = defaultContent.quotas;
+  if (!String(merged.ctaBackgroundUrl || '').trim()) merged.ctaBackgroundUrl = defaultContent.ctaBackgroundUrl;
+
+  return merged;
+};
 
 export const sectionReveal = (index = 0, axis = 'y') => ({
   initial: {

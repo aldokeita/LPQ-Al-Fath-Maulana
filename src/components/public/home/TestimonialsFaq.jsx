@@ -1,25 +1,25 @@
 import React from 'react';
-import { ArrowRight, Quote } from 'lucide-react';
+import { ArrowRight, CheckCircle2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import EmptyState from './EmptyState';
 import SectionKicker from './SectionKicker';
 import { safeArray, sectionReveal } from './homeUtils';
 
-const TestimonialsFaq = ({ testimonials, faqs }) => (
+const TestimonialsFaq = ({ proofPoints, faqs }) => (
   <section className="home-trust" aria-labelledby="home-trust-title">
     <div className="home-section-grid">
       <motion.div {...sectionReveal()} className="home-trust__panel">
-        <SectionKicker>Kepercayaan wali</SectionKicker>
-        <h2 id="home-trust-title">Suara keluarga dan pertanyaan yang sering muncul.</h2>
+        <SectionKicker>Bukti pendampingan</SectionKicker>
+        <h2 id="home-trust-title">Alasan keluarga memilih LPQ Al-Fath Maulana.</h2>
         <div className="home-testimonials">
-          {safeArray(testimonials).length > 0 ? safeArray(testimonials).slice(0, 3).map((item, index) => (
-            <blockquote key={item.id || index}>
-              <Quote className="h-5 w-5" />
-              <p>“{item.text}”</p>
-              <footer>{item.name} {item.role ? `· ${item.role}` : ''}</footer>
-            </blockquote>
+          {safeArray(proofPoints).length > 0 ? safeArray(proofPoints).slice(0, 3).map((item, index) => (
+            <article className="home-proof-card" key={item.id || index}>
+              <CheckCircle2 className="h-5 w-5" aria-hidden="true" />
+              <h3>{item.title}</h3>
+              <p>{item.text}</p>
+            </article>
           )) : (
-            <EmptyState title="Testimoni belum tersedia" description="Testimoni akan muncul ketika admin mengisinya." />
+            <EmptyState title="Informasi keunggulan belum tersedia" description="Informasi akan diperbarui setelah diverifikasi lembaga." />
           )}
         </div>
       </motion.div>

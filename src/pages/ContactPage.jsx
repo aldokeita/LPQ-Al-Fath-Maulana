@@ -6,9 +6,6 @@ import {
   Phone,
   Mail,
   MessageCircle,
-  Facebook,
-  Instagram,
-  Youtube,
   Clock,
   Send,
 } from 'lucide-react';
@@ -16,6 +13,7 @@ import { toast } from '@/components/ui/use-toast';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { submitPublicFeedback, getPublicContentErrorMessage } from '@/lib/publicContentAdapters';
+import { OFFICIAL_CONTACT } from '@/lib/institutionContent';
 import '@/styles/public-contact.css';
 
 /* ---------- Animation Variants ---------- */
@@ -78,9 +76,9 @@ const ContactPage = () => {
         <title>Kontak - LPQ Al-Fath Maulana</title>
         <meta
           name="description"
-          content="Halaman kontak LPQ Al-Fath Maulana. Informasi resmi akan tampil setelah diisi oleh admin."
+          content="Alamat, WhatsApp, telepon, email, dan lokasi resmi LPQ Al-Fath Maulana di Baturaja."
         />
-        <link rel="canonical" href="https://domain-belum-diisi.invalid/kontak" />
+        <link rel="canonical" href={`${OFFICIAL_CONTACT.website}/kontak`} />
       </Helmet>
 
       <div className="cp-page">
@@ -117,47 +115,52 @@ const ContactPage = () => {
               viewport={{ once: true, margin: '-40px' }}
               variants={staggerContainer}
             >
-              <motion.div
+              <motion.a
                 className="cp-channel-card"
                 variants={staggerItem}
-                aria-label="WhatsApp resmi belum diisi"
+                aria-label={`Hubungi WhatsApp ${OFFICIAL_CONTACT.phone}`}
+                href={OFFICIAL_CONTACT.whatsapp}
+                target="_blank"
+                rel="noopener noreferrer"
               >
                 <div className="cp-channel-card__icon cp-channel-card__icon--emerald" aria-hidden="true">
                   <MessageCircle className="w-5 h-5" />
                 </div>
                 <div>
                   <p className="cp-channel-card__label">WhatsApp</p>
-                  <p className="cp-channel-card__value">Belum diisi</p>
+                  <p className="cp-channel-card__value">{OFFICIAL_CONTACT.phone}</p>
                 </div>
-              </motion.div>
+              </motion.a>
 
-              <motion.div
+              <motion.a
                 className="cp-channel-card"
                 variants={staggerItem}
-                aria-label="Nomor telepon resmi belum diisi"
+                aria-label={`Telepon ${OFFICIAL_CONTACT.phone}`}
+                href={OFFICIAL_CONTACT.phoneHref}
               >
                 <div className="cp-channel-card__icon cp-channel-card__icon--cyan" aria-hidden="true">
                   <Phone className="w-5 h-5" />
                 </div>
                 <div>
                   <p className="cp-channel-card__label">Telepon</p>
-                  <p className="cp-channel-card__value">Belum diisi</p>
+                  <p className="cp-channel-card__value">{OFFICIAL_CONTACT.phone}</p>
                 </div>
-              </motion.div>
+              </motion.a>
 
-              <motion.div
+              <motion.a
                 className="cp-channel-card"
                 variants={staggerItem}
-                aria-label="Email resmi belum diisi"
+                aria-label={`Kirim email ke ${OFFICIAL_CONTACT.email}`}
+                href={OFFICIAL_CONTACT.emailHref}
               >
                 <div className="cp-channel-card__icon cp-channel-card__icon--amber" aria-hidden="true">
                   <Mail className="w-5 h-5" />
                 </div>
                 <div>
                   <p className="cp-channel-card__label">Email</p>
-                  <p className="cp-channel-card__value">Belum diisi</p>
+                  <p className="cp-channel-card__value">{OFFICIAL_CONTACT.email}</p>
                 </div>
-              </motion.div>
+              </motion.a>
             </motion.div>
           </section>
 
@@ -201,7 +204,7 @@ const ContactPage = () => {
                   <div>
                     <p className="cp-info-item__label">Alamat</p>
                     <p className="cp-info-item__value">
-                      Alamat resmi belum diisi
+                      {OFFICIAL_CONTACT.address}
                     </p>
                   </div>
                 </div>
@@ -213,7 +216,7 @@ const ContactPage = () => {
                   <div>
                     <p className="cp-info-item__label">Telepon</p>
                     <p className="cp-info-item__value">
-                      Nomor telepon resmi belum diisi
+                      <a href={OFFICIAL_CONTACT.phoneHref}>{OFFICIAL_CONTACT.phone}</a>
                     </p>
                   </div>
                 </div>
@@ -225,7 +228,7 @@ const ContactPage = () => {
                   <div>
                     <p className="cp-info-item__label">Email</p>
                     <p className="cp-info-item__value">
-                      Email resmi belum diisi
+                      <a href={OFFICIAL_CONTACT.emailHref}>{OFFICIAL_CONTACT.email}</a>
                     </p>
                   </div>
                 </div>
@@ -235,27 +238,13 @@ const ContactPage = () => {
                     <Clock className="w-4 h-4" />
                   </div>
                   <div>
-                    <p className="cp-info-item__label">Jam Layanan</p>
+                    <p className="cp-info-item__label">Jadwal TPQ</p>
                     <p className="cp-info-item__value">
-                      Jam layanan resmi belum diisi
+                      Senin–Jumat, sesi pagi, siang, dan sore
                     </p>
                   </div>
                 </div>
 
-                <div className="cp-social">
-                  <p className="cp-social__title">Media Sosial</p>
-                  <div className="cp-social__links" aria-label="Media sosial resmi belum diisi">
-                    <span className="cp-social__link" aria-hidden="true">
-                      <Facebook className="w-4 h-4" />
-                    </span>
-                    <span className="cp-social__link" aria-hidden="true">
-                      <Instagram className="w-4 h-4" />
-                    </span>
-                    <span className="cp-social__link" aria-hidden="true">
-                      <Youtube className="w-4 h-4" />
-                    </span>
-                  </div>
-                </div>
               </motion.div>
 
               {/* Form Panel */}
@@ -343,12 +332,12 @@ const ContactPage = () => {
                     <MapPin className="w-4 h-4" aria-hidden="true" />
                     Lokasi Kami
                   </h2>
-                  <span className="cp-map__open-link">Tautan peta belum diisi</span>
+                  <a className="cp-map__open-link" href={OFFICIAL_CONTACT.mapUrl} target="_blank" rel="noopener noreferrer">Buka di Google Maps</a>
                 </div>
                 <div className="cp-map__iframe-wrap">
-                  <div className="flex min-h-64 items-center justify-center px-6 text-center text-slate-500">
-                    Peta lokasi akan tampil setelah alamat resmi LPQ Al-Fath Maulana diisi.
-                  </div>
+                  <a className="flex min-h-64 items-center justify-center px-6 text-center text-slate-600" href={OFFICIAL_CONTACT.mapUrl} target="_blank" rel="noopener noreferrer">
+                    <span><MapPin className="mx-auto mb-3 h-8 w-8" />{OFFICIAL_CONTACT.address}</span>
+                  </a>
                 </div>
               </div>
             </motion.div>
@@ -371,14 +360,14 @@ const ContactPage = () => {
                 pendaftaran, jadwal, atau pertanyaan lainnya.
               </p>
               <div className="cp-cta__actions">
-                <span className="cp-cta__btn cp-cta__btn--primary" aria-disabled="true">
+                <a className="cp-cta__btn cp-cta__btn--primary" href={OFFICIAL_CONTACT.whatsapp} target="_blank" rel="noopener noreferrer">
                   <MessageCircle className="w-4 h-4" />
-                  WhatsApp belum diisi
-                </span>
-                <span className="cp-cta__btn cp-cta__btn--secondary" aria-disabled="true">
+                  Chat WhatsApp
+                </a>
+                <a className="cp-cta__btn cp-cta__btn--secondary" href={OFFICIAL_CONTACT.mapUrl} target="_blank" rel="noopener noreferrer">
                   <MapPin className="w-4 h-4" />
-                  Lokasi belum diisi
-                </span>
+                  Lihat Lokasi
+                </a>
               </div>
             </motion.div>
           </section>

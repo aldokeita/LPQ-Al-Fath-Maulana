@@ -31,6 +31,7 @@ import { fetchReceiptLogoDataUrl, waitForImagesToLoad } from '@/lib/publicConten
 import { resolveAvatarUrl } from '@/lib/storageAdapters';
 import PaymentProofModal from './PaymentProofModal';
 import { fetchWhatsAppTemplates, renderWhatsAppTemplate } from '@/lib/whatsappTemplateAdapters';
+import { OFFICIAL_CONTACT } from '@/lib/institutionContent';
 
 const paymentItems = [
   { name: 'SPP Bulanan', amount: 0, monthly: true, icon: Wallet, custom: 'spp_dropdown' },
@@ -592,8 +593,8 @@ const PaymentSystem = () => {
                   <div className="text-center pb-2 mb-2 border-b border-dashed border-slate-300 relative z-10">
                        <img src={receiptLogoUrl} alt="Logo LPQ Al-Fath Maulana" className="w-12 h-12 mx-auto mb-2 object-contain"/>
                        <h3 className="font-bold text-lg text-primary tracking-tight font-poppins">LPQ AL-FATH MAULANA</h3>
-                       <p className="text-[10px] text-slate-500 mt-1">Alamat resmi belum diisi</p>
-                       <p className="text-[10px] text-slate-500">Kontak resmi belum diisi</p>
+                       <p className="text-[10px] text-slate-500 mt-1">{OFFICIAL_CONTACT.address}</p>
+                       <p className="text-[10px] text-slate-500">{OFFICIAL_CONTACT.phone} · lpqalfathmaulana.id</p>
                   </div>
 
                   {/* Lunas Stamp - Centered */}

@@ -2,7 +2,7 @@
 
 ## Status template
 
-Repository ini adalah template lokal independen untuk **LPQ Al-Fath Maulana**. Belum ada GitHub remote, Supabase online, Vercel project, domain resmi, akun resmi, atau deployment. Nilai kontak, alamat, domain, logo, jadwal, biaya, dan kebijakan publik yang belum diberikan memakai placeholder yang jelas.
+Repository ini adalah template lokal independen untuk **LPQ Al-Fath Maulana**. Belum ada GitHub remote, Supabase online baru, Vercel project, akun resmi, atau deployment baru. Logo, domain, kontak, alamat, profil, jadwal TPQ, kuota, biaya, persyaratan pendaftaran, sistem pembelajaran, dan aset publik dasar sudah diisi dari informasi resmi lembaga.
 
 Jangan memasukkan credential, akun Auth, backup, data pribadi, asset privat, URL, Project Ref, maupun data operasional dari lembaga sumber.
 
@@ -72,10 +72,11 @@ Skrip online sengaja tidak memiliki Project Ref aktif. Variabel `LPQ_STAGING_PRO
 
 Logo dan favicon resmi LPQ Al-Fath Maulana sudah terpasang dari aset yang diberikan pemilik lembaga.
 
-- alamat, kota, lokasi peta, telepon, WhatsApp, email, media sosial, dan domain resmi;
-- profil, sejarah, visi, misi, nilai, fasilitas, foto, dan konten publik;
-- jadwal, kuota, biaya, persyaratan, kebijakan pendaftaran, dan kebijakan pembelajaran;
-- link grup WhatsApp per jilid;
+- nama kepala lembaga, pengurus, serta guru yang diizinkan tampil;
+- jam pasti kelas dewasa dan periode buka/tutup pendaftaran;
+- media sosial resmi;
+- tautan grup WhatsApp per jilid; mapping lama tidak tersedia secara publik dan tidak ditemukan dalam repository;
+- kebijakan SPP terperinci, kode pos, serta legalitas/nomor izin bila akan dipublikasikan;
 - Project Ref/URL/key Supabase staging dan production baru serta URL Vercel baru.
 
 Jangan mengganti placeholder dengan informasi perkiraan. Pakai hanya data resmi yang diberikan pemilik LPQ Al-Fath Maulana.

@@ -3,12 +3,11 @@ import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
-import { Plus, Trash2, Edit, Trophy, Star, Sun, Moon, Video, Users, BookCopy, MessageSquare, FileText, Library, Building, Mail, Info, Image as ImageIcon, CalendarClock, Quote, HelpCircle, Home, Heart, Save } from 'lucide-react';
+import { Plus, Trash2, Edit, Trophy, Star, Sun, Moon, Video, Users, BookCopy, MessageSquare, FileText, Library, Building, Mail, Info, Image as ImageIcon, CalendarClock, HelpCircle, Home, Heart, Save } from 'lucide-react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { RotateCcw, ClipboardList, GripVertical, PlusCircle, MinusCircle, ArrowUp, ArrowDown } from 'lucide-react';
@@ -17,6 +16,7 @@ import HafalanDisplay from '@/components/dashboard/shared/HafalanDisplay';
 import { createHafalanItem, deactivateHafalanItem, fetchHafalanItems, getAcademicErrorMessage, updateHafalanItem } from '@/lib/academicAdapters';
 import { getStorageErrorMessage, uploadWebsiteAsset } from '@/lib/storageAdapters';
 import { createDefaultEnrollmentData, prepareEnrollmentDataForSave } from '@/lib/enrollmentContent';
+import { defaultContent, mergeHomepageContent } from '@/components/public/home/homeUtils';
 import {
   archiveAnnouncement,
   archiveNews,
@@ -165,7 +165,7 @@ const HafalanItemManager = ({
 
 const ContentManagement = () => {
   const [content, setContent] = useState({
-    heroSlides: [], slideshowTimer: 5000, heroOverlayOpacity: 0.6, brochures: [], pustaka: [], news: [], announcements: [], facilities: [], qiroatiVideos: [], hafalanVideos: [], waliDiscussions: [], logoUrl: '', ctaBackgroundUrl: '', ctaBackgroundOverlayOpacity: 0.5, santriOfTheMonth: [], guruOfTheMonth: null, leaderboard: [], parentingArticles: [], galleryPhotos: [], testimonials: [], schedules: [], quotas: { pagi: 0, siang: 0, sore: 0, dewasaPagi: 0, dewasaSiang: 0, dewasaMalam: 0 }, faqs: [], model3dSettings: { autoRotate: false, autoRotateSpeed: 0.34, rotationX: 0, rotationY: 0, rotationZ: 0 }
+    ...defaultContent, brochures: [], pustaka: [], news: [], announcements: [], qiroatiVideos: [], hafalanVideos: [], waliDiscussions: [], santriOfTheMonth: [], guruOfTheMonth: null, leaderboard: [], parentingArticles: [], model3dSettings: { autoRotate: false, autoRotateSpeed: 0.34, rotationX: 0, rotationY: 0, rotationZ: 0 }
   });
 
   const [feedbacks, setFeedbacks] = useState([]);
@@ -211,9 +211,10 @@ const ContentManagement = () => {
     const { data, error } = await supabase.from('website_content').select('key, content');
     if (error) return;
     const newContent = data.reduce((acc, item) => { acc[item.key] = item.content; return acc; }, {});
-    const arrayKeys = ['heroSlides', 'brochures', 'pustaka', 'facilities', 'qiroatiVideos', 'hafalanVideos', 'waliDiscussions', 'santriOfTheMonth', 'leaderboard', 'parentingArticles', 'galleryPhotos', 'testimonials', 'schedules', 'faqs'];
+    const arrayKeys = ['heroSlides', 'brochures', 'pustaka', 'facilities', 'qiroatiVideos', 'hafalanVideos', 'waliDiscussions', 'santriOfTheMonth', 'leaderboard', 'parentingArticles', 'galleryPhotos', 'schedules', 'faqs'];
     arrayKeys.forEach(key => { if (!newContent[key] || !Array.isArray(newContent[key])) newContent[key] = []; });
     if(!newContent.quotas) newContent.quotas = { pagi: 0, siang: 0, sore: 0, dewasaPagi: 0, dewasaSiang: 0, dewasaMalam: 0 };
+    Object.assign(newContent, mergeHomepageContent(newContent));
     if(!newContent.model3dSettings || typeof newContent.model3dSettings !== 'object' || Array.isArray(newContent.model3dSettings)) {
       newContent.model3dSettings = { autoRotate: false, autoRotateSpeed: 0.34, rotationX: 0, rotationY: 0, rotationZ: 0 };
     }
@@ -256,7 +257,6 @@ const ContentManagement = () => {
     else if (type === 'ctaBackgroundUrl') folder = 'backgrounds';
     else if (type === 'heroSlides') folder = 'hero-slides';
     else if (type === 'galleryPhotos') folder = 'gallery';
-    else if (type === 'testimonials') folder = 'testimonials';
 
     const assetKey = type === 'logoUrl' ? 'logo' : (type === 'ctaBackgroundUrl' ? 'cta-background' : null);
     let publicUrl = '';
@@ -285,7 +285,6 @@ const ContentManagement = () => {
     if (type === 'ctaBackgroundUrl') { setContent(prev => ({ ...prev, [type]: publicUrl })); }
     else if (['brochures', 'pustaka'].includes(type)) { const newFile = { id: Date.now(), name: file.name, url: publicUrl }; setContent(prev => ({...prev, [type]: [...(prev[type] || []), newFile]})); }
     else if (type === 'galleryPhotos') { setFormState(prev => ({ ...prev, url: publicUrl })); }
-    else if (type === 'testimonials') { setFormState(prev => ({ ...prev, photo_url: publicUrl })); }
     else { setFormState(prev => ({ ...prev, image_url: publicUrl })); }
     toast({ title: "Upload Berhasil!", description: `${file.name} berhasil diunggah.` });
   };
@@ -351,7 +350,7 @@ const ContentManagement = () => {
   };
 
   const handleHeroSlideChange = (id, field, value) => { setContent(prev => ({ ...prev, heroSlides: prev.heroSlides.map(slide => slide.id === id ? { ...slide, [field]: value } : slide) })); };
-  const addHeroSlide = () => { if (content.heroSlides?.length >= 5) return; setContent(prev => ({ ...prev, heroSlides: [...(prev.heroSlides || []), { id: Date.now(), url: 'https://images.unsplash.com/photo-1484201927383-f03f6583b837?q=80&w=800', text: "Teks Baru", author: "Author Baru" }] })); };
+  const addHeroSlide = () => { if (content.heroSlides?.length >= 5) return; setContent(prev => ({ ...prev, heroSlides: [...(prev.heroSlides || []), { id: Date.now(), url: '/logo-lpq-al-fath-maulana.webp', text: 'Teks slide baru', author: 'LPQ Al-Fath Maulana' }] })); };
   const handleSantriOfTheMonthChange = (index, personId, alasan) => { const person = santriList.find(p => p.id === personId); if (person) { const newSantriOTM = [...content.santriOfTheMonth]; newSantriOTM[index] = { ...person, alasan }; setContent(prev => ({ ...prev, santriOfTheMonth: newSantriOTM })); } };
   const handleGuruOfTheMonthChange = (personId, alasan) => { const person = guruList.find(p => p.id === personId); if (person) setContent(prev => ({ ...prev, guruOfTheMonth: { ...person, alasan } })); };
   const handleLeaderboardChange = (index, personId, achievement) => { const person = santriList.find(p => p.id === personId); if (person) { const newLeaderboard = [...content.leaderboard]; newLeaderboard[index] = { ...person, achievement }; setContent(prev => ({ ...prev, leaderboard: newLeaderboard })); } };
@@ -504,7 +503,6 @@ const ContentManagement = () => {
           {['qiroatiVideos', 'hafalanVideos'].includes(modalType) && (<><Input placeholder="Judul Video" value={formState.title || ''} onChange={e => setFormState(p => ({...p, title: e.target.value}))} /><Input placeholder="URL Embed Video Youtube" value={formState.url || ''} onChange={e => setFormState(p => ({...p, url: e.target.value}))} />{modalType === 'hafalanVideos' && (<div className="space-y-2"><Textarea placeholder='Google Drive Embed Code' value={formState.google_drive_embed || ''} onChange={e => setFormState(p => ({...p, google_drive_embed: e.target.value}))} className="font-mono text-xs" rows={3}/><p className="text-[10px] text-muted-foreground">Isi salah satu: YouTube URL atau Google Drive Embed.</p></div>)}{modalType === 'hafalanVideos' && (<Select value={formState.jilid} onValueChange={val => setFormState(p => ({...p, jilid: val}))}><SelectTrigger><SelectValue placeholder="Pilih Jilid" /></SelectTrigger><SelectContent>{['Jilid 1', 'Jilid 2', 'Jilid 3', 'Jilid 4', 'Jilid 5', 'Jilid 6', 'Lainnya'].map(j => <SelectItem key={j} value={j}>{j}</SelectItem>)}</SelectContent></Select>)}</>)}
           {modalType === 'waliDiscussions' && (<><Input placeholder="Judul Diskusi" value={formState.title || ''} onChange={e => setFormState(p => ({...p, title: e.target.value}))} /><div className="grid grid-cols-2 gap-4"><Input type="date" value={formState.date || ''} onChange={e => setFormState(p => ({...p, date: e.target.value}))} /><Input type="time" value={formState.time || ''} onChange={e => setFormState(p => ({...p, time: e.target.value}))} /></div><Select value={formState.platform} onValueChange={val => setFormState(p => ({...p, platform: val}))}><SelectTrigger><SelectValue placeholder="Platform" /></SelectTrigger><SelectContent><SelectItem value="Google Meet">Google Meet</SelectItem><SelectItem value="Zoom">Zoom</SelectItem></SelectContent></Select><Input placeholder="Link Meeting" value={formState.link || ''} onChange={e => setFormState(p => ({...p, link: e.target.value}))} /><Textarea placeholder="Deskripsi Topik" value={formState.description || ''} onChange={e => setFormState(p => ({...p, description: e.target.value}))} /></>)}
           {modalType === 'galleryPhotos' && (<><Input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, 'galleryPhotos')} /><Input placeholder="Caption Foto" value={formState.caption || ''} onChange={e => setFormState(p => ({...p, caption: e.target.value}))} />{formState.url && <img src={formState.url} alt="Preview" className="w-full h-40 object-cover rounded-md mt-2" />}</>)}
-          {modalType === 'testimonials' && (<><Input placeholder="Nama Lengkap" value={formState.name || ''} onChange={e => setFormState(p => ({...p, name: e.target.value}))} /><Select value={formState.role} onValueChange={val => setFormState(p => ({...p, role: val}))}><SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger><SelectContent><SelectItem value="Wali Santri">Wali Santri</SelectItem><SelectItem value="Alumni">Alumni</SelectItem></SelectContent></Select><Textarea placeholder="Isi Testimoni" value={formState.text || ''} onChange={e => setFormState(p => ({...p, text: e.target.value}))} /><div className="border p-2 rounded-md"><label className="text-xs">Foto</label><Input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, 'testimonials')} />{formState.photo_url && <img src={formState.photo_url} className="w-16 h-16 object-cover rounded-full mt-2"/>}</div></>)}
           {modalType === 'schedules' && (<><Input placeholder="Judul" value={formState.title || ''} onChange={e => setFormState(p => ({...p, title: e.target.value}))} /><Input placeholder="Waktu" value={formState.time || ''} onChange={e => setFormState(p => ({...p, time: e.target.value}))} /><Input placeholder="Keterangan" value={formState.type || ''} onChange={e => setFormState(p => ({...p, type: e.target.value}))} /></>)}
           {modalType === 'faqs' && (<><Input placeholder="Pertanyaan" value={formState.question || ''} onChange={e => setFormState(p => ({...p, question: e.target.value}))} /><Textarea placeholder="Jawaban" value={formState.answer || ''} onChange={e => setFormState(p => ({...p, answer: e.target.value}))} /></>)}
         </div>
@@ -568,8 +566,6 @@ const ContentManagement = () => {
             <ContentSection title="Jadwal Pembelajaran" modalType="schedules" data={content.schedules} icon={<CalendarClock/>} renderItem={item => <div className="text-sm"><p className="font-bold">{item.title}</p><p>{item.time}</p></div>} />
             <ContentSection title="FAQ (Tanya Jawab)" modalType="faqs" data={content.faqs} icon={<HelpCircle/>} renderItem={item => <div className="text-sm"><p className="font-bold">{item.question}</p></div>} />
             <div className="admin-card p-4"><h3 className="font-bold text-xl mb-4">Kuota Santri</h3><div className="grid grid-cols-2 md:grid-cols-3 gap-4">{Object.keys(content.quotas).map(k => <div key={k}><label className="text-sm capitalize">{k.replace(/([A-Z])/g, ' $1')}</label><Input type="number" value={content.quotas[k] || 0} onChange={e => setContent(p => ({...p, quotas: {...p.quotas, [k]: parseInt(e.target.value)}}))} /></div>)}</div></div>
-            <ContentSection title="Testimoni" modalType="testimonials" data={content.testimonials} icon={<Quote/>} renderItem={item => <div className="text-sm flex items-center gap-2"><Avatar className="w-8 h-8"><AvatarImage src={item.photo_url}/></Avatar><div><p className="font-bold">{item.name} <span className="text-xs font-normal text-muted-foreground">({item.role})</span></p><p className="truncate w-40">{item.text}</p></div></div>} />
-
             <div className="admin-card p-4 space-y-4">
               <h3 className="font-bold text-xl flex items-center gap-2"><RotateCcw className="w-5 h-5" /> Model 3D</h3>
               <p className="text-sm text-muted-foreground">Atur rotasi model 3D yang tampil di bagian hero halaman depan.</p>

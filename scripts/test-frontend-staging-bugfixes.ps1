@@ -497,6 +497,28 @@ Add-Check "official logo is the document favicon" {
   if ($html -notmatch 'href="/favicon\.ico\?v=2"' -or $html -notmatch 'href="/apple-touch-icon\.png\?v=2"') { throw "document does not reference official favicon assets" }
 }
 
+Add-Check "official public content replaces institutional placeholders" {
+  $institution = Read-Text "src/lib/institutionContent.js"
+  $enrollment = Read-Text "src/lib/enrollmentContent.js"
+  $contact = Read-Text "src/pages/ContactPage.jsx"
+  $system = Read-Text "src/pages/SystemPage.jsx"
+  $homePageText = Read-Text "src/pages/HomePage.jsx"
+  $trust = Read-Text "src/components/public/home/TestimonialsFaq.jsx"
+  if ($institution -notmatch "ACADEMIC_YEAR = '2026–2027'" -or $institution -notmatch "0857-8322-7144" -or $institution -notmatch "admin@lpqalfathmaulana\.id") { throw "official academic year or contact content is incomplete" }
+  if ($enrollment -notmatch "totalFee: 'Rp 450\.000'" -or $enrollment -notmatch "totalFee: 'Rp 250\.000'") { throw "confirmed registration fees are missing" }
+  if ($contact -match "WhatsApp resmi belum diisi" -or $system -match "Jadwal resmi belum diisi") { throw "public contact or learning-system placeholder remains" }
+  if ($homePageText -match "testimonials=\{content\.testimonials\}" -or $trust -match "<blockquote" -or $trust -notmatch "Alasan keluarga memilih") { throw "homepage still presents fabricated-style testimonials instead of verified proof points" }
+  $requiredAssets = @(
+    "public/institution/hero-learning.webp",
+    "public/institution/hero-al-alaq.webp",
+    "public/institution/hero-qiroati.webp",
+    "public/institution/classroom.webp",
+    "public/institution/gallery-quiz.webp",
+    "public/institution/cta-activity.webp"
+  )
+  foreach ($asset in $requiredAssets) { if (-not (Test-Path $asset)) { throw "official local asset is missing: $asset" } }
+}
+
 Add-Check "level configuration saves with verified readback and drives digital attendance" {
   $configuration = Read-Text "src/components/dashboard/admin/GameConfiguration.jsx"
   $attendance = Read-Text "src/pages/DigitalAttendancePage.jsx"

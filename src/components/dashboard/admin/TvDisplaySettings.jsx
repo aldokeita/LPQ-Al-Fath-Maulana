@@ -10,6 +10,7 @@ import { Tv, Save, Layout, Users, Trophy, Star, BookCopy, User, Calendar, Smartp
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { motion } from 'framer-motion';
+import { OFFICIAL_CONTACT, OFFICIAL_QUOTAS } from '@/lib/institutionContent';
 
 const TvDisplaySettings = () => {
     const [isLoading, setIsLoading] = useState(false);
@@ -21,8 +22,8 @@ const TvDisplaySettings = () => {
         showAdults: true,
         enabledSessions: { attendance: true, quotas: true, wali: true, profiles: true, leaderboard: true },
         sessionSettings: { attendance: { orientation: 'landscape', showAdultClasses: false }, quotas: { orientation: 'landscape' }, wali: { orientation: 'landscape' }, profiles: { orientation: 'landscape', mode: 'auto', maxPages: 0 }, leaderboard: { orientation: 'landscape' } },
-        sessionQuotas: { pagi: 0, siang: 0, sore: 0 },
-        registration: { startDate: '', endDate: '', contactWa: '', websiteUrl: '' },
+        sessionQuotas: { pagi: OFFICIAL_QUOTAS.pagi, siang: OFFICIAL_QUOTAS.siang, sore: OFFICIAL_QUOTAS.sore },
+        registration: { startDate: '', endDate: '', contactWa: '6285783227144', websiteUrl: OFFICIAL_CONTACT.website.replace(/^https?:\/\//, '') },
         leaderboard: {},
         durations: { quotas: 15, wali: 30, waliMessage: 10, leaderboard: 15, attendancePage: 10, profilesPage: 10, profilesTotal: 300 }
     });
@@ -127,7 +128,7 @@ const TvDisplaySettings = () => {
                                 <div className="space-y-2"><Label className="flex items-center gap-2"><Calendar className="w-4 h-4"/> Tanggal Buka Pendaftaran</Label><Input type="date" value={config.registration?.startDate || ''} onChange={(e) => setConfig(prev => ({ ...prev, registration: { ...prev.registration, startDate: e.target.value } }))} /></div>
                                 <div className="space-y-2"><Label className="flex items-center gap-2"><Calendar className="w-4 h-4"/> Tanggal Tutup Pendaftaran</Label><Input type="date" value={config.registration?.endDate || ''} onChange={(e) => setConfig(prev => ({ ...prev, registration: { ...prev.registration, endDate: e.target.value } }))} /></div>
                                 <div className="space-y-2"><Label className="flex items-center gap-2"><Smartphone className="w-4 h-4"/> Nomor WhatsApp Admin</Label><Input placeholder="628..." value={config.registration?.contactWa || ''} onChange={(e) => setConfig(prev => ({ ...prev, registration: { ...prev.registration, contactWa: e.target.value } }))} /></div>
-                                <div className="space-y-2"><Label className="flex items-center gap-2"><Globe className="w-4 h-4"/> Website URL</Label><Input placeholder="domain-belum-diisi.invalid" value={config.registration?.websiteUrl || ''} onChange={(e) => setConfig(prev => ({ ...prev, registration: { ...prev.registration, websiteUrl: e.target.value } }))} /></div>
+                                <div className="space-y-2"><Label className="flex items-center gap-2"><Globe className="w-4 h-4"/> Website URL</Label><Input placeholder="lpqalfathmaulana.id" value={config.registration?.websiteUrl || ''} onChange={(e) => setConfig(prev => ({ ...prev, registration: { ...prev.registration, websiteUrl: e.target.value } }))} /></div>
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">{['pagi', 'siang', 'sore'].map(sesi => (<div key={sesi} className="space-y-2"><Label className="capitalize">Kuota Sesi {sesi}</Label><div className="flex items-center gap-2"><Users className="w-4 h-4 text-muted-foreground" /><Input type="number" min="0" value={config.sessionQuotas[sesi] || 0} onChange={(e) => setConfig(prev => ({ ...prev, sessionQuotas: { ...prev.sessionQuotas, [sesi]: parseInt(e.target.value) || 0 } }))} /></div></div>))}</div>
                         </TabsContent>
