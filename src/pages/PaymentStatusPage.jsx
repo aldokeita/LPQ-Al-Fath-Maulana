@@ -2,6 +2,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/customSupabaseClient';
+import { OFFICIAL_CONTACT } from '@/lib/institutionContent';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter, CardDescription } from '@/components/ui/card';
 import {
@@ -170,8 +171,8 @@ const PaymentStatusPage = () => {
                           <h1 className="text-2xl font-black text-slate-900 font-serif uppercase tracking-widest">LPQ Al-Fath Maulana</h1>
                           <h2 className="text-lg font-bold text-primary tracking-wide">Lembaga Pendidikan Al-Qur'an</h2>
                           <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto leading-relaxed">
-                              Alamat resmi belum diisi<br/>
-                              Kontak dan domain resmi belum diisi
+                              {OFFICIAL_CONTACT.address}<br/>
+                              {OFFICIAL_CONTACT.phone} · lpqalfathmaulana.id
                           </p>
                       </div>
                       <div className="w-20 h-20 flex items-center justify-center border-2 border-slate-200 rounded-full bg-slate-50 text-[10px] font-bold text-center text-slate-400">
@@ -320,7 +321,7 @@ const PaymentStatusPage = () => {
                       </div>
 
                       <div className="text-center">
-                          <p className="text-sm text-slate-800 mb-16">[Kota belum diisi], {new Date().toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                          <p className="text-sm text-slate-800 mb-16">{OFFICIAL_CONTACT.city}, {new Date().toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
                           <p className="font-bold text-slate-900 border-b border-slate-900 pb-1 px-4">{teacherName}</p>
                           <p className="text-xs text-slate-500 mt-1">Guru Kelas / Administrasi</p>
                       </div>

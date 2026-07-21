@@ -10,6 +10,7 @@ import { supabase } from '@/lib/customSupabaseClient';
 import { PAYMENT_DETAIL_SELECT, formatPaymentPeriod } from '@/lib/paymentAdapters';
 import { fetchReceiptLogoDataUrl, waitForImagesToLoad } from '@/lib/publicContentAdapters';
 import { DEFAULT_WHATSAPP_TEMPLATES, fetchWhatsAppTemplates, renderWhatsAppTemplate } from '@/lib/whatsappTemplateAdapters';
+import { OFFICIAL_CONTACT } from '@/lib/institutionContent';
 
 const PaymentProofModal = ({ isOpen, onClose, payment }) => {
     const receiptRef = useRef(null);
@@ -161,8 +162,8 @@ const PaymentProofModal = ({ isOpen, onClose, payment }) => {
                         <div className="text-center pb-4 mb-4 border-b border-dashed border-slate-300 relative z-10">
                             <img src={receiptLogoUrl} alt="Logo" className="w-16 h-16 mx-auto mb-2 object-contain"/>
                             <h3 className="font-bold text-xl text-primary tracking-tight font-poppins">LPQ AL-FATH MAULANA</h3>
-                            <p className="text-xs text-slate-500 mt-1">Alamat resmi belum diisi</p>
-                            <p className="text-xs text-slate-500">Kontak resmi belum diisi</p>
+                            <p className="text-xs text-slate-500 mt-1">{OFFICIAL_CONTACT.address}</p>
+                            <p className="text-xs text-slate-500">{OFFICIAL_CONTACT.phone} · lpqalfathmaulana.id</p>
                         </div>
 
                         {/* Watermark LUNAS */}

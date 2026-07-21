@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowUpRight, Mail, MapPin, Phone } from 'lucide-react';
+import { OFFICIAL_CONTACT } from '@/lib/institutionContent';
 
 const quickLinks = [
   { label: 'Informasi Pendaftaran', to: '/pendaftaran/informasi' },
@@ -43,15 +44,15 @@ const Footer = () => (
           <ul className="space-y-3">
             <li className="flex items-start gap-3">
               <MapPin className="mt-1 h-5 w-5 flex-shrink-0 text-cyan-200" />
-              <span className="text-white/62">Alamat resmi belum diisi</span>
+              <a className="text-white/62 transition-colors hover:text-white" href={OFFICIAL_CONTACT.mapUrl} target="_blank" rel="noopener noreferrer">{OFFICIAL_CONTACT.address}</a>
             </li>
             <li className="flex items-center gap-3">
               <Phone className="h-5 w-5 text-cyan-200" />
-              <span className="text-white/62">Nomor telepon resmi belum diisi</span>
+              <a className="text-white/62 transition-colors hover:text-white" href={OFFICIAL_CONTACT.phoneHref}>{OFFICIAL_CONTACT.phone}</a>
             </li>
             <li className="flex items-center gap-3">
               <Mail className="h-5 w-5 text-cyan-200" />
-              <span className="text-white/62">Email resmi belum diisi</span>
+              <a className="text-white/62 transition-colors hover:text-white" href={OFFICIAL_CONTACT.emailHref}>{OFFICIAL_CONTACT.email}</a>
             </li>
           </ul>
         </address>

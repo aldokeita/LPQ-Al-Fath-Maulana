@@ -15,7 +15,7 @@ import HeroSection from '@/components/public/home/HeroSection';
 import InstitutionalValues from '@/components/public/home/InstitutionalValues';
 import ProgramBento from '@/components/public/home/ProgramBento';
 import TestimonialsFaq from '@/components/public/home/TestimonialsFaq';
-import { BRAND_NAME, defaultContent, safeArray } from '@/components/public/home/homeUtils';
+import { BRAND_NAME, defaultContent, mergeHomepageContent, safeArray } from '@/components/public/home/homeUtils';
 import '@/styles/homepage.css';
 
 const friendlyPublicError = (error) => {
@@ -68,7 +68,7 @@ const HomePage = () => {
         }, {});
 
         setStats({ santri: santriResult.count || 0, guru: guruResult.count || 0 });
-        setContent({ ...defaultContent, ...contentMap });
+        setContent(mergeHomepageContent(contentMap));
         setNews(newsResult);
         setAnnouncements(announcementResult);
       } catch (error) {
@@ -86,7 +86,7 @@ const HomePage = () => {
         .channel('website_content_homepage_reactbits')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'website_content' }, (payload) => {
           if (payload.new?.key && payload.new.is_public !== false) {
-            setContent((previous) => ({ ...previous, [payload.new.key]: payload.new.content }));
+            setContent((previous) => mergeHomepageContent({ ...previous, [payload.new.key]: payload.new.content }));
           }
         })
         .subscribe();
@@ -133,7 +133,7 @@ const HomePage = () => {
         <ProgramBento schedules={content.schedules} quotas={content.quotas} />
         <ActivityGallery facilities={content.galleryPhotos?.length ? content.galleryPhotos : content.facilities} />
         <EditorialNews news={news} announcements={announcements} loading={loading} error={contentError} />
-        <TestimonialsFaq testimonials={content.testimonials} faqs={content.faqs} />
+        <TestimonialsFaq proofPoints={content.proofPoints} faqs={content.faqs} />
         <FinalCTA content={content} formData={formData} setFormData={setFormData} onSubmit={handleSubmitQuestion} sending={sending} />
       </main>
     </>

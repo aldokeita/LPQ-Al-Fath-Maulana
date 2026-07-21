@@ -38,75 +38,74 @@ const staggerItem = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] } },
 };
 
-/* ---------- Placeholder content: replace after official policy is approved ---------- */
 const systemPoints = [
   {
     icon: Clock,
     title: "Jadwal & Sesi Mengaji",
-    short: "Jadwal resmi belum diisi.",
-    details: ["Admin perlu mengisi hari, jam, durasi, dan pembagian sesi resmi LPQ Al-Fath Maulana."]
+    short: "Tiga sesi fleksibel, Senin–Jumat.",
+    details: ["Sesi TPQ tersedia pada pagi, siang, dan sore agar keluarga dapat memilih waktu belajar yang sesuai.", "Hari Jumat digunakan untuk penguatan hafalan, muraja'ah, dan praktik ibadah sesuai agenda kelas."]
   },
   {
     icon: Users,
     title: "Struktur Kelas Efektif",
-    short: "Aturan kelas resmi belum diisi.",
-    details: ["Admin perlu mengisi kapasitas dan aturan pengelompokan kelas resmi."]
+    short: "Kelas kecil, perhatian lebih personal.",
+    details: ["Setiap kelas dibatasi maksimal 15 santri.", "Santri dikelompokkan berdasarkan jilid atau tingkat kemampuan agar materi tetap tepat sasaran."]
   },
   {
     icon: BookOpen,
     title: "Alur Pembelajaran Harian",
-    short: "Alur resmi belum diisi.",
-    details: ["Admin perlu mengisi tahapan dan durasi pembelajaran resmi."]
+    short: "Drilling, klasikal, dan setoran individual.",
+    details: ["Pembelajaran bergerak dari penguatan hafalan, penjelasan klasikal, setoran bacaan individual, hingga evaluasi dan tindak lanjut."]
   },
   {
     icon: Edit,
     title: "Buku Prestasi & Penilaian",
-    short: "Aturan penilaian resmi belum diisi.",
-    details: ["Admin perlu mengisi metode penilaian dan pelaporan perkembangan santri."]
+    short: "Perkembangan dicatat dan dipantau bersama.",
+    details: ["Guru mencatat hasil bacaan pada buku prestasi agar wali dapat mengikuti perkembangan dan perbaikan yang diperlukan."]
   },
   {
     icon: AlertTriangle,
     title: "Prinsip Kedisiplinan Qiroati",
-    short: "Kebijakan resmi belum diisi.",
-    details: ["Admin perlu mengisi standar kedisiplinan dan kelulusan resmi."]
+    short: "Ketuntasan bacaan menjadi prioritas.",
+    details: ["Santri melanjutkan materi setelah bacaan sebelumnya dinilai cukup kuat, sehingga fondasi tidak dikorbankan demi kecepatan."]
   },
   {
     icon: Handshake,
     title: "Sinergi dengan Wali Santri",
-    short: "Pola pendampingan resmi belum diisi.",
-    details: ["Admin perlu mengisi ketentuan kerja sama dengan wali santri."]
+    short: "Kerja sama aktif antara lembaga dan keluarga.",
+    details: ["Wali memberi paraf pada buku prestasi dan mendukung pembiasaan adab serta latihan santri di rumah."]
   }
 ];
 
 /* ---------- Daily Learning Flow Data ---------- */
 const dailyFlow = [
   {
-    time: 'Belum diisi',
+    time: 'Tahap 1',
     label: 'Drilling',
     variant: 'start',
     icon: Sparkles,
-    text: 'Urutan dan durasi tahap pembelajaran resmi belum diisi.',
+    text: "Penguatan hafalan secara klasikal: surat pendek, doa harian, atau muraja'ah sesuai agenda hari.",
   },
   {
-    time: 'Belum diisi',
+    time: 'Tahap 2',
     label: 'Pembelajaran Klasikal',
     variant: 'mid',
     icon: BookOpen,
-    text: 'Urutan dan durasi tahap pembelajaran resmi belum diisi.',
+    text: 'Guru menggunakan peraga atau kartu untuk menjelaskan materi jilid secara bersama-sama.',
   },
   {
-    time: 'Belum diisi',
+    time: 'Tahap 3',
     label: 'Setoran Individual',
     variant: 'late',
     icon: Users,
-    text: 'Urutan dan durasi tahap pembelajaran resmi belum diisi.',
+    text: 'Santri menyetorkan bacaan kepada guru dan hasilnya dicatat dalam buku prestasi.',
   },
   {
-    time: 'Belum diisi',
+    time: 'Tahap 4',
     label: 'Evaluasi & Penutup',
     variant: 'end',
     icon: ClipboardCheck,
-    text: 'Urutan dan durasi tahap pembelajaran resmi belum diisi.',
+    text: 'Guru memberi evaluasi, penguatan, atau pendampingan personal sesuai kebutuhan santri.',
   },
 ];
 
@@ -114,24 +113,24 @@ const dailyFlow = [
 const scheduleSessions = [
   {
     name: 'Sesi Pagi',
-    time: 'Belum diisi',
-    detail: 'Jadwal sesi pagi resmi belum diisi.',
+    time: '08.00–09.15 WIB',
+    detail: 'Sesi TPQ pagi, Senin–Jumat.',
     variant: 'pagi',
     icon: Sunrise,
     emoji: '🌅',
   },
   {
     name: 'Sesi Siang',
-    time: 'Belum diisi',
-    detail: 'Jadwal sesi siang resmi belum diisi.',
+    time: '14.00–15.15 WIB',
+    detail: 'Sesi TPQ siang, Senin–Jumat.',
     variant: 'siang',
     icon: Sun,
     emoji: '☀️',
   },
   {
     name: 'Sesi Sore',
-    time: 'Belum diisi',
-    detail: 'Jadwal sesi sore resmi belum diisi.',
+    time: '16.00–17.15 WIB',
+    detail: 'Sesi TPQ sore, Senin–Jumat.',
     variant: 'sore',
     icon: Sunset,
     emoji: '🌇',
@@ -143,37 +142,41 @@ const assessmentItems = [
   {
     icon: Star,
     title: 'Buku Prestasi',
-    text: 'Ketentuan buku prestasi resmi belum diisi.',
+    text: 'Setiap santri memiliki catatan perkembangan bacaan dan perbaikan yang perlu dilanjutkan.',
     color: 'emerald',
   },
   {
     icon: Edit,
     title: 'Paraf Wali Santri',
-    text: 'Ketentuan keterlibatan wali resmi belum diisi.',
+    text: 'Wali diharapkan memeriksa dan memberi paraf setiap hari sebagai bentuk pendampingan bersama.',
     color: 'violet',
   },
   {
     icon: ShieldCheck,
     title: 'Standar Kelulusan',
-    text: 'Standar kelulusan resmi belum diisi.',
+    text: 'Kelulusan halaman menekankan bacaan yang benar dan tuntas sebelum menerima materi baru.',
     color: 'rose',
   },
   {
     icon: GraduationCap,
     title: 'Kenaikan Jilid',
-    text: 'Ketentuan kenaikan jilid resmi belum diisi.',
+    text: 'Kenaikan jilid mengikuti hasil evaluasi guru dan kesiapan bacaan santri.',
     color: 'amber',
   },
 ];
 
 /* ---------- Discipline Principles ---------- */
 const principles = [
-  'Prinsip kedisiplinan dan standar kelulusan resmi belum diisi.',
+  'Kualitas bacaan ditempatkan di atas kecepatan menyelesaikan materi.',
+  'Santri memperbaiki kesalahan mendasar sebelum melanjutkan ke halaman berikutnya.',
+  'Rutinitas kelas membentuk disiplin, adab, dan tanggung jawab belajar.',
 ];
 
 /* ---------- Synergy Points ---------- */
 const synergyPoints = [
-  'Ketentuan kerja sama lembaga dan wali santri resmi belum diisi.',
+  'Wali memantau buku prestasi dan mendampingi latihan santri di rumah.',
+  'Pertemuan dan komunikasi wali digunakan untuk menyelaraskan pendampingan belajar.',
+  'Orang tua dari calon santri usia lima tahun ke bawah mengikuti kelas dewasa; biaya pendaftarannya dibebaskan.',
 ];
 
 /* ======================================== */

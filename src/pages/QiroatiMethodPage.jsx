@@ -10,6 +10,7 @@ import SplitText from '@/components/reactbits/SplitText/SplitText';
 import GradientText from '@/components/reactbits/GradientText/GradientText';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/lib/customSupabaseClient';
+import { OFFICIAL_WEBSITE } from '@/lib/institutionContent';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import '@/styles/public-qiroati.css';
 
@@ -155,7 +156,7 @@ const QiroatiMethodPage = () => {
           name="description"
           content="Pelajari Metode Qiroati, metode praktis belajar membaca Al-Qur'an yang menekankan ketepatan makhraj, sifat huruf, dan tartil sejak tahap dasar."
         />
-        <link rel="canonical" href="https://domain-belum-diisi.invalid/metode-qiroati" />
+        <link rel="canonical" href={`${OFFICIAL_WEBSITE}/metode-qiroati`} />
       </Helmet>
 
       <div className="qm-page">

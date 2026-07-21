@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { fetchWebsiteContentMap, getPublicContentErrorMessage } from '@/lib/publicContentAdapters';
 import { DEFAULT_ENROLLMENT_DATA } from '@/lib/enrollmentContent';
+import { ACADEMIC_YEAR, OFFICIAL_CONTACT } from '@/lib/institutionContent';
 import '@/styles/public-enrollment.css';
 
 /* ---------- Animation Variants ---------- */
@@ -107,11 +108,11 @@ const EnrollmentIntro = ({ categories, activeId, onSelect }) => (
         </motion.div>
 
         <motion.h1 variants={fadeUp} id="reg-intro-title">
-          Kenapa Harus <em>Qiroati</em> di LPQ Al-Fath Maulana?
+          Pendaftaran <em>{ACADEMIC_YEAR}</em> LPQ Al-Fath Maulana
         </motion.h1>
 
         <motion.p variants={fadeUp} className="reg-intro__lead">
-          Metode Qiroati membantu Anda atau buah hati membaca Al-Qur'an dengan lancar dan benar dalam waktu yang lebih singkat — langsung dari tahap dasar hingga mahir.
+          Pilih program TPQ anak atau kelas dewasa dengan pembelajaran Qiroati yang terstruktur dari tahap dasar hingga bacaan yang tartil.
         </motion.p>
       </motion.div>
 
@@ -309,10 +310,10 @@ const ClosingCTA = () => (
           Hubungi kami untuk informasi lebih lanjut atau langsung lakukan pendaftaran di lokasi LPQ Al-Fath Maulana.
         </p>
         <div className="reg-cta__actions">
-          <span className="reg-cta__btn reg-cta__btn--primary" aria-disabled="true">
-            WhatsApp resmi belum diisi
+          <a className="reg-cta__btn reg-cta__btn--primary" href={OFFICIAL_CONTACT.whatsapp} target="_blank" rel="noopener noreferrer">
+            Hubungi via WhatsApp
             <ArrowRight className="h-4 w-4" />
-          </span>
+          </a>
           <Link to="/" className="reg-cta__btn reg-cta__btn--secondary">
             Kembali ke Beranda
           </Link>
@@ -370,11 +371,11 @@ const RegistrationInfoPage = () => {
           name="description"
           content="Informasi lengkap pendaftaran santri baru LPQ Al-Fath Maulana — biaya, syarat, dan prosedur untuk program TPQ anak maupun dewasa."
         />
-        <link rel="canonical" href="https://deployment-belum-diisi.invalid/pendaftaran/informasi" />
+        <link rel="canonical" href={`${OFFICIAL_CONTACT.website}/pendaftaran/informasi`} />
         <meta property="og:title" content="Informasi Pendaftaran — LPQ Al-Fath Maulana" />
         <meta property="og:description" content="Informasi lengkap pendaftaran santri baru LPQ Al-Fath Maulana — biaya, syarat, dan prosedur untuk program TPQ anak maupun dewasa." />
         <meta property="og:type" content="website" />
-        <meta property="og:url" content="https://deployment-belum-diisi.invalid/pendaftaran/informasi" />
+        <meta property="og:url" content={`${OFFICIAL_CONTACT.website}/pendaftaran/informasi`} />
       </Helmet>
 
       {loading ? (

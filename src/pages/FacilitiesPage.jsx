@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/lib/customSupabaseClient';
+import { OFFICIAL_FACILITIES, OFFICIAL_WEBSITE } from '@/lib/institutionContent';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import '@/styles/public-facilities.css';
 
@@ -147,13 +148,7 @@ const ErrorState = ({ onRetry }) => (
 /* ======================================== */
 
 /* ---------- Default Facilities (fallback when Supabase has no data) ---------- */
-const defaultFacilities = [
-  {
-    name: 'Data fasilitas belum diisi',
-    description: 'Admin dapat menambahkan fasilitas resmi beserta foto melalui Content Management.',
-    image_url: '',
-  },
-];
+const defaultFacilities = OFFICIAL_FACILITIES;
 
 const FacilitiesPage = () => {
   const [facilities, setFacilities] = useState([]);
@@ -212,7 +207,7 @@ const FacilitiesPage = () => {
   const showcase = facilities.slice(1);
 
   const getImageSrc = (f) =>
-    f?.image_url || f?.url || 'https://images.unsplash.com/photo-1672432508137-49e907939dee?w=800';
+    f?.image_url || f?.url || '/logo-lpq-al-fath-maulana.webp';
 
   return (
     <>
@@ -222,7 +217,7 @@ const FacilitiesPage = () => {
           name="description"
           content="Lingkungan belajar yang nyaman, aman, dan mendukung — lihat fasilitas lengkap LPQ Al-Fath Maulana."
         />
-        <link rel="canonical" href="https://domain-belum-diisi.invalid/fasilitas" />
+        <link rel="canonical" href={`${OFFICIAL_WEBSITE}/fasilitas`} />
       </Helmet>
 
       <div className="fp-page">
