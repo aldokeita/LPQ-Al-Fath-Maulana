@@ -34,6 +34,7 @@ const tableOrder = [
   'news',
   'announcements',
   'website_content',
+  'whatsapp_group_links',
   'class_mutations',
   'jilid_history',
   'hafalan_progress',
@@ -318,6 +319,15 @@ const main = async () => {
   const prepared = JSON.parse(fs.readFileSync(preparedPath, 'utf8'));
   const assetResult = JSON.parse(fs.readFileSync(assetResultPath, 'utf8'));
   if (prepared.format_version !== 1 || assetResult.failed !== 0) throw new Error('Paket migrasi belum siap.');
+  if ((prepared.preflight?.unresolved_required_nomor_induk || 0) > 0) {
+    throw new Error('Import production ditolak: Nomor Induk wajib masih belum lengkap.');
+  }
+  if ((prepared.preflight?.unresolved_santri_login_identifiers || 0) > 0) {
+    throw new Error('Import production ditolak: identifier login santri masih belum lengkap.');
+  }
+  if ((prepared.preflight?.source_tables_at_page_boundary || []).length > 0) {
+    throw new Error('Import production ditolak: kelengkapan tabel sumber pada batas 1000 baris belum diverifikasi.');
+  }
   const entries = assetResult.results.filter((entry) => entry.status === 'ready');
   await assertEmptyOrResume();
   const credentialDocument = loadOrCreateCredentials(prepared);

@@ -37,6 +37,11 @@ select 'academic_calendar|' || count(*) from public.academic_calendar;
 select 'mmq_schedule|' || count(*) from public.mmq_schedule;
 select 'mmq_attendance|' || count(*) from public.mmq_attendance;
 select 'website_content|' || count(*) from public.website_content;
+select 'whatsapp_group_links|' || count(*) from public.whatsapp_group_links;
+select 'class_mutations|' || count(*) from public.class_mutations;
+select 'jilid_history|' || count(*) from public.jilid_history;
+select 'hafalan_progress|' || count(*) from public.hafalan_progress;
+select 'murojaah_submissions|' || count(*) from public.murojaah_submissions;
 select 'auth_profile_orphans|' || count(*) from public.user_profiles p left join auth.users u on u.id=p.id where u.id is null;
 select 'santri_auth_orphans|' || count(*) from public.santri s left join auth.users u on u.id=s.id where u.id is null;
 select 'guru_auth_orphans|' || count(*) from public.guru g left join auth.users u on u.id=g.id where u.id is null;
@@ -51,7 +56,7 @@ select 'payment_transaction_duplicates|' || count(*) from (select transaction_id
 select 'mmq_duplicates|' || count(*) from (select schedule_id,guru_id,attendance_date from public.mmq_attendance group by schedule_id,guru_id,attendance_date having count(*)>1) q;
 select 'mmq_orphans|' || count(*) from public.mmq_attendance a left join public.mmq_schedule s on s.id=a.schedule_id left join public.guru g on g.id=a.guru_id where s.id is null or g.id is null;
 select 'password_columns|' || count(*) from information_schema.columns where table_schema='public' and column_name ilike '%password%';
-select 'rls_missing_sensitive_tables|' || count(*) from (values ('user_profiles'),('guru'),('santri'),('attendance'),('payments'),('expenses'),('class_memberships'),('mmq_attendance')) expected(name) left join pg_class c on c.relname=expected.name left join pg_namespace n on n.oid=c.relnamespace and n.nspname='public' where c.oid is null or not c.relrowsecurity;
+select 'rls_missing_sensitive_tables|' || count(*) from (values ('user_profiles'),('guru'),('santri'),('attendance'),('payments'),('expenses'),('class_memberships'),('mmq_attendance'),('whatsapp_group_links')) expected(name) left join pg_class c on c.relname=expected.name left join pg_namespace n on n.oid=c.relnamespace and n.nspname='public' where c.oid is null or not c.relrowsecurity;
 select 'storage_buckets_missing|' || 3-count(*) from storage.buckets where id in ('avatars','website-assets','murojaah-recordings');
 select 'legacy_content_url_references|' || count(*) from public.website_content where content::text like '%PROJECT_REF_SUMBER_DIHAPUS%';
 select 'guru_avatar_missing_objects|' || count(*) from public.guru g where g.avatar_path is not null and not exists (select 1 from storage.objects o where o.bucket_id='avatars' and o.name=g.avatar_path);
@@ -78,7 +83,8 @@ foreach ($line in $lines) {
 $failures = @()
 $expectedTables = @(
   "user_profiles", "guru", "classes", "santri", "auth_login_aliases", "class_memberships",
-  "attendance", "payments", "expenses", "academic_calendar", "mmq_schedule", "mmq_attendance", "website_content"
+  "attendance", "payments", "expenses", "academic_calendar", "mmq_schedule", "mmq_attendance", "website_content",
+  "whatsapp_group_links", "class_mutations", "jilid_history", "hafalan_progress", "murojaah_submissions"
 )
 foreach ($table in $expectedTables) {
   $expected = [int64]$summary.target_counts.$table

@@ -139,6 +139,7 @@ const tableOrder = [
   'news',
   'announcements',
   'website_content',
+  'whatsapp_group_links',
   'class_mutations',
   'jilid_history',
   'hafalan_progress',
@@ -150,6 +151,15 @@ const main = async () => {
   assertLocalTarget();
   const prepared = JSON.parse(fs.readFileSync(inputPath, 'utf8'));
   if (prepared.format_version !== 1) throw new Error('Versi format migrasi tidak didukung.');
+  if ((prepared.preflight?.unresolved_required_nomor_induk || 0) > 0) {
+    throw new Error('Import ditolak: Nomor Induk wajib masih belum lengkap.');
+  }
+  if ((prepared.preflight?.unresolved_santri_login_identifiers || 0) > 0) {
+    throw new Error('Import ditolak: identifier login santri masih belum lengkap.');
+  }
+  if ((prepared.preflight?.source_tables_at_page_boundary || []).length > 0) {
+    throw new Error('Import ditolak: kelengkapan tabel sumber pada batas 1000 baris belum diverifikasi.');
+  }
 
   const authResult = await createMissingAuthUsers(prepared.auth_user_specs || []);
   const tableResults = {};

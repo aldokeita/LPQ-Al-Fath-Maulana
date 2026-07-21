@@ -5,7 +5,7 @@ import process from 'node:process';
 
 const root = path.resolve(import.meta.dirname, '..');
 const privateRoot = path.join(root, '_private_reference');
-const defaultJson = path.join(privateRoot, 'migration-source', 'backup-lpq-full-2026-07-20-234442.json');
+const defaultJson = path.join(privateRoot, 'migration-source', 'backup-lpq-full-2026-07-21-230902.json');
 const defaultLegacySql = path.join(privateRoot, 'migration-work', 'legacy-selected-data.sql');
 const defaultOutput = path.join(privateRoot, 'migration-work', 'prepared-production-data');
 
@@ -90,6 +90,7 @@ const decodeCopyValue = (value) => {
 };
 
 const parseCopySql = (file) => {
+  if (!fs.existsSync(file)) return {};
   const sql = fs.readFileSync(file, 'utf8');
   const result = {};
   const copyPattern = /^COPY public\.([^\s(]+) \(([^)]*)\) FROM stdin;\r?\n([\s\S]*?)^\\\.\r?$/gm;
@@ -292,17 +293,19 @@ const santri = mergedSantri.map((row) => {
     created_by: null,
     updated_by: null,
   });
-  authLoginAliases.push({
-    id: deterministicUuid('auth-login-alias', id),
-    auth_user_id: id,
-    alias_type: 'nomor_induk_qiroati',
-    alias_value: nomorInduk,
-    normalized_alias: nomorInduk,
-    internal_email: internalEmail,
-    is_active: true,
-    created_at: timestamp(row.created_at),
-    updated_at: timestamp(row.updated_at),
-  });
+  if (nomorInduk) {
+    authLoginAliases.push({
+      id: deterministicUuid('auth-login-alias', id),
+      auth_user_id: id,
+      alias_type: 'nomor_induk_qiroati',
+      alias_value: nomorInduk,
+      normalized_alias: nomorInduk,
+      internal_email: internalEmail,
+      is_active: true,
+      created_at: timestamp(row.created_at),
+      updated_at: timestamp(row.updated_at),
+    });
+  }
   if (isFilled(row.foto_url)) {
     assetManifest.push({
       owner_type: 'santri',
@@ -316,7 +319,7 @@ const santri = mergedSantri.map((row) => {
   const currentClassId = classIds.has(normLower(row.id_kelas)) ? normLower(row.id_kelas) : null;
   return {
     id,
-    nomor_induk_qiroati: nomorInduk,
+    nomor_induk_qiroati: nomorInduk || null,
     nama_lengkap: norm(row.nama_lengkap),
     nama_panggilan: isFilled(row.nama_panggilan) ? row.nama_panggilan : null,
     kategori: normalizeCategory(row.kategori),
@@ -397,6 +400,31 @@ const classMemberships = santri.filter((row) => row.current_class_id).map((row) 
   updated_by: null,
 }));
 
+const classMutations = sourceRows('class_mutations').map((row) => ({
+  id: row.id,
+  santri_id: canonicalUserId(row.santri_id),
+  from_class_id: classIds.has(normLower(row.from_class_id)) ? normLower(row.from_class_id) : null,
+  to_class_id: classIds.has(normLower(row.to_class_id)) ? normLower(row.to_class_id) : null,
+  mutation_date: dateOnly(row.mutation_date) || dateOnly(row.created_at) || '2000-01-01',
+  reason: [row.from_jilid, row.to_jilid].some(isFilled)
+    ? `Migrasi riwayat jilid: ${norm(row.from_jilid) || '-'} -> ${norm(row.to_jilid) || '-'}`
+    : null,
+  created_at: timestamp(row.created_at) || timestamp(row.mutation_date),
+  created_by: null,
+}));
+
+const jilidHistory = sourceRows('jilid_history').map((row) => {
+  const changedBy = normLower(row.changed_by);
+  return {
+    id: row.id,
+    santri_id: canonicalUserId(row.santri_id),
+    from_jilid: isFilled(row.from_jilid) ? norm(row.from_jilid) : null,
+    to_jilid: norm(row.to_jilid),
+    changed_at: timestamp(row.changed_at) || new Date(0).toISOString(),
+    changed_by: guruIds.has(changedBy) || santriIds.has(changedBy) ? changedBy : null,
+  };
+});
+
 const attendance = sourceRows('attendance').map((row) => ({
   id: row.id,
   user_id: canonicalUserId(row.user_id),
@@ -467,7 +495,12 @@ const expenses = sourceRows('expenses').map((row) => ({
   updated_by: null,
 }));
 
-const mmqSchedule = sourceRows('mmq_schedule').map((row) => ({
+const mmqSourceRows = sourceRows('mmq_absensi');
+const syntheticMmqScheduleCreated = sourceRows('mmq_schedule').length === 0 && mmqSourceRows.length > 0;
+const mmqScheduleInput = syntheticMmqScheduleCreated
+  ? [{ id: deterministicUuid('mmq-schedule', 'legacy-unmapped'), is_active: false }]
+  : sourceRows('mmq_schedule');
+const mmqSchedule = mmqScheduleInput.map((row) => ({
   id: row.id,
   day_of_week: asNumber(row.day_of_week),
   start_time: isFilled(row.start_time) ? row.start_time : null,
@@ -480,7 +513,7 @@ const mmqSchedule = sourceRows('mmq_schedule').map((row) => ({
   updated_by: null,
 }));
 const soleScheduleId = mmqSchedule.length === 1 ? mmqSchedule[0].id : null;
-const mmqAttendanceCandidates = sourceRows('mmq_absensi').map((row) => {
+const mmqAttendanceCandidates = mmqSourceRows.map((row) => {
   if (!soleScheduleId) throw new Error('MMQ legacy memerlukan tepat satu jadwal untuk konversi otomatis.');
   return {
     id: deterministicUuid('mmq-attendance', `${row.id}:${row.guru_id}:${row.tanggal_absensi}`),
@@ -516,7 +549,10 @@ for (const group of mmqAttendanceGroups.values()) {
   }
 }
 
-const academicCalendar = legacyRows('academic_calendar').map((row) => ({
+const academicCalendarSource = legacyRows('academic_calendar').length
+  ? legacyRows('academic_calendar')
+  : sourceRows('academic_calendar');
+const academicCalendar = academicCalendarSource.map((row) => ({
   id: row.id,
   date: dateOnly(row.date),
   title: isFilled(row.title) ? row.title : row.description,
@@ -525,6 +561,65 @@ const academicCalendar = legacyRows('academic_calendar').map((row) => ({
   is_public: true,
   created_at: null,
   updated_at: null,
+  created_by: null,
+  updated_by: null,
+}));
+
+const normalizeHafalanStatus = (value) => {
+  const status = normLower(value);
+  if (['hafal', 'lancar', 'lulus'].includes(status)) return 'lulus';
+  if (['belum', 'belum hafal'].includes(status)) return 'belum';
+  if (['ulang', 'perlu diulang'].includes(status)) return 'ulang';
+  return 'proses';
+};
+const hafalanProgress = sourceRows('hafalan_progress').map((row) => ({
+  id: row.id,
+  santri_id: canonicalUserId(row.santri_id),
+  item_id: null,
+  category: isFilled(row.category) ? norm(row.category) : (isFilled(row.jenis_hafalan) ? norm(row.jenis_hafalan) : null),
+  item_name: isFilled(row.item_name) ? norm(row.item_name) : null,
+  status: normalizeHafalanStatus(row.status ?? row.hafal),
+  nilai: isFilled(row.status) ? norm(row.status) : null,
+  catatan: null,
+  assessed_by: guruIds.has(normLower(row.teacher_id)) ? normLower(row.teacher_id) : null,
+  assessed_at: timestamp(row.updated_at) || timestamp(row.created_at),
+  created_at: timestamp(row.created_at),
+  updated_at: timestamp(row.updated_at),
+  created_by: null,
+  updated_by: null,
+}));
+
+const murojaahSubmissions = sourceRows('murojaah_submissions').map((row) => {
+  const reviewed = normLower(row.status) === 'dinilai';
+  const migratedId = validUuid(row.id)
+    ? normLower(row.id)
+    : deterministicUuid('murojaah-submission', `${row.id}:${row.santri_id}:${row.created_at}`);
+  return {
+    id: migratedId,
+    santri_id: canonicalUserId(row.santri_id),
+    target_guru_id: guruIds.has(normLower(row.target_guru_id)) ? normLower(row.target_guru_id) : null,
+    type: isFilled(row.category) ? norm(row.category) : null,
+    content: isFilled(row.item_name) ? norm(row.item_name) : null,
+    recording_path: null,
+    status: reviewed ? 'direview' : 'menunggu',
+    feedback: isFilled(row.feedback) ? row.feedback : null,
+    submitted_at: timestamp(row.created_at) || new Date(0).toISOString(),
+    reviewed_at: reviewed ? timestamp(row.created_at) : null,
+    created_at: timestamp(row.created_at),
+    updated_at: timestamp(row.created_at),
+    created_by: null,
+    updated_by: null,
+  };
+});
+
+const whatsappGroupLinks = sourceRows('whatsapp_group_links').map((row) => ({
+  id: row.id,
+  jilid: norm(row.jilid),
+  group_name: isFilled(row.group_name) ? norm(row.group_name) : null,
+  whatsapp_link: norm(row.whatsapp_link),
+  is_active: true,
+  created_at: timestamp(row.created_at),
+  updated_at: timestamp(row.updated_at) || timestamp(row.created_at),
   created_by: null,
   updated_by: null,
 }));
@@ -541,10 +636,6 @@ const websiteContent = sourceRows('website_content').map((row) => ({
 }));
 
 const emptyTargetTables = {
-  class_mutations: [],
-  jilid_history: [],
-  hafalan_progress: [],
-  murojaah_submissions: [],
   santri_notes: [],
   mmq_notulensi: [],
   news: [],
@@ -565,6 +656,11 @@ const tables = {
   mmq_schedule: mmqSchedule,
   mmq_attendance: mmqAttendance,
   website_content: websiteContent,
+  whatsapp_group_links: whatsappGroupLinks,
+  class_mutations: classMutations,
+  jilid_history: jilidHistory,
+  hafalan_progress: hafalanProgress,
+  murojaah_submissions: murojaahSubmissions,
   ...emptyTargetTables,
 };
 
@@ -590,16 +686,25 @@ const validation = {
   duplicate_attendance: duplicateCount(attendance, (row) => `${row.user_id}|${row.attendance_date}|${normLower(row.sesi)}`),
   duplicate_mmq_attendance: duplicateCount(mmqAttendance, (row) => `${row.schedule_id}|${row.guru_id}|${row.attendance_date}`),
   duplicate_active_membership: duplicateCount(classMemberships, (row) => row.santri_id),
+  duplicate_whatsapp_jilid: duplicateCount(whatsappGroupLinks, (row) => normLower(row.jilid)),
   missing_payment_santri: payments.filter((row) => !santriIds.has(normLower(row.santri_id))).length,
   missing_attendance_user: attendance.filter((row) => !santriIds.has(normLower(row.user_id)) && !guruIds.has(normLower(row.user_id))).length,
   missing_attendance_class: attendance.filter((row) => row.class_id && !classIds.has(normLower(row.class_id))).length,
   missing_membership_santri: classMemberships.filter((row) => !santriIds.has(normLower(row.santri_id))).length,
   missing_membership_class: classMemberships.filter((row) => !classIds.has(normLower(row.class_id))).length,
   missing_mmq_guru: mmqAttendance.filter((row) => !guruIds.has(normLower(row.guru_id))).length,
+  missing_class_mutation_santri: classMutations.filter((row) => !santriIds.has(normLower(row.santri_id))).length,
+  missing_jilid_history_santri: jilidHistory.filter((row) => !santriIds.has(normLower(row.santri_id))).length,
+  missing_hafalan_santri: hafalanProgress.filter((row) => !santriIds.has(normLower(row.santri_id))).length,
+  missing_murojaah_santri: murojaahSubmissions.filter((row) => !santriIds.has(normLower(row.santri_id))).length,
+  invalid_whatsapp_link: whatsappGroupLinks.filter((row) => !/^https:\/\/chat\.whatsapp\.com\/[A-Za-z0-9_-]+$/i.test(row.whatsapp_link)).length,
+  missing_santri_login_identifier: santri.filter((row) => !row.nomor_induk_qiroati).length,
   missing_required_nomor_induk: santri.filter((row) => row.kategori !== 'Dewasa' && !row.nomor_induk_qiroati).length,
 };
 
-const failedChecks = Object.entries(validation).filter(([, count]) => count !== 0);
+const reviewOnlyValidationKeys = new Set(['missing_required_nomor_induk', 'missing_santri_login_identifier']);
+const failedChecks = Object.entries(validation)
+  .filter(([name, count]) => count !== 0 && !reviewOnlyValidationKeys.has(name));
 if (failedChecks.length) {
   throw new Error(`Hasil konversi gagal validasi: ${failedChecks.map(([name, count]) => `${name}=${count}`).join(', ')}`);
 }
@@ -614,12 +719,23 @@ const assertNoForbiddenKeys = (value, currentPath = 'root') => {
   }
 };
 
+const sourceTablesAtPageBoundary = Object.entries(jsonSource)
+  .filter(([, rows]) => Array.isArray(rows) && rows.length > 0 && rows.length % 1000 === 0)
+  .map(([table]) => table)
+  .sort();
+
 const prepared = {
   format_version: 1,
   generated_at: new Date().toISOString(),
   source: {
     json_sha256: hashValue(fs.readFileSync(sourceJsonPath)),
-    legacy_sql_sha256: hashValue(fs.readFileSync(legacySqlPath)),
+    legacy_sql_sha256: fs.existsSync(legacySqlPath) ? hashValue(fs.readFileSync(legacySqlPath)) : null,
+  },
+  preflight: {
+    unresolved_required_nomor_induk: validation.missing_required_nomor_induk,
+    unresolved_santri_login_identifiers: validation.missing_santri_login_identifier,
+    source_tables_at_page_boundary: sourceTablesAtPageBoundary,
+    source_has_backup_metadata: Boolean(jsonSource._backup_meta),
   },
   auth_user_specs: authUserSpecs,
   tables,
@@ -628,6 +744,15 @@ assertNoForbiddenKeys(prepared);
 
 const privateConflicts = {
   santri_deduplication: santriDeduplication,
+  missing_required_nomor_induk: santri
+    .filter((row) => !row.nomor_induk_qiroati)
+    .map((row) => ({
+      santri_id: row.id,
+      required_for_schema: row.kategori !== 'Dewasa',
+      resolution: row.kategori !== 'Dewasa'
+        ? 'supply_official_nomor_induk_before_import'
+        : 'define_adult_login_credential_before_import',
+    })),
   mmq_attendance_deduplication: mmqAttendanceDeduplication,
   payment_transaction_conflicts: paymentTransactionConflicts,
   unmapped_fields: {
@@ -635,14 +760,18 @@ const privateConflicts = {
     guru: ['kelas_diampu', 'nomor_induk_qiroati'],
     classes: ['notes'],
     mmq_absensi: ['dikirim_oleh'],
+    murojaah_submissions: ['recording_url', 'session_id'],
   },
 };
+const sourceRecordingAssets = sourceRows('murojaah_submissions').filter((row) => isFilled(row.recording_url)).length;
 const safeSummary = {
   format_version: prepared.format_version,
   generated_at: prepared.generated_at,
   source_counts: {
     json_records: Object.values(jsonSource).filter(Array.isArray).reduce((sum, rows) => sum + rows.length, 0),
     legacy_selected_records: Object.values(legacySource).filter(Array.isArray).reduce((sum, rows) => sum + rows.length, 0),
+    has_backup_metadata: Boolean(jsonSource._backup_meta),
+    tables_at_1000_row_boundary: sourceTablesAtPageBoundary,
   },
   target_counts: Object.fromEntries(Object.entries(tables).map(([table, rows]) => [table, rows.length])),
   auth_users_to_create: authUserSpecs.length,
@@ -659,11 +788,21 @@ const safeSummary = {
     forum_replies: sourceRows('forum_replies').length,
     login_logs: legacyRows('login_logs').length,
     visitor_stats: legacyRows('visitor_stats').length,
+    journey_posts: sourceRows('journey_posts').length,
+    journey_comments: sourceRows('journey_comments').length,
+    music_files: sourceRows('music_files').length,
+    recording_assets_pending: sourceRecordingAssets,
   },
   validation,
   production_blockers: [
     paymentTransactionConflicts.length ? 'review_duplicate_legacy_transaction_id' : null,
     assetManifest.length ? 'migrate_avatar_assets_before_cutover' : null,
+    sourceRecordingAssets ? 'migrate_murojaah_recordings_before_cutover' : null,
+    syntheticMmqScheduleCreated ? 'review_synthetic_inactive_mmq_schedule' : null,
+    sourceTablesAtPageBoundary.length ? 'verify_source_pagination_for_1000_row_tables' : null,
+    !jsonSource._backup_meta ? 'verify_backup_origin_and_completeness_metadata' : null,
+    validation.missing_required_nomor_induk ? 'complete_missing_required_nomor_induk_before_import' : null,
+    validation.missing_santri_login_identifier ? 'define_all_santri_initial_login_credentials' : null,
     'create_auth_accounts_with_new_initial_passwords',
     'obtain_final_admin_approval_before_production_write',
   ].filter(Boolean),
