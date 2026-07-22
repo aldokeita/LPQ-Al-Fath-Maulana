@@ -1,5 +1,7 @@
 param(
   [switch]$Resume,
+  [switch]$SourceBoundaryApproved,
+  [string]$BootstrapAdminEmail = "admin@lpqalfathmaulana.id",
   [string]$ProjectRef = $env:LPQ_PRODUCTION_PROJECT_REF
 )
 
@@ -25,6 +27,8 @@ try {
   $env:PRODUCTION_IMPORT_EXECUTE = "true"
   $env:PRODUCTION_IMPORT_RESUME = if ($Resume) { "true" } else { "false" }
   $env:PRODUCTION_IMPORT_CONFIRMATION = $confirmation
+  $env:PRODUCTION_IMPORT_SOURCE_BOUNDARY_APPROVED = if ($SourceBoundaryApproved) { "true" } else { "false" }
+  $env:LPQ_BOOTSTRAP_ADMIN_EMAIL = $BootstrapAdminEmail
 
   & node (Join-Path $PSScriptRoot "promote-staging-production-data.mjs")
   if ($LASTEXITCODE -ne 0) {
@@ -38,6 +42,8 @@ finally {
   Remove-Item Env:PRODUCTION_IMPORT_EXECUTE -ErrorAction SilentlyContinue
   Remove-Item Env:PRODUCTION_IMPORT_RESUME -ErrorAction SilentlyContinue
   Remove-Item Env:PRODUCTION_IMPORT_CONFIRMATION -ErrorAction SilentlyContinue
+  Remove-Item Env:PRODUCTION_IMPORT_SOURCE_BOUNDARY_APPROVED -ErrorAction SilentlyContinue
+  Remove-Item Env:LPQ_BOOTSTRAP_ADMIN_EMAIL -ErrorAction SilentlyContinue
   if ($secretPointer -ne [IntPtr]::Zero) {
     [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($secretPointer)
   }

@@ -8,6 +8,7 @@ const privateRoot = path.join(root, '_private_reference');
 const defaultJson = path.join(privateRoot, 'migration-source', 'backup-lpq-full-2026-07-21-230902.json');
 const defaultLegacySql = path.join(privateRoot, 'migration-work', 'legacy-selected-data.sql');
 const defaultOutput = path.join(privateRoot, 'migration-work', 'prepared-production-data');
+const defaultSantriExclusions = path.join(privateRoot, 'migration-work', 'inactive-santri-exclusions.json');
 
 const args = process.argv.slice(2);
 const getArg = (name, fallback) => {
@@ -18,6 +19,7 @@ const getArg = (name, fallback) => {
 const sourceJsonPath = path.resolve(getArg('--json', defaultJson));
 const legacySqlPath = path.resolve(getArg('--legacy-sql', defaultLegacySql));
 const outputDir = path.resolve(getArg('--output', defaultOutput));
+const santriExclusionsPath = path.resolve(getArg('--exclude-santri', defaultSantriExclusions));
 
 const assertPrivatePath = (target, label) => {
   const relative = path.relative(privateRoot, target);
@@ -29,6 +31,7 @@ const assertPrivatePath = (target, label) => {
 assertPrivatePath(sourceJsonPath, 'Backup JSON');
 assertPrivatePath(legacySqlPath, 'Ekstrak backup PostgreSQL');
 assertPrivatePath(outputDir, 'Folder output');
+assertPrivatePath(santriExclusionsPath, 'Daftar pengecualian santri');
 
 const readJson = (file) => JSON.parse(fs.readFileSync(file, 'utf8'));
 const norm = (value) => value == null ? '' : String(value).trim();
@@ -114,6 +117,22 @@ const jsonSource = readJson(sourceJsonPath);
 const legacySource = parseCopySql(legacySqlPath);
 const sourceRows = (name) => Array.isArray(jsonSource[name]) ? jsonSource[name] : [];
 const legacyRows = (name) => Array.isArray(legacySource[name]) ? legacySource[name] : [];
+const santriExclusionsDocument = fs.existsSync(santriExclusionsPath)
+  ? readJson(santriExclusionsPath)
+  : { santri_ids: [] };
+if (!Array.isArray(santriExclusionsDocument.santri_ids)) {
+  throw new Error('Daftar pengecualian santri harus memiliki array santri_ids.');
+}
+const excludedSantriIds = new Set(santriExclusionsDocument.santri_ids.map(normLower).filter(Boolean));
+for (const id of excludedSantriIds) {
+  if (!validUuid(id)) throw new Error('Daftar pengecualian memuat ID santri yang tidak valid.');
+}
+const sourceSantriIds = new Set(sourceRows('santri').map((row) => normLower(row.id)));
+const unknownExcludedSantriIds = [...excludedSantriIds].filter((id) => !sourceSantriIds.has(id));
+if (unknownExcludedSantriIds.length) {
+  throw new Error('Daftar pengecualian memuat santri yang tidak ada di backup sumber.');
+}
+const excludesSantri = (value) => excludedSantriIds.has(normLower(value));
 
 const operationalReferenceCounts = new Map();
 const addReference = (id) => {
@@ -126,7 +145,9 @@ for (const row of sourceRows('classes')) addReference(row.id_guru);
 for (const row of sourceRows('mmq_absensi')) addReference(row.guru_id);
 
 const legacySantriIds = new Set(legacyRows('santri').map((row) => normLower(row.id)).filter(Boolean));
-const santriInput = sourceRows('santri').map((row) => ({ ...row }));
+const santriInput = sourceRows('santri')
+  .filter((row) => !excludesSantri(row.id))
+  .map((row) => ({ ...row }));
 const parent = new Map(santriInput.map((row) => [normLower(row.id), normLower(row.id)]));
 
 const find = (id) => {
@@ -400,7 +421,7 @@ const classMemberships = santri.filter((row) => row.current_class_id).map((row) 
   updated_by: null,
 }));
 
-const classMutations = sourceRows('class_mutations').map((row) => ({
+const classMutations = sourceRows('class_mutations').filter((row) => !excludesSantri(row.santri_id)).map((row) => ({
   id: row.id,
   santri_id: canonicalUserId(row.santri_id),
   from_class_id: classIds.has(normLower(row.from_class_id)) ? normLower(row.from_class_id) : null,
@@ -413,7 +434,7 @@ const classMutations = sourceRows('class_mutations').map((row) => ({
   created_by: null,
 }));
 
-const jilidHistory = sourceRows('jilid_history').map((row) => {
+const jilidHistory = sourceRows('jilid_history').filter((row) => !excludesSantri(row.santri_id)).map((row) => {
   const changedBy = normLower(row.changed_by);
   return {
     id: row.id,
@@ -425,7 +446,7 @@ const jilidHistory = sourceRows('jilid_history').map((row) => {
   };
 });
 
-const attendance = sourceRows('attendance').map((row) => ({
+const attendance = sourceRows('attendance').filter((row) => !excludesSantri(row.user_id)).map((row) => ({
   id: row.id,
   user_id: canonicalUserId(row.user_id),
   role: normLower(row.role),
@@ -445,7 +466,9 @@ const attendance = sourceRows('attendance').map((row) => ({
 }));
 
 const paymentTransactionConflicts = [];
-const paymentRows = sourceRows('payments').map((row) => ({ ...row, santri_id: canonicalUserId(row.santri_id) }));
+const paymentRows = sourceRows('payments')
+  .filter((row) => !excludesSantri(row.santri_id))
+  .map((row) => ({ ...row, santri_id: canonicalUserId(row.santri_id) }));
 const paymentsByTransaction = new Map();
 for (const row of paymentRows) {
   const key = normLower(row.transaction_id);
@@ -572,7 +595,7 @@ const normalizeHafalanStatus = (value) => {
   if (['ulang', 'perlu diulang'].includes(status)) return 'ulang';
   return 'proses';
 };
-const hafalanProgress = sourceRows('hafalan_progress').map((row) => ({
+const hafalanProgress = sourceRows('hafalan_progress').filter((row) => !excludesSantri(row.santri_id)).map((row) => ({
   id: row.id,
   santri_id: canonicalUserId(row.santri_id),
   item_id: null,
@@ -589,7 +612,7 @@ const hafalanProgress = sourceRows('hafalan_progress').map((row) => ({
   updated_by: null,
 }));
 
-const murojaahSubmissions = sourceRows('murojaah_submissions').map((row) => {
+const murojaahSubmissions = sourceRows('murojaah_submissions').filter((row) => !excludesSantri(row.santri_id)).map((row) => {
   const reviewed = normLower(row.status) === 'dinilai';
   const migratedId = validUuid(row.id)
     ? normLower(row.id)
@@ -730,6 +753,9 @@ const prepared = {
   source: {
     json_sha256: hashValue(fs.readFileSync(sourceJsonPath)),
     legacy_sql_sha256: fs.existsSync(legacySqlPath) ? hashValue(fs.readFileSync(legacySqlPath)) : null,
+    santri_exclusions_sha256: fs.existsSync(santriExclusionsPath)
+      ? hashValue(fs.readFileSync(santriExclusionsPath))
+      : null,
   },
   preflight: {
     unresolved_required_nomor_induk: validation.missing_required_nomor_induk,
@@ -744,6 +770,10 @@ assertNoForbiddenKeys(prepared);
 
 const privateConflicts = {
   santri_deduplication: santriDeduplication,
+  inactive_santri_exclusions: [...excludedSantriIds].map((santriId) => ({
+    santri_id: santriId,
+    resolution: 'excluded_with_explicit_owner_approval',
+  })),
   missing_required_nomor_induk: santri
     .filter((row) => !row.nomor_induk_qiroati)
     .map((row) => ({
@@ -763,7 +793,8 @@ const privateConflicts = {
     murojaah_submissions: ['recording_url', 'session_id'],
   },
 };
-const sourceRecordingAssets = sourceRows('murojaah_submissions').filter((row) => isFilled(row.recording_url)).length;
+const sourceRecordingAssets = sourceRows('murojaah_submissions')
+  .filter((row) => !excludesSantri(row.santri_id) && isFilled(row.recording_url)).length;
 const safeSummary = {
   format_version: prepared.format_version,
   generated_at: prepared.generated_at,
@@ -782,6 +813,7 @@ const safeSummary = {
     payment_transaction_ids_set_null_for_review: paymentTransactionConflicts.length,
   },
   excluded: {
+    inactive_santri: excludedSantriIds.size,
     plaintext_passwords: sourceRows('santri').filter((row) => isFilled(row.password)).length + sourceRows('guru').filter((row) => isFilled(row.password)).length,
     feedbacks: sourceRows('feedbacks').length,
     forum_topics: sourceRows('forum_topics').length,

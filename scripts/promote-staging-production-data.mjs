@@ -16,6 +16,8 @@ const secretKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const execute = process.env.PRODUCTION_IMPORT_EXECUTE === 'true';
 const resume = process.env.PRODUCTION_IMPORT_RESUME === 'true';
 const confirmation = process.env.PRODUCTION_IMPORT_CONFIRMATION || '';
+const bootstrapAdminEmail = (process.env.LPQ_BOOTSTRAP_ADMIN_EMAIL || '').trim().toLowerCase();
+const sourceBoundaryApproved = process.env.PRODUCTION_IMPORT_SOURCE_BOUNDARY_APPROVED === 'true';
 
 const tableOrder = [
   'user_profiles',
@@ -118,17 +120,34 @@ const listAuthUsers = async () => {
   return users;
 };
 
-const assertEmptyOrResume = async () => {
+const assertEmptyOrResume = async (prepared) => {
   const occupied = [];
   for (const table of ['user_profiles', 'guru', 'classes', 'santri', 'attendance', 'payments', 'website_content']) {
     const count = await tableCount(table);
     if (count) occupied.push(`${table}=${count}`);
   }
-  const authCount = (await listAuthUsers()).length;
+  const authUsers = await listAuthUsers();
+  const authCount = authUsers.length;
   if (authCount) occupied.push(`auth_users=${authCount}`);
   if (occupied.length && !resume) {
     throw new Error(`Target tidak kosong. Gunakan mode Resume hanya untuk import parsial yang sama: ${occupied.join(', ')}`);
   }
+  const preparedAuthIds = new Set(prepared.auth_user_specs.map((spec) => spec.id));
+  const extraAuthUsers = authUsers.filter((user) => !preparedAuthIds.has(user.id));
+  if (extraAuthUsers.length !== 1 || !bootstrapAdminEmail
+      || String(extraAuthUsers[0].email || '').toLowerCase() !== bootstrapAdminEmail) {
+    throw new Error('Target harus hanya memuat satu akun bootstrap admin yang disetujui di luar paket migrasi.');
+  }
+  const adminId = extraAuthUsers[0].id;
+  const response = await fetch(`${supabaseUrl}/rest/v1/user_profiles?select=id,role,status&id=eq.${encodeURIComponent(adminId)}`, {
+    headers: headers(),
+  });
+  if (!response.ok) await safeError(response, 'verify bootstrap admin profile');
+  const profiles = await response.json();
+  if (profiles.length !== 1 || profiles[0].role !== 'admin' || profiles[0].status !== 'active') {
+    throw new Error('Profil bootstrap admin tidak valid.');
+  }
+  return { approvedExtraAuthUsers: 1, approvedExtraUserProfiles: 1 };
 };
 
 const randomPassword = () => `${crypto.randomBytes(24).toString('base64url')}aA1!`;
@@ -286,15 +305,17 @@ const rewriteWebsiteContent = async (prepared, entries) => {
   return ids.length;
 };
 
-const verify = async (prepared, entries) => {
+const verify = async (prepared, entries, baseline) => {
   const failures = [];
   for (const table of tableOrder) {
-    const expected = (prepared.tables?.[table] || []).length;
+    const expected = (prepared.tables?.[table] || []).length
+      + (table === 'user_profiles' ? baseline.approvedExtraUserProfiles : 0);
     const actual = await tableCount(table);
     if (actual !== expected) failures.push(`${table}: expected ${expected}, got ${actual}`);
   }
   const authCount = (await listAuthUsers()).length;
-  if (authCount !== prepared.auth_user_specs.length) failures.push(`auth_users: expected ${prepared.auth_user_specs.length}, got ${authCount}`);
+  const expectedAuthCount = prepared.auth_user_specs.length + baseline.approvedExtraAuthUsers;
+  if (authCount !== expectedAuthCount) failures.push(`auth_users: expected ${expectedAuthCount}, got ${authCount}`);
 
   for (const entry of entries.filter((item) => item.kind === 'website_content')) {
     const response = await fetch(`${supabaseUrl}/storage/v1/object/public/website-assets/${encodeObjectPath(entry.target_path)}`);
@@ -325,11 +346,11 @@ const main = async () => {
   if ((prepared.preflight?.unresolved_santri_login_identifiers || 0) > 0) {
     throw new Error('Import production ditolak: identifier login santri masih belum lengkap.');
   }
-  if ((prepared.preflight?.source_tables_at_page_boundary || []).length > 0) {
+  if ((prepared.preflight?.source_tables_at_page_boundary || []).length > 0 && !sourceBoundaryApproved) {
     throw new Error('Import production ditolak: kelengkapan tabel sumber pada batas 1000 baris belum diverifikasi.');
   }
   const entries = assetResult.results.filter((entry) => entry.status === 'ready');
-  await assertEmptyOrResume();
+  const baseline = await assertEmptyOrResume(prepared);
   const credentialDocument = loadOrCreateCredentials(prepared);
   const authResult = await createMissingAuthUsers(prepared, credentialDocument);
   const tableResults = {};
@@ -339,7 +360,7 @@ const main = async () => {
   }
   await runUploads(entries);
   const rewrittenRows = await rewriteWebsiteContent(prepared, entries);
-  await verify(prepared, entries);
+  await verify(prepared, entries, baseline);
 
   console.log('Production data promotion completed and verified.');
   console.log(`Auth created: ${authResult.created}`);
