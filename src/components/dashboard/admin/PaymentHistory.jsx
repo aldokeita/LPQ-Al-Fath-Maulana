@@ -1,9 +1,9 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/customSupabaseClient';
-import { Trash2, Search, AlertTriangle, Edit, FileText } from 'lucide-react';
+import { Trash2, Search, AlertTriangle, Edit, FileText, Download, Loader2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -12,6 +12,12 @@ import EditPaymentModal from './EditPaymentModal';
 import PaymentProofModal from './PaymentProofModal';
 import { AnimatePresence, motion } from 'framer-motion';
 import { PAYMENT_DETAIL_SELECT, getPaymentErrorMessage, monthNumberToName } from '@/lib/paymentAdapters';
+import DataPagination from '@/components/dashboard/shared/DataPagination';
+import * as XLSX from 'xlsx';
+
+const PAGE_SIZE = 50;
+const BACKUP_PAGE_SIZE = 1000;
+const PAYMENT_DETAIL_INNER_SELECT = PAYMENT_DETAIL_SELECT.replace('santri:santri_id(', 'santri:santri_id!inner(');
 
 const DeleteConfirmationDialog = ({ open, onOpenChange, onConfirm, count }) => (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -35,8 +41,12 @@ const DeleteConfirmationDialog = ({ open, onOpenChange, onConfirm, count }) => (
 const PaymentHistory = () => {
     const [payments, setPayments] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [isBackingUp, setIsBackingUp] = useState(false);
     const [error, setError] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
+    const [debouncedSearch, setDebouncedSearch] = useState('');
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalPayments, setTotalPayments] = useState(0);
     const [selectedPayments, setSelectedPayments] = useState(new Set());
     const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
     const [filter, setFilter] = useState({ year: 'all', month: 'all' });
@@ -52,18 +62,24 @@ const PaymentHistory = () => {
     const years = [2027, 2026, 2025, 2024, 2023, 2022];
     const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
 
-    const fetchPayments = async () => {
+    const fetchPayments = useCallback(async () => {
         setIsLoading(true);
         setError(null);
 
         try {
+            const from = (currentPage - 1) * PAGE_SIZE;
+            const to = from + PAGE_SIZE - 1;
+            const normalizedSearch = debouncedSearch.replace(/[%_,().]/g, ' ').trim();
             let query = supabase
                 .from('payments')
-                .select(PAYMENT_DETAIL_SELECT, { count: 'exact' })
+                .select(normalizedSearch ? PAYMENT_DETAIL_INNER_SELECT : PAYMENT_DETAIL_SELECT, { count: 'exact' })
                 .order('created_at', { ascending: false });
 
-            // Execute the query
-            const { data, error: queryError } = await query;
+            if (normalizedSearch) query = query.ilike('santri.nama_lengkap', `%${normalizedSearch}%`);
+            if (filter.year !== 'all') query = query.eq('tahun', filter.year);
+            if (filter.month !== 'all') query = query.eq('bulan', filter.month + 1);
+
+            const { data, count, error: queryError } = await query.range(from, to);
 
             if (queryError) {
                 setError(queryError.message);
@@ -73,19 +89,34 @@ const PaymentHistory = () => {
             }
 
             setPayments(data || []);
+            setTotalPayments(count || 0);
+
+            const totalPages = Math.max(1, Math.ceil((count || 0) / PAGE_SIZE));
+            if (currentPage > totalPages) setCurrentPage(totalPages);
 
         } catch (err) {
             setError(err.message);
             toast({ title: 'Error', description: err.message, variant: 'destructive' });
             setPayments([]);
+            setTotalPayments(0);
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [currentPage, debouncedSearch, filter.month, filter.year]);
 
     useEffect(() => {
         fetchPayments();
-    }, []);
+    }, [fetchPayments]);
+
+    useEffect(() => {
+        const timer = window.setTimeout(() => setDebouncedSearch(searchTerm.trim()), 300);
+        return () => window.clearTimeout(timer);
+    }, [searchTerm]);
+
+    useEffect(() => {
+        setCurrentPage(1);
+        setSelectedPayments(new Set());
+    }, [debouncedSearch, filter.month, filter.year]);
 
     const handleEditClick = (payment) => {
         setEditingPayment(payment);
@@ -100,23 +131,6 @@ const PaymentHistory = () => {
     const onPaymentUpdated = () => {
         fetchPayments();
     };
-
-    // UI-level client-side filtering for search & dates
-    const filteredPayments = useMemo(() => {
-        if (!payments) return [];
-        return payments.filter(p => {
-            const nameMatch = p.santri?.nama_lengkap?.toLowerCase().includes(searchTerm.toLowerCase());
-
-            const safeDate = p.tanggal_pembayaran ? new Date(p.tanggal_pembayaran) : new Date(p.created_at || Date.now());
-            const billingYear = p.tahun || safeDate.getFullYear();
-            const billingMonthIndex = p.bulan ? Number(p.bulan) - 1 : safeDate.getMonth();
-
-            const yearMatch = filter.year === 'all' || billingYear === filter.year;
-            const monthMatch = filter.month === 'all' || billingMonthIndex === filter.month;
-
-            return nameMatch && yearMatch && monthMatch;
-        });
-    }, [payments, searchTerm, filter]);
 
     const confirmDelete = () => {
         if (selectedPayments.size === 0) return;
@@ -147,15 +161,100 @@ const PaymentHistory = () => {
 
     const handleSelectAll = (isChecked) => {
         if (isChecked) {
-            setSelectedPayments(new Set(filteredPayments.map(p => p.id)));
+            setSelectedPayments(new Set(payments.map(p => p.id)));
         } else {
             setSelectedPayments(new Set());
         }
     };
 
+    const handleBackup = async () => {
+        setIsBackingUp(true);
+        try {
+            const allPayments = [];
+            let page = 0;
+
+            while (true) {
+                const from = page * BACKUP_PAGE_SIZE;
+                const to = from + BACKUP_PAGE_SIZE - 1;
+                const { data, error: backupError } = await supabase
+                    .from('payments')
+                    .select(PAYMENT_DETAIL_SELECT)
+                    .order('created_at', { ascending: true })
+                    .range(from, to);
+
+                if (backupError) throw backupError;
+                allPayments.push(...(data || []));
+                if (!data || data.length < BACKUP_PAGE_SIZE) break;
+                page += 1;
+            }
+
+            if (allPayments.length === 0) {
+                toast({ title: 'Backup kosong', description: 'Belum ada riwayat pembayaran untuk dicadangkan.' });
+                return;
+            }
+
+            const exportRows = allPayments.map((payment, index) => ({
+                No: index + 1,
+                ID_Pembayaran: payment.id,
+                ID_Santri: payment.santri_id,
+                Nomor_Induk_Qiroati: payment.santri?.nomor_induk_qiroati || '',
+                Nama_Santri: payment.santri?.nama_lengkap || 'Santri Dihapus',
+                Kategori: payment.santri?.kategori || '',
+                Bulan_Tagihan: payment.bulan ? monthNumberToName(payment.bulan) : '',
+                Nomor_Bulan: payment.bulan || '',
+                Tahun_Tagihan: payment.tahun || '',
+                Jumlah: Number(payment.jumlah || 0),
+                Tanggal_Pembayaran: payment.tanggal_pembayaran || '',
+                Metode_Pembayaran: payment.metode_pembayaran || '',
+                Status: payment.status || '',
+                Catatan: payment.catatan || '',
+                ID_Transaksi: payment.transaction_id || '',
+                Dibuat_Pada: payment.created_at || '',
+            }));
+
+            const worksheet = XLSX.utils.json_to_sheet(exportRows);
+            worksheet['!cols'] = [
+                { wch: 6 }, { wch: 38 }, { wch: 38 }, { wch: 22 }, { wch: 28 }, { wch: 14 },
+                { wch: 16 }, { wch: 12 }, { wch: 14 }, { wch: 16 }, { wch: 20 }, { wch: 20 },
+                { wch: 12 }, { wch: 40 }, { wch: 38 }, { wch: 24 },
+            ];
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, 'Riwayat Pembayaran');
+            const dateStamp = new Date().toISOString().slice(0, 10);
+            XLSX.writeFile(workbook, `Backup_Riwayat_Pembayaran_${dateStamp}.xlsx`);
+
+            toast({
+                title: 'Backup berhasil',
+                description: `${allPayments.length.toLocaleString('id-ID')} riwayat pembayaran telah diunduh dalam format Excel.`,
+            });
+        } catch (backupError) {
+            toast({
+                title: 'Backup gagal',
+                description: getPaymentErrorMessage(backupError),
+                variant: 'destructive',
+            });
+        } finally {
+            setIsBackingUp(false);
+        }
+    };
+
     return (
         <div className="space-y-6">
-            <div className="admin-panel-header"><div className="flex items-center gap-3"><div className="admin-panel-header-icon"><FileText /></div><div className="admin-panel-header-text"><h2>Riwayat Pembayaran Santri</h2><p>Total {payments.length} records pembayaran</p></div></div></div>
+            <div className="admin-panel-header">
+                <div className="flex items-center gap-3">
+                    <div className="admin-panel-header-icon"><FileText /></div>
+                    <div className="admin-panel-header-text">
+                        <h2>Riwayat Pembayaran Santri</h2>
+                        <p>Total {totalPayments.toLocaleString('id-ID')} riwayat pembayaran</p>
+                    </div>
+                </div>
+                <div className="admin-panel-header-actions">
+                    <Button type="button" variant="outline" onClick={handleBackup} disabled={isBackingUp}>
+                        {isBackingUp ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+                        {isBackingUp ? 'Menyiapkan Backup...' : 'Backup Excel'}
+                    </Button>
+                </div>
+            </div>
 
             {error && (
                 <div className="bg-red-50 border border-red-200 rounded-2xl p-6 mb-4 shadow-xl">
@@ -167,11 +266,7 @@ const PaymentHistory = () => {
                 </div>
             )}
 
-            <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
-                <div className="space-y-1">
-                    <h2 className="text-2xl font-bold text-accent-foreground">Riwayat Pembayaran Santri</h2>
-                    <p className="text-sm text-muted-foreground">Total Records Fetched: {payments.length}</p>
-                </div>
+            <div className="flex flex-col md:flex-row justify-end md:items-center gap-4">
                 <div className="flex gap-2">
                     {selectedPayments.size > 0 && (
                         <Button variant="destructive" onClick={confirmDelete}>
@@ -211,7 +306,7 @@ const PaymentHistory = () => {
                         <tr>
                             <th className="p-3 text-left w-12">
                                 <Checkbox
-                                    checked={selectedPayments.size === filteredPayments.length && filteredPayments.length > 0}
+                                    checked={selectedPayments.size === payments.length && payments.length > 0}
                                     onCheckedChange={handleSelectAll}
                                 />
                             </th>
@@ -229,14 +324,14 @@ const PaymentHistory = () => {
                         <AnimatePresence>
                             {isLoading ? (
                                 <tr><td colSpan="9" className="text-center p-4 text-muted-foreground">Memuat data...</td></tr>
-                            ) : filteredPayments.length === 0 ? (
+                            ) : payments.length === 0 ? (
                                 <tr>
                                     <td colSpan="9" className="text-center p-8 text-muted-foreground bg-gray-50/50">
                                         <p className="text-gray-600">Tidak ada riwayat pembayaran yang ditemukan.</p>
                                     </td>
                                 </tr>
                             ) : (
-                                filteredPayments.map((p) => (
+                                payments.map((p) => (
                                     <motion.tr
                                         key={p.id}
                                         layout
@@ -292,8 +387,18 @@ const PaymentHistory = () => {
                             )}
                         </AnimatePresence>
                     </tbody>
-                </table>
-</div>
+                    </table>
+                </div>
+                <DataPagination
+                    currentPage={currentPage}
+                    totalItems={totalPayments}
+                    pageSize={PAGE_SIZE}
+                    onPageChange={(page) => {
+                        setCurrentPage(page);
+                        setSelectedPayments(new Set());
+                    }}
+                    itemLabel="pembayaran"
+                />
             </div>
 
             <DeleteConfirmationDialog
