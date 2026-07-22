@@ -90,7 +90,7 @@ Deno.serve(async (req) => {
 
       const authEmail = role === "santri"
         ? `pending+${crypto.randomUUID()}@auth.lpqalfathmaulana.local`
-        : requireString(profile.email, "Email");
+        : normalizeEmail(requireString(profile.email, "Email"));
 
       const { data: created, error: createError } = await admin.auth.admin.createUser({
         email: authEmail,
@@ -117,7 +117,7 @@ Deno.serve(async (req) => {
         display_name: displayName,
         email: role === "santri" ? null : finalEmail,
         phone: profile.no_hp ?? profile.no_hp_ortu ?? null,
-        status: "active",
+        status: role === "santri" ? "active" : (profile.status ?? "active"),
         created_by: user.id,
         updated_by: user.id,
       });
@@ -180,6 +180,7 @@ Deno.serve(async (req) => {
           }
         }
       } else {
+        const guruStatus = profile.status ?? "active";
         const { error: guruError } = await admin.from("guru").insert({
           id: userId,
           nama: displayName,
@@ -188,9 +189,14 @@ Deno.serve(async (req) => {
           alamat: profile.alamat ?? null,
           foto_url: profile.avatar_path ? null : (profile.foto_url ?? null),
           avatar_path: profile.avatar_path ?? null,
+          rfid_tag: profile.rfid_tag ?? null,
           jabatan: profile.jabatan ?? null,
           roles: sanitizeGuruRoles(profile.roles, role),
-          status: "active",
+          is_notulen: Boolean(profile.is_notulen),
+          jenis_kelamin: profile.jenis_kelamin ?? null,
+          tanggal_lahir: profile.tanggal_lahir ?? null,
+          status_guru: profile.status_guru ?? null,
+          status: guruStatus,
           created_by: user.id,
           updated_by: user.id,
         });
@@ -416,34 +422,63 @@ Deno.serve(async (req) => {
     }
 
     const displayName = requireString(profile.nama ?? profile.display_name, "Nama");
+    const nextEmail = normalizeEmail(requireString(profile.email, "Email"));
     const nextRole = role === "pentashih" ? "pentashih" : "guru";
+    if (nextEmail === OFFICIAL_ADMIN_EMAIL) {
+      return fail(req, "OFFICIAL_ADMIN_EMAIL_RESERVED", "Email admin resmi tidak dapat digunakan oleh akun guru.", 409);
+    }
     const authUser = await admin.auth.admin.getUserById(targetUserId);
     if (authUser.error || !authUser.data.user) {
       return fail(req, "AUTH_USER_NOT_FOUND", "Akun Auth target tidak ditemukan.", 404);
     }
 
     const previousMetadata = authUser.data.user.user_metadata ?? {};
+    const previousEmail = authUser.data.user.email;
     const authUpdate = await admin.auth.admin.updateUserById(targetUserId, {
+      email: nextEmail,
+      email_confirm: true,
       user_metadata: { ...previousMetadata, role: nextRole, display_name: displayName },
     });
     if (authUpdate.error) {
-      return fail(req, "AUTH_ROLE_UPDATE_FAILED", "Role akun Auth gagal diperbarui.", 400);
+      return fail(req, "AUTH_ACCOUNT_UPDATE_FAILED", "Identitas login guru gagal diperbarui.", 400);
     }
 
-    const { data: updatedProfile, error: profileUpdateError } = await admin
-      .from("user_profiles")
-      .update({
-        role: nextRole,
-        display_name: displayName,
-        updated_by: user.id,
-      })
-      .eq("id", targetUserId)
-      .select("id")
-      .maybeSingle();
+    const normalizedProfile = {
+      ...profile,
+      nama: displayName,
+      email: nextEmail,
+      roles: sanitizeGuruRoles(profile.roles, nextRole),
+    };
+    const { data: updatedAccount, error: accountUpdateError } = await admin.rpc("update_guru_account", {
+      p_target_id: targetUserId,
+      p_role: nextRole,
+      p_profile: normalizedProfile,
+      p_actor_id: user.id,
+    });
 
-    if (profileUpdateError || !updatedProfile) {
-      await admin.auth.admin.updateUserById(targetUserId, { user_metadata: previousMetadata });
-      return fail(req, "PROFILE_ROLE_UPDATE_FAILED", "Role profil akun gagal diperbarui.", 400);
+    if (accountUpdateError || !updatedAccount?.length) {
+      const rollbackResult = previousEmail
+        ? await admin.auth.admin.updateUserById(targetUserId, {
+          email: previousEmail,
+          email_confirm: true,
+          user_metadata: previousMetadata,
+        })
+        : await admin.auth.admin.updateUserById(targetUserId, {
+          user_metadata: previousMetadata,
+        });
+      if (rollbackResult.error) {
+        logSafe("error", "manage_user_auth_rollback_failed", {
+          request_id: rid,
+          target_user_id: targetUserId,
+        });
+        return fail(
+          req,
+          "GURU_ACCOUNT_ROLLBACK_FAILED",
+          "Data guru tidak disimpan, tetapi identitas login perlu dipulihkan oleh pengelola sistem.",
+          500,
+        );
+      }
+      return fail(req, "GURU_ACCOUNT_UPDATE_FAILED", "Data akun guru gagal diperbarui. Tidak ada perubahan yang disimpan.", 400);
     }
 
     return ok(req, { user_id: targetUserId, role: nextRole, updated: true });
