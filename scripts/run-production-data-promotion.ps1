@@ -2,6 +2,7 @@ param(
   [switch]$Resume,
   [switch]$SourceBoundaryApproved,
   [string]$BootstrapAdminEmail = "admin@lpqalfathmaulana.id",
+  [string]$CredentialPath = (Join-Path $env:USERPROFILE "Downloads\LPQ-Al-Fath-Maulana-production-initial-login-credentials.json"),
   [string]$ProjectRef = $env:LPQ_PRODUCTION_PROJECT_REF
 )
 
@@ -29,6 +30,7 @@ try {
   $env:PRODUCTION_IMPORT_CONFIRMATION = $confirmation
   $env:PRODUCTION_IMPORT_SOURCE_BOUNDARY_APPROVED = if ($SourceBoundaryApproved) { "true" } else { "false" }
   $env:LPQ_BOOTSTRAP_ADMIN_EMAIL = $BootstrapAdminEmail
+  $env:LPQ_PRODUCTION_CREDENTIAL_PATH = $CredentialPath
 
   & node (Join-Path $PSScriptRoot "promote-staging-production-data.mjs")
   if ($LASTEXITCODE -ne 0) {
@@ -44,6 +46,7 @@ finally {
   Remove-Item Env:PRODUCTION_IMPORT_CONFIRMATION -ErrorAction SilentlyContinue
   Remove-Item Env:PRODUCTION_IMPORT_SOURCE_BOUNDARY_APPROVED -ErrorAction SilentlyContinue
   Remove-Item Env:LPQ_BOOTSTRAP_ADMIN_EMAIL -ErrorAction SilentlyContinue
+  Remove-Item Env:LPQ_PRODUCTION_CREDENTIAL_PATH -ErrorAction SilentlyContinue
   if ($secretPointer -ne [IntPtr]::Zero) {
     [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($secretPointer)
   }
