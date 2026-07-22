@@ -18,6 +18,22 @@ function copyIfPresent(source: Record<string, unknown>, target: Record<string, u
   if (hasOwn(source, key)) target[key] = source[key] ?? null;
 }
 
+const OFFICIAL_ADMIN_EMAIL = "admin@lpqalfathmaulana.id";
+
+function normalizeEmail(value: unknown): string {
+  return String(value ?? "").trim().toLowerCase();
+}
+
+function sanitizeGuruRoles(value: unknown, role: "guru" | "pentashih"): string[] {
+  const roles = Array.isArray(value)
+    ? value
+      .map((item) => String(item).trim())
+      .filter((item) => item && item.toLowerCase() !== "admin" && item.toLowerCase() !== "pentashih")
+    : [];
+  if (role === "pentashih") roles.push("Pentashih");
+  return Array.from(new Set(roles));
+}
+
 function normalizeSantriCategory(value: unknown): "Anak" | "PTPT" | "Dewasa" {
   const normalized = String(value ?? "Anak").trim().toLowerCase();
   if (normalized === "anak" || normalized === "tpq") return "Anak";
@@ -173,7 +189,7 @@ Deno.serve(async (req) => {
           foto_url: profile.avatar_path ? null : (profile.foto_url ?? null),
           avatar_path: profile.avatar_path ?? null,
           jabatan: profile.jabatan ?? null,
-          roles: role === "pentashih" ? ["Pentashih"] : [],
+          roles: sanitizeGuruRoles(profile.roles, role),
           status: "active",
           created_by: user.id,
           updated_by: user.id,
@@ -189,6 +205,20 @@ Deno.serve(async (req) => {
     }
 
     const targetUserId = requireString(body.target_user_id, "Target user id");
+
+    const { data: targetProfile, error: targetProfileError } = await admin
+      .from("user_profiles")
+      .select("email, role, display_name")
+      .eq("id", targetUserId)
+      .maybeSingle();
+
+    if (targetProfileError || !targetProfile) {
+      return fail(req, "TARGET_NOT_FOUND", "Akun target tidak ditemukan.", 404);
+    }
+
+    if (normalizeEmail(targetProfile.email) === OFFICIAL_ADMIN_EMAIL) {
+      return fail(req, "OFFICIAL_ADMIN_PROTECTED", "Akun admin resmi tidak dapat diubah melalui pengelolaan guru atau santri.", 403);
+    }
 
     const isSantriArchive = role === "santri" && ["deactivate", "archive"].includes(action);
     const isSantriRestore = role === "santri" && action === "restore";
@@ -385,12 +415,38 @@ Deno.serve(async (req) => {
       return ok(req, { user_id: targetUserId, updated: true });
     }
 
-    await admin.from("user_profiles").update({
-      display_name: body.profile?.display_name,
-      updated_by: user.id,
-    }).eq("id", targetUserId);
+    const displayName = requireString(profile.nama ?? profile.display_name, "Nama");
+    const nextRole = role === "pentashih" ? "pentashih" : "guru";
+    const authUser = await admin.auth.admin.getUserById(targetUserId);
+    if (authUser.error || !authUser.data.user) {
+      return fail(req, "AUTH_USER_NOT_FOUND", "Akun Auth target tidak ditemukan.", 404);
+    }
 
-    return ok(req, { user_id: targetUserId, updated: true });
+    const previousMetadata = authUser.data.user.user_metadata ?? {};
+    const authUpdate = await admin.auth.admin.updateUserById(targetUserId, {
+      user_metadata: { ...previousMetadata, role: nextRole, display_name: displayName },
+    });
+    if (authUpdate.error) {
+      return fail(req, "AUTH_ROLE_UPDATE_FAILED", "Role akun Auth gagal diperbarui.", 400);
+    }
+
+    const { data: updatedProfile, error: profileUpdateError } = await admin
+      .from("user_profiles")
+      .update({
+        role: nextRole,
+        display_name: displayName,
+        updated_by: user.id,
+      })
+      .eq("id", targetUserId)
+      .select("id")
+      .maybeSingle();
+
+    if (profileUpdateError || !updatedProfile) {
+      await admin.auth.admin.updateUserById(targetUserId, { user_metadata: previousMetadata });
+      return fail(req, "PROFILE_ROLE_UPDATE_FAILED", "Role profil akun gagal diperbarui.", 400);
+    }
+
+    return ok(req, { user_id: targetUserId, role: nextRole, updated: true });
   } catch (error) {
     logSafe("error", "manage_user_error", { request_id: rid, message: String(error) });
     if (String(error).includes("FORBIDDEN")) return fail(req, "FORBIDDEN", "Akses ditolak.", 403);

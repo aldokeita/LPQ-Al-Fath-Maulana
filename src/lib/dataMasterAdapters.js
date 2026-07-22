@@ -89,8 +89,8 @@ export const pickGuruProfileFields = (input, role = 'guru') => ({
   rfid_tag: input.rfid_tag || null,
   jabatan: input.jabatan || null,
   roles: role === 'pentashih'
-    ? Array.from(new Set([...(input.roles || []), 'Pentashih']))
-    : (input.roles || []).filter((item) => item !== 'Pentashih'),
+    ? Array.from(new Set([...(input.roles || []).filter((item) => item !== 'Admin'), 'Pentashih']))
+    : (input.roles || []).filter((item) => !['Admin', 'Pentashih'].includes(item)),
   is_notulen: Boolean(input.is_notulen),
   jenis_kelamin: input.jenis_kelamin || null,
   tanggal_lahir: input.tanggal_lahir || null,

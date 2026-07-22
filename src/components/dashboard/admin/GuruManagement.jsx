@@ -20,7 +20,7 @@ import { getStorageErrorMessage, resolveAvatarRecords, uploadAvatar } from '@/li
 import { getBirthdaysThisMonth } from '@/lib/birthdayUtils';
 import { invokeAuthenticatedEdgeFunction } from '@/lib/edgeFunctionAdapters';
 
-const AVAILABLE_ROLES = ['Pengajar', 'Pentashih', 'Staff Operasional', 'Admin'];
+const AVAILABLE_ROLES = ['Pengajar', 'Pentashih', 'Staff Operasional'];
 
 const GuruManagement = () => {
   const [guruList, setGuruList] = useState([]);
@@ -265,7 +265,7 @@ const GuruManagement = () => {
 
     setIsSubmitting(true);
     let userId = editingGuru?.id;
-    const requiresAuthEdgeFunction = !editingGuru;
+    const requiresAuthEdgeFunction = true;
     const requiresPasswordReset = Boolean(editingGuru && formData.password);
     if ((requiresAuthEdgeFunction || requiresPasswordReset) && !enableEdgeFunctions) {
         toast({ title: "Fitur belum aktif", description: edgeFunctionDisabledMessage, variant: "destructive" });
@@ -288,6 +288,19 @@ const GuruManagement = () => {
             throw new Error(data?.error?.message || 'Akun guru/pentashih gagal dibuat.');
           }
           userId = data.data.user_id;
+        } else {
+          const { data, error } = await supabase.functions.invoke('manage-user', {
+            body: {
+              action: 'update',
+              role: operationalRole,
+              target_user_id: userId,
+              profile: pickGuruProfileFields(formData, operationalRole),
+            },
+          });
+          if (error) throw error;
+          if (!data?.ok) {
+            throw new Error(data?.error?.message || 'Role akun guru gagal diperbarui.');
+          }
         }
 
         if (!userId) {

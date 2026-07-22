@@ -240,7 +240,6 @@ const normalizeCategory = (value) => {
 };
 const normalizeRole = (guru) => {
   const roles = Array.isArray(guru.roles) ? guru.roles.map(normLower) : [];
-  if (roles.includes('admin')) return 'admin';
   if (roles.includes('pentashih')) return 'pentashih';
   return 'guru';
 };
@@ -280,7 +279,9 @@ const guru = guruSource.map((row) => {
     avatar_path: isFilled(row.foto_url) ? `guru/${row.id}/profile.webp` : null,
     rfid_tag: isFilled(row.rfid_tag) ? norm(row.rfid_tag) : null,
     jabatan: isFilled(row.jabatan) ? row.jabatan : null,
-    roles: Array.isArray(row.roles) ? row.roles : [],
+    roles: Array.isArray(row.roles)
+      ? row.roles.filter((role) => normLower(role) !== 'admin')
+      : [],
     is_notulen: asBoolean(row.is_notulen),
     jenis_kelamin: isFilled(row.jenis_kelamin) ? row.jenis_kelamin : null,
     tanggal_lahir: dateOnly(row.tanggal_lahir),
