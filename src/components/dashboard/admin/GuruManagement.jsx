@@ -299,7 +299,7 @@ const GuruManagement = () => {
           });
           if (error) throw error;
           if (!data?.ok) {
-            throw new Error(data?.error?.message || 'Role akun guru gagal diperbarui.');
+            throw new Error(data?.error?.message || 'Data akun guru gagal diperbarui.');
           }
         }
 
@@ -315,15 +315,6 @@ const GuruManagement = () => {
           if (!resetData?.ok) {
             throw new Error(resetData?.error?.message || 'Password Auth guru gagal direset.');
           }
-        }
-
-        const dataToSubmit = { ...pickGuruProfileFields(formData, operationalRole), id: userId };
-
-        const { error: profileError } = await supabase.from('guru').upsert(dataToSubmit);
-
-        if (profileError) {
-            console.error("Database Upsert Error:", profileError);
-            throw new Error(profileError.message);
         }
 
         toast({ title: "Berhasil!", description: requiresPasswordReset ? "Data dan password Auth guru berhasil diperbarui." : "Data guru berhasil disimpan." });
