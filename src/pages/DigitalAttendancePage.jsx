@@ -649,7 +649,15 @@ const DigitalAttendancePage = () => {
              const { data } = await supabase.from('attendance').select('*').eq('user_id', user.id).eq('attendance_date', todayStr).eq('sesi', sesiUser).maybeSingle();
              existingAttendance = data;
         } else {
-             const { data } = await supabase.from('attendance').select('*').eq('user_id', user.id).eq('attendance_date', todayStr).eq('sesi', sesiUser).maybeSingle();
+             const { data } = await supabase
+               .from('attendance')
+               .select('*')
+               .eq('user_id', user.id)
+               .eq('attendance_date', todayStr)
+               .order('check_in_timestamp', { ascending: true, nullsFirst: false })
+               .order('created_at', { ascending: true })
+               .limit(1)
+               .maybeSingle();
              existingAttendance = data;
         }
 

@@ -21,7 +21,7 @@ export const getLocalDateString = (date = new Date()) => getJakartaDateString(da
 export const getLocalTimeString = (date = new Date()) => getJakartaTimeString(date);
 
 export const getSantriSession = (santri, fallback = 'Pagi') => (
-    santri?.sesi_mengaji || santri?.class?.sesi || fallback
+    normalizeAttendanceSessionName(santri?.sesi_mengaji || santri?.class?.sesi || fallback)
 );
 
 export const buildSantriAttendancePayload = ({ santri, timestamp = new Date(), status = null, attendedSession = null }) => {
@@ -57,8 +57,12 @@ export const getSantriAttendanceSuccessMessage = ({ assignedSession, attendedSes
 
 export const getAttendanceErrorMessage = (error) => {
     const message = String(error?.message || '');
-    if (error?.code === '23505' || message.includes('attendance_user_date_sesi_unique')) {
-        return 'Santri sudah tercatat hadir pada sesi ini.';
+    if (
+        error?.code === '23505'
+        || message.includes('attendance_user_date_sesi_unique')
+        || message.includes('attendance_santri_first_daily_unique')
+    ) {
+        return 'Absensi santri hari ini sudah tercatat.';
     }
     if (error?.code === '42501' || message.toLowerCase().includes('row-level security')) {
         return 'Anda tidak memiliki akses untuk mencatat absensi santri ini.';

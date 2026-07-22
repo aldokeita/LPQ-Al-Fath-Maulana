@@ -227,12 +227,20 @@ const DigitalAttendance = () => {
 
             if (!user) { setLastScan({ type: 'error', message: 'RFID tidak dikenal. Tidak ada absensi yang dibuat.', name: 'Tidak Dikenal' }); return; }
 
-            const { data: existingAttendance } = await supabase
+            let existingAttendanceQuery = supabase
                 .from('attendance')
                 .select('id, check_in_time, check_in_timestamp, status')
                 .eq('user_id', user.id)
-                .eq('attendance_date', today)
-                .eq('sesi', sesiUser)
+                .eq('attendance_date', today);
+
+            if (userRole === 'guru') {
+                existingAttendanceQuery = existingAttendanceQuery.eq('sesi', sesiUser);
+            }
+
+            const { data: existingAttendance } = await existingAttendanceQuery
+                .order('check_in_timestamp', { ascending: true, nullsFirst: false })
+                .order('created_at', { ascending: true })
+                .limit(1)
                 .maybeSingle();
 
             const shouldRestoreAbsentAttendance = userRole === 'santri'
