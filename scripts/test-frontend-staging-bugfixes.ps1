@@ -164,6 +164,22 @@ Add-Check "santri form assigns active class for digital attendance" {
   if ($component -notmatch "Penempatan kelas awal dari Data Santri") { throw "initial class assignment reason is missing" }
 }
 
+Add-Check "guru dashboard restores scoped class transfer action" {
+  $dashboard = Read-Text "src/components/dashboard/GuruDashboard.jsx"
+  $modal = Read-Text "src/components/dashboard/guru/StudentTransferModal.jsx"
+  $migration = Read-Text "supabase/migrations/20260723000100_guru_student_class_transfer.sql"
+
+  if ($dashboard -notmatch "StudentTransferModal") { throw "guru transfer modal is not mounted" }
+  if ($dashboard -notmatch "openTransferModal\(santri\)") { throw "transfer action is not wired to each santri row" }
+  if ($dashboard -notmatch 'aria-label=\{`Transfer \$\{santri\.nama_lengkap\} ke kelas lain`\}') { throw "icon-only transfer action has no accessible name" }
+  if ($dashboard -notmatch 'guru-transfer-action') { throw "icon-only transfer action style is missing" }
+  if ($modal -notmatch "list_guru_transfer_destinations") { throw "transfer modal does not use scoped destination RPC" }
+  if ($modal -notmatch "move_santri_to_class_by_guru") { throw "transfer modal does not use guru-scoped transfer RPC" }
+  if ($modal -notmatch "PGRST202" -or $modal -notmatch "Pembaruan database untuk transfer kelas belum diterapkan") { throw "missing RPC error is not translated into an actionable message" }
+  if ($migration -notmatch "v_active_membership\.id_guru is distinct from v_actor") { throw "transfer RPC does not verify the source teacher" }
+  if ($migration -notmatch "kategori yang sama") { throw "transfer RPC does not enforce matching class category" }
+}
+
 Add-Check "attendance recap can mark present records as absent" {
   $text = Read-Text "src/components/dashboard/shared/AttendanceDetailsModal.jsx"
   if ($text -notmatch "handleMarkAbsent") { throw "mark absent handler missing" }

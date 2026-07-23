@@ -24,13 +24,15 @@ function normalizeEmail(value: unknown): string {
   return String(value ?? "").trim().toLowerCase();
 }
 
-function sanitizeGuruRoles(value: unknown, role: "guru" | "pentashih"): string[] {
-  const roles = Array.isArray(value)
+function sanitizeGuruRoles(value: unknown, role: "admin" | "guru" | "pentashih"): string[] {
+  const requestedRoles = Array.isArray(value)
     ? value
       .map((item) => String(item).trim())
-      .filter((item) => item && item.toLowerCase() !== "admin" && item.toLowerCase() !== "pentashih")
+      .filter(Boolean)
     : [];
-  if (role === "pentashih") roles.push("Pentashih");
+  const roles = requestedRoles.filter((item) => !["admin", "pentashih"].includes(item.toLowerCase()));
+  if (requestedRoles.some((item) => item.toLowerCase() === "pentashih")) roles.push("Pentashih");
+  if (role === "admin") roles.push("Admin");
   return Array.from(new Set(roles));
 }
 
@@ -423,7 +425,7 @@ Deno.serve(async (req) => {
 
     const displayName = requireString(profile.nama ?? profile.display_name, "Nama");
     const nextEmail = normalizeEmail(requireString(profile.email, "Email"));
-    const nextRole = role === "pentashih" ? "pentashih" : "guru";
+    const nextRole = role === "admin" ? "admin" : (role === "pentashih" ? "pentashih" : "guru");
     if (nextEmail === OFFICIAL_ADMIN_EMAIL) {
       return fail(req, "OFFICIAL_ADMIN_EMAIL_RESERVED", "Email admin resmi tidak dapat digunakan oleh akun guru.", 409);
     }

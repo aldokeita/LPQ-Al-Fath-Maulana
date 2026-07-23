@@ -18,8 +18,8 @@ export function requireString(value: unknown, label: string): string {
   return value.trim();
 }
 
-export function validateRole(value: unknown): "guru" | "santri" | "pentashih" {
-  if (value === "guru" || value === "santri" || value === "pentashih") return value;
+export function validateRole(value: unknown): "admin" | "guru" | "santri" | "pentashih" {
+  if (value === "admin" || value === "guru" || value === "santri" || value === "pentashih") return value;
   throw new Error("Role target tidak valid.");
 }
 
