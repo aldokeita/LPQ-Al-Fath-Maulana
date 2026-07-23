@@ -57,6 +57,7 @@ const RandomNamePage = () => {
     const [finalSelected, setFinalSelected] = useState(null);
     const [isLoadingData, setIsLoadingData] = useState(true);
     const [isShuffling, setIsShuffling] = useState(false);
+    const [isUpdatingPoints, setIsUpdatingPoints] = useState(false);
 
     // Search State
     const [searchTerm, setSearchTerm] = useState("");
@@ -220,17 +221,23 @@ const RandomNamePage = () => {
 
     // --- Points Logic ---
     const updatePoints = async (amount) => {
-        if (!finalSelected) return;
+        if (!finalSelected || isUpdatingPoints) return;
 
+        setIsUpdatingPoints(true);
         try {
-            const { error } = await supabase.rpc('increment_santri_points', {
+            const previousPoints = Number(finalSelected.points) || 0;
+            const { data, error } = await supabase.rpc('increment_santri_points', {
                 p_santri_id: finalSelected.id,
                 p_amount: amount
             });
 
             if (error) throw error;
 
-            const updatedPoints = (finalSelected.points || 0) + amount;
+            const updatedPoints = Number(data);
+            if (!Number.isInteger(updatedPoints) || updatedPoints < 0) {
+                throw new Error('Nilai poin terbaru tidak valid. Silakan muat ulang halaman.');
+            }
+            const appliedAmount = updatedPoints - previousPoints;
 
             const updatedSantri = { ...finalSelected, points: updatedPoints };
             setFinalSelected(updatedSantri);
@@ -241,13 +248,15 @@ const RandomNamePage = () => {
             const isDeduction = amount < 0;
             toast({
                 title: isDeduction ? "Poin Dikurangi" : "Poin Ditambahkan!",
-                description: `${amount > 0 ? '+' : ''}${amount} Poin untuk ${finalSelected.nama_lengkap}`,
+                description: `${appliedAmount > 0 ? '+' : ''}${appliedAmount} Poin untuk ${finalSelected.nama_lengkap}`,
                 className: isDeduction
                     ? "bg-red-500 text-white border-none shadow-lg"
                     : "bg-gradient-to-r from-green-500 to-emerald-600 text-white border-none shadow-lg"
             });
         } catch (error) {
-            toast({ title: "Gagal", description: error.message, variant: "destructive" });
+            toast({ title: "Gagal memperbarui poin", description: error.message, variant: "destructive" });
+        } finally {
+            setIsUpdatingPoints(false);
         }
     };
 
@@ -607,7 +616,8 @@ const RandomNamePage = () => {
                                                             whileHover={{ scale: 1.05 }}
                                                             whileTap={{ scale: 0.95 }}
                                                             onClick={() => updatePoints(val)}
-                                                            className="relative overflow-hidden group rounded-xl p-3 border border-slate-200 dark:border-white/10 shadow-lg bg-white dark:bg-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
+                                                            disabled={isUpdatingPoints}
+                                                            className="relative overflow-hidden group rounded-xl p-3 border border-slate-200 dark:border-white/10 shadow-lg bg-white dark:bg-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all disabled:cursor-wait disabled:opacity-60"
                                                         >
                                                             <div className={`absolute inset-0 bg-gradient-to-br ${color.from} ${color.to} opacity-10 group-hover:opacity-20 transition-opacity`} />
                                                             <div className="relative z-10 flex flex-col items-center gap-1">
@@ -628,7 +638,8 @@ const RandomNamePage = () => {
                                                             whileHover={{ scale: 1.05 }}
                                                             whileTap={{ scale: 0.95 }}
                                                             onClick={() => updatePoints(val)}
-                                                            className="relative overflow-hidden group rounded-xl p-3 border border-slate-200 dark:border-white/10 shadow-lg bg-white dark:bg-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
+                                                            disabled={isUpdatingPoints}
+                                                            className="relative overflow-hidden group rounded-xl p-3 border border-slate-200 dark:border-white/10 shadow-lg bg-white dark:bg-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all disabled:cursor-wait disabled:opacity-60"
                                                         >
                                                             <div className={`absolute inset-0 bg-gradient-to-br ${color.from} ${color.to} opacity-10 group-hover:opacity-20 transition-opacity`} />
                                                             <div className="relative z-10 flex flex-col items-center gap-1">
