@@ -47,7 +47,8 @@ $expectedNames = @(
   "20260721000500_backend_migration_privileges.sql",
   "20260722000100_restrict_admin_to_official_email.sql",
   "20260722000200_santri_first_attendance_per_day.sql",
-  "20260722000300_atomic_guru_account_update.sql"
+  "20260722000300_atomic_guru_account_update.sql",
+  "20260723000100_guru_student_class_transfer.sql"
 )
 
 $actualNames = $files | ForEach-Object { $_.Name }

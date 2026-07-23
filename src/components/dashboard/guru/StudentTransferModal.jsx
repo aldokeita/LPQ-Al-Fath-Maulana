@@ -27,14 +27,15 @@ const StudentTransferModal = ({ isOpen, onClose, santri, onTransferSuccess }) =>
     const fetchClasses = async () => {
         setIsLoading(true);
         try {
-            const { data, error } = await supabase
-                .from('classes')
-                .select('*, guru:id_guru(nama)')
-                .eq('kategori', santri?.kategori || 'Anak') // Match category
-                .order('nama_kelas', { ascending: true });
+            const { data, error } = await supabase.rpc('list_guru_transfer_destinations', {
+                p_santri_id: santri.id,
+            });
 
             if (error) throw error;
-            setClasses(data || []);
+            setClasses((data || []).map((item) => ({
+                ...item,
+                guru: item.guru_nama ? { nama: item.guru_nama } : null,
+            })));
         } catch (error) {
             toast({ title: 'Gagal memuat kelas', description: error.message, variant: 'destructive' });
         } finally {
@@ -47,7 +48,7 @@ const StudentTransferModal = ({ isOpen, onClose, santri, onTransferSuccess }) =>
         setIsSubmitting(true);
         try {
             const targetClass = classes.find(c => c.id === selectedClassId);
-            const { error } = await supabase.rpc('move_santri_to_class', {
+            const { error } = await supabase.rpc('move_santri_to_class_by_guru', {
                 p_santri_id: santri.id,
                 p_to_class_id: selectedClassId,
                 p_reason: `Mutasi kelas ke ${targetClass?.nama_kelas || 'kelas tujuan'}`
@@ -154,7 +155,7 @@ const StudentTransferModal = ({ isOpen, onClose, santri, onTransferSuccess }) =>
                                     <Badge variant="secondary" className="text-xs font-normal bg-white/50">{currentClassData.sesi}</Badge>
                                 </div>
                             ) : (
-                                <span className="text-muted-foreground italic font-normal">Belum Masuk Kelas</span>
+                                <span className="text-muted-foreground italic font-normal">Kelas saat ini tidak ditemukan</span>
                             )}
                         </div>
                         {currentClassData?.guru?.nama && (
@@ -195,7 +196,7 @@ const StudentTransferModal = ({ isOpen, onClose, santri, onTransferSuccess }) =>
                                                     {cls.sesi}
                                                 </Badge>
                                                 {isSelected && <CheckCircle className="w-5 h-5 text-primary fill-white" />}
-                                                {isCurrent && <Badge variant="secondary" className="text-[10px]">Current</Badge>}
+                                                {isCurrent && <Badge variant="secondary" className="text-[10px]">Kelas saat ini</Badge>}
                                             </div>
 
                                             <div>
@@ -212,6 +213,13 @@ const StudentTransferModal = ({ isOpen, onClose, santri, onTransferSuccess }) =>
                                         </div>
                                     )
                                 })}
+                            </div>
+                        )}
+                        {!isLoading && sortedClasses.length === 0 && (
+                            <div className="rounded-xl border border-dashed border-border bg-background/70 px-6 py-12 text-center">
+                                <School className="mx-auto mb-3 h-9 w-9 text-muted-foreground" />
+                                <p className="font-semibold text-foreground">Belum ada kelas tujuan yang tersedia</p>
+                                <p className="mt-1 text-sm text-muted-foreground">Hubungi admin untuk menambahkan kelas aktif dengan kategori yang sama.</p>
                             </div>
                         )}
                     </div>

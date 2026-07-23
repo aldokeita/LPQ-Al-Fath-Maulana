@@ -710,23 +710,23 @@ try {
     Require-NoRows $rows "soft-deleted expense still active"
   }
 
-  Test-Case "RPC move_santri_to_class hanya admin" {
+  Test-Case "RPC transfer kelas memisahkan akses admin dan guru" {
     Invoke-Rest -Method "POST" -Path "rpc/move_santri_to_class" -Headers $script:AdminHeaders -Body @{
       p_santri_id = $script:SantriId
       p_to_class_id = $script:ClassId
       p_reason = "STAGING_E2E_SAME_CLASS"
     } -Step "admin:move-same-class" | Out-Null
-    try {
-      Invoke-Rest -Method "POST" -Path "rpc/move_santri_to_class" -Headers $script:GuruHeaders -Body @{
-        p_santri_id = $script:SantriId
-        p_to_class_id = $script:ClassId
-        p_reason = "STAGING_E2E_FORBIDDEN"
-      } -Step "guru:move-forbidden" | Out-Null
-      throw "guru move rpc accepted"
-    } catch {
-      if ($_.Exception.Message -eq "guru move rpc accepted") { throw }
-      if ($_.Exception.Message -notmatch "FORBIDDEN|status=403|status=400") { throw }
-    }
+
+    $destinations = Invoke-Rest -Method "POST" -Path "rpc/list_guru_transfer_destinations" -Headers $script:GuruHeaders -Body @{
+      p_santri_id = $script:SantriId
+    } -Step "guru:list-transfer-destinations"
+    if (-not (@($destinations).id -contains $script:ClassId)) { throw "guru transfer destination list is missing the current class" }
+
+    Invoke-Rest -Method "POST" -Path "rpc/move_santri_to_class_by_guru" -Headers $script:GuruHeaders -Body @{
+      p_santri_id = $script:SantriId
+      p_to_class_id = $script:ClassId
+      p_reason = "STAGING_E2E_GURU_SAME_CLASS"
+    } -Step "guru:move-same-class" | Out-Null
   }
 
   Test-Case "avatar signed upload dapat dibuat" {
