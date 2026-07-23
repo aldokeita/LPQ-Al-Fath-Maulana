@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -58,6 +58,51 @@ import { resolveAvatarUrl } from '@/lib/storageAdapters';
 import AttendanceProfileCard from '@/components/dashboard/shared/AttendanceProfileCard';
 import { useAttendanceSessionConfiguration } from '@/hooks/useAttendanceSessionConfiguration';
 import { resolveSantriLevel } from '@/lib/santriLevel';
+import {
+  executeVerifiedAttendanceMutation,
+  getAttendanceRequestErrorMessage,
+  isAttendanceRequestTimeout,
+  withAttendanceRequestTimeout,
+} from '@/lib/attendanceRequest';
+
+const ATTENDANCE_REQUEST_TIMEOUT_MS = 10000;
+const OPTIONAL_DETAILS_TIMEOUT_MS = 6000;
+
+const calculateGuruStreak = (attendanceDates, { includeToday = false } = {}) => {
+  const dates = new Set(attendanceDates || []);
+  const checkDate = new Date();
+  checkDate.setDate(checkDate.getDate() - 1);
+  let streak = 0;
+
+  for (let inspectedDays = 0; inspectedDays < 60; inspectedDays += 1) {
+    const dateStr = checkDate.toLocaleDateString('en-CA');
+    if (dates.has(dateStr)) {
+      streak += 1;
+      checkDate.setDate(checkDate.getDate() - 1);
+      continue;
+    }
+
+    const day = checkDate.getDay();
+    if (day === 0 || day === 6) {
+      checkDate.setDate(checkDate.getDate() - 1);
+      continue;
+    }
+    break;
+  }
+
+  return streak + (includeToday ? 1 : 0);
+};
+
+const AttendanceDetailsStatus = ({ scan }) => {
+  if (!scan?.detailsLoading && !scan?.detailsUnavailable) return null;
+  return (
+    <p className="mt-3 text-center text-xs" style={{ color: 'hsl(var(--att-text-secondary))' }}>
+      {scan.detailsUnavailable
+        ? 'Absensi tersimpan. Detail tambahan belum dapat dimuat.'
+        : 'Absensi tersimpan. Detail tambahan sedang dimuat...'}
+    </p>
+  );
+};
 
 // --- Data (unchanged) ---
 const guruQuotes = [
@@ -289,6 +334,108 @@ const DigitalAttendancePage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [levelConfig, setLevelConfig] = useState(null);
   const inputRef = useRef(null);
+  const scanLockRef = useRef(false);
+  const scanSequenceRef = useRef(0);
+  const activeScanIdRef = useRef(0);
+
+  const isCurrentScan = (scanId) => activeScanIdRef.current === scanId;
+
+  const updateCurrentScan = (scanId, updater) => {
+    if (!isCurrentScan(scanId)) return;
+    setLastScan(current => (isCurrentScan(scanId) ? updater(current) : current));
+  };
+
+  const loadAvatarInBackground = (scanId, avatarOptions) => {
+    resolveAvatarUrl(avatarOptions)
+      .then(photo => {
+        if (!photo) return;
+        updateCurrentScan(scanId, current => (current ? { ...current, photo } : current));
+      })
+      .catch(error => console.warn('Avatar absensi gagal dimuat:', error));
+  };
+
+  const requestAttendanceData = (request, operation, timeoutMs = ATTENDANCE_REQUEST_TIMEOUT_MS) => (
+    withAttendanceRequestTimeout(request, { timeoutMs, operation })
+  );
+
+  const loadPostAttendanceDetails = async ({
+    scanId,
+    user,
+    userRole,
+    isAdult,
+    isPentashih,
+    sesiUser,
+    points,
+    levelInfo,
+  }) => {
+    try {
+      if (userRole === 'santri') {
+        const [monthlyStats, learningHighlights] = await Promise.all([
+          requestAttendanceData(
+            getSantriMonthlyAttendanceStats(user.id),
+            'Pemuatan statistik absensi santri',
+            OPTIONAL_DETAILS_TIMEOUT_MS,
+          ),
+          requestAttendanceData(
+            getSantriLearningHighlights(user.id),
+            'Pemuatan perkembangan belajar santri',
+            OPTIONAL_DETAILS_TIMEOUT_MS,
+          ),
+        ]);
+
+        let adultStats = null;
+        if (isAdult) {
+          const { count, error } = await requestAttendanceData(
+            supabase.from('attendance').select('*', { count: 'exact', head: true }).eq('user_id', user.id),
+            'Pemuatan statistik santri dewasa',
+            OPTIONAL_DETAILS_TIMEOUT_MS,
+          );
+          if (error) throw error;
+          adultStats = { daysStudied: count || 1, timesStudied: count || 1 };
+        }
+
+        updateCurrentScan(scanId, current => ({
+          ...current,
+          points,
+          levelInfo,
+          monthlyStats,
+          ...learningHighlights,
+          adultStats,
+          detailsLoading: false,
+        }));
+        return;
+      }
+
+      if (userRole === 'guru' && !isPentashih) {
+        const [attendanceCountResult, historyResult] = await Promise.all([
+          requestAttendanceData(
+            supabase.from('attendance').select('*', { count: 'exact', head: true }).eq('user_id', user.id).gte('attendance_date', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString()),
+            'Pemuatan statistik bulanan guru',
+            OPTIONAL_DETAILS_TIMEOUT_MS,
+          ),
+          requestAttendanceData(
+            supabase.from('attendance').select('attendance_date').eq('user_id', user.id).order('attendance_date', { ascending: false }).limit(30),
+            'Pemuatan riwayat guru',
+            OPTIONAL_DETAILS_TIMEOUT_MS,
+          ),
+        ]);
+        const detailError = attendanceCountResult.error || historyResult.error;
+        if (detailError) throw detailError;
+        const hours = ((attendanceCountResult.count || 1) * 1.25).toFixed(2);
+        const uniqueDates = [...new Set(historyResult.data?.map(item => item.attendance_date) || [])];
+        const streak = calculateGuruStreak(uniqueDates, { includeToday: true });
+
+        updateCurrentScan(scanId, current => ({
+          ...current,
+          guruStats: { hours, streak, session: sesiUser },
+          detailsLoading: false,
+        }));
+      }
+    } catch (error) {
+      console.warn('Detail tambahan absensi gagal dimuat:', error);
+      updateCurrentScan(scanId, current => ({ ...current, detailsLoading: false, detailsUnavailable: true }));
+    }
+  };
 
   useEffect(() => {
       const fetchConfig = async () => {
@@ -361,28 +508,51 @@ const DigitalAttendancePage = () => {
   }, [lastScan]);
 
   // --- processScan (ALL business logic preserved exactly) ---
-  const processScan = async (tagToProcess) => {
+  const processScan = async (tagToProcess, scanId) => {
       if (!tagToProcess || isLoading) return;
       const tag = normalizeRfidTag(tagToProcess);
 
       // Pentashih handling
       if (lastScan?.type === 'success' && lastScan.isPentashih && lastScan.rfid === tag) {
           setIsLoading(true);
-          const { data: history } = await supabase.from('class_mutations').select(`*, santri(nama_lengkap, foto_url, jilid), from_class:from_class_id(nama_kelas, guru:id_guru(nama)), to_class:to_class_id(nama_kelas, guru:id_guru(nama))`).order('mutation_date', { ascending: false }).limit(6);
-          setLastScan({ ...lastScan, type: 'pentashih_history', historyData: history || [] });
-          setIsLoading(false); setRfidTag(''); setTimeout(forceFocus, 50); return;
+          try {
+            const { data: history, error } = await requestAttendanceData(
+              supabase.from('class_mutations').select(`*, santri(nama_lengkap, foto_url, jilid), from_class:from_class_id(nama_kelas, guru:id_guru(nama)), to_class:to_class_id(nama_kelas, guru:id_guru(nama))`).order('mutation_date', { ascending: false }).limit(6),
+              'Pemuatan riwayat pentashih',
+            );
+            if (error) throw error;
+            setLastScan({ ...lastScan, type: 'pentashih_history', historyData: history || [] });
+          } catch (error) {
+            setLastScan({ type: 'error', message: getAttendanceRequestErrorMessage(error), name: lastScan.name });
+          } finally {
+            setIsLoading(false); setRfidTag(''); setTimeout(forceFocus, 50);
+          }
+          return;
       }
 
       // Guru Detail View handling
       if ((lastScan?.type === 'guru_info' || lastScan?.type === 'warning' || lastScan?.type === 'success') && lastScan.rfid === tag && lastScan.role === 'guru' && !lastScan.isPentashih) {
           if(!lastScan.classesData) {
              setIsLoading(true);
-             const { data: guruData } = await supabase.from('guru').select('id').eq('rfid_tag', tag).single();
-             if(guruData) {
-                 const { data: classes } = await supabase.from('classes').select('*, santri(id, nama_lengkap, jilid, foto_url)').eq('id_guru', guruData.id).order('sesi');
-                 setLastScan({ ...lastScan, type: 'guru_schedule_detail', classesData: classes || [] });
+             try {
+               const { data: guruData, error: guruError } = await requestAttendanceData(
+                 supabase.from('guru').select('id').eq('rfid_tag', tag).single(),
+                 'Pencarian detail guru',
+               );
+               if (guruError) throw guruError;
+               if(guruData) {
+                   const { data: classes, error: classesError } = await requestAttendanceData(
+                     supabase.from('classes').select('*, santri(id, nama_lengkap, jilid, foto_url)').eq('id_guru', guruData.id).order('sesi'),
+                     'Pemuatan detail jadwal guru',
+                   );
+                   if (classesError) throw classesError;
+                   setLastScan({ ...lastScan, type: 'guru_schedule_detail', classesData: classes || [] });
+               }
+             } catch (error) {
+               setLastScan({ type: 'error', message: getAttendanceRequestErrorMessage(error), name: lastScan.name });
+             } finally {
+               setIsLoading(false);
              }
-             setIsLoading(false);
           } else { setLastScan({ ...lastScan, type: 'guru_schedule_detail' }); }
           setRfidTag(''); setTimeout(forceFocus, 50); return;
       }
@@ -397,14 +567,17 @@ const DigitalAttendancePage = () => {
             const timestamp = now.toISOString();
 
             if (lastScan.isMMQ) {
-                 const { error: updErr } = await supabase.from('mmq_attendance').update({ check_in_timestamp: timestamp }).eq('id', lastScan.attendanceId);
-                 if (updErr) throw updErr;
+                 await executeVerifiedAttendanceMutation({
+                   mutation: supabase.from('mmq_attendance').update({ check_in_timestamp: timestamp }).eq('id', lastScan.attendanceId),
+                   verify: () => supabase.from('mmq_attendance').select('id').eq('id', lastScan.attendanceId).eq('check_in_timestamp', timestamp).maybeSingle(),
+                   operation: 'Pembaruan absensi MMQ',
+                 });
                  setLastScan(prev => ({ ...prev, type: 'success', time: nowTime, message: 'Absensi MMQ diperbarui!', quote: lastScan.pendingQuote }));
             } else {
                 const levelInfo = (lastScan.role === 'santri' && lastScan.kategori !== 'Dewasa') ? getLevelInfo(lastScan.points, lastScan.gender) : null;
                 setLastScan(prev => ({ ...prev, type: 'success', levelInfo, message: 'Absensi sudah tercatat.', quote: lastScan.pendingQuote }));
             }
-          } catch (err) { setLastScan({ type: 'error', message: err.message, name: 'Error' }); }
+          } catch (err) { setLastScan({ type: 'error', message: getAttendanceRequestErrorMessage(err), name: 'Error' }); }
           finally { setIsLoading(false); setRfidTag(''); setTimeout(forceFocus, 50); return; }
         } else { setLastScan(null); setRfidTag(''); return; }
       }
@@ -417,23 +590,31 @@ const DigitalAttendancePage = () => {
         const todayDate = new Date();
         const todayStr = getLocalDateString(todayDate);
 
-        let user = null, userRole = '', sesiUser = '', kategori = '', guruClasses = [];
-        let { data: guruData } = await supabase.from('guru').select('*').eq('rfid_tag', tag).maybeSingle();
+        let user = null, userRole = '', sesiUser = '', kategori = '', guruClasses = [], avatarOptions = null;
+        let { data: guruData, error: guruLookupError } = await requestAttendanceData(
+          supabase.from('guru').select('*').eq('rfid_tag', tag).maybeSingle(),
+          'Pencarian RFID guru',
+        );
+        if (guruLookupError) throw guruLookupError;
 
         // Check MMQ Schedule if it's a Guru
         if (guruData) {
-            const foto_url = await resolveAvatarUrl({
+            avatarOptions = {
                 ownerType: 'guru',
                 ownerId: guruData.id,
                 fallbackUrl: guruData.foto_url,
-            });
-            user = { ...guruData, foto_url }; userRole = 'guru';
+            };
+            user = guruData; userRole = 'guru';
             const todayDay = todayDate.getDay();
-            const { data: mmqSchedule } = await supabase.from('mmq_schedule')
+            const { data: mmqSchedule, error: mmqScheduleError } = await requestAttendanceData(
+              supabase.from('mmq_schedule')
                 .select('*')
                 .eq('day_of_week', todayDay)
                 .eq('is_active', true)
-                .maybeSingle();
+                .maybeSingle(),
+              'Pencarian jadwal MMQ',
+            );
+            if (mmqScheduleError && mmqScheduleError.code !== 'PGRST116') throw mmqScheduleError;
 
             if (mmqSchedule) {
                 try {
@@ -459,7 +640,11 @@ const DigitalAttendancePage = () => {
                     }
 
                     if (!mmqSchedule.id) {
-                        const { data: fallbackSchedule } = await supabase.from('mmq_schedule').select('id').eq('is_active', true).limit(1).maybeSingle();
+                        const { data: fallbackSchedule, error: fallbackError } = await requestAttendanceData(
+                          supabase.from('mmq_schedule').select('id').eq('is_active', true).limit(1).maybeSingle(),
+                          'Pencarian jadwal MMQ cadangan',
+                        );
+                        if (fallbackError) throw fallbackError;
                         if (fallbackSchedule?.id) {
                             mmqSchedule.id = fallbackSchedule.id;
                         } else {
@@ -475,12 +660,16 @@ const DigitalAttendancePage = () => {
                         throw new Error("Gagal: Format ID Guru tidak valid.");
                     }
 
-                    const { data: existingMMQ, error: checkError } = await supabase.from('mmq_attendance')
-                        .select('id')
-                        .eq('schedule_id', mmqSchedule.id)
-                        .eq('guru_id', user.id)
-                        .eq('attendance_date', todayStr)
-                        .maybeSingle();
+                    const findExistingMMQ = () => supabase.from('mmq_attendance')
+                      .select('id')
+                      .eq('schedule_id', mmqSchedule.id)
+                      .eq('guru_id', user.id)
+                      .eq('attendance_date', todayStr)
+                      .maybeSingle();
+                    const { data: existingMMQ, error: checkError } = await requestAttendanceData(
+                      findExistingMMQ(),
+                      'Pemeriksaan absensi MMQ',
+                    );
 
                     if (checkError) {
                         throw new Error("Gagal memeriksa status absensi sebelumnya.");
@@ -500,6 +689,7 @@ const DigitalAttendancePage = () => {
                             attendanceId: existingMMQ.id,
                             pendingQuote: randomQuote
                         });
+                        if (avatarOptions) loadAvatarInBackground(scanId, avatarOptions);
                         return;
                     }
 
@@ -511,14 +701,20 @@ const DigitalAttendancePage = () => {
                         status: validStatus
                     };
 
-                    const { error: mmqError } = await supabase.from('mmq_attendance').insert(insertPayload);
-
-                    if (mmqError) {
+                    try {
+                      await executeVerifiedAttendanceMutation({
+                        mutation: supabase.from('mmq_attendance').insert(insertPayload),
+                        verify: findExistingMMQ,
+                        operation: 'Penyimpanan absensi MMQ',
+                      });
+                    } catch (mmqError) {
                         let friendlyMessage = "Gagal menyimpan absensi MMQ ke database.";
                         if (mmqError.message.includes("mmq_attendance_status_check")) {
                             friendlyMessage = `Gagal: Status "${validStatus}" tidak sesuai dengan aturan database. Hubungi admin.`;
                         } else if (mmqError.code === '23505') {
                             friendlyMessage = 'Guru sudah tercatat hadir pada jadwal MMQ ini.';
+                        } else {
+                            friendlyMessage = getAttendanceRequestErrorMessage(mmqError);
                         }
                         throw new Error(friendlyMessage);
                     }
@@ -535,6 +731,7 @@ const DigitalAttendancePage = () => {
                         message: msg,
                         quote: randomQuote
                     });
+                    if (avatarOptions) loadAvatarInBackground(scanId, avatarOptions);
                 } catch (err) {
                     setLastScan({
                         type: 'error',
@@ -547,11 +744,15 @@ const DigitalAttendancePage = () => {
             }
 
             // Normal Guru Attendance Session Assignment
-            const { data: assignedClasses } = await supabase
-              .from('classes')
-              .select('*, santri(id, nama_lengkap, jilid, foto_url)')
-              .eq('id_guru', user.id)
-              .eq('is_active', true);
+            const { data: assignedClasses, error: assignedClassesError } = await requestAttendanceData(
+              supabase
+                .from('classes')
+                .select('id, sesi')
+                .eq('id_guru', user.id)
+                .eq('is_active', true),
+              'Pencarian sesi mengajar guru',
+            );
+            if (assignedClassesError) throw assignedClassesError;
             guruClasses = assignedClasses || [];
             const assignedSessions = [...new Set(guruClasses.map(item => normalizeAttendanceSessionName(item.sesi)).filter(Boolean))];
             const matchingSessions = assignedSessions
@@ -561,15 +762,19 @@ const DigitalAttendancePage = () => {
             sesiUser = matchingSessions[0]?.sesi || '';
 
             if (!sesiUser && assignedSessions.length > 0) {
-              const { data: previousAttendance } = await supabase
-                .from('attendance')
-                .select('id, check_in_time, status, sesi')
-                .eq('user_id', user.id)
-                .eq('attendance_date', todayStr)
-                .in('sesi', assignedSessions)
-                .order('check_in_timestamp', { ascending: false })
-                .limit(1)
-                .maybeSingle();
+              const { data: previousAttendance, error: previousAttendanceError } = await requestAttendanceData(
+                supabase
+                  .from('attendance')
+                  .select('id, check_in_time, status, sesi')
+                  .eq('user_id', user.id)
+                  .eq('attendance_date', todayStr)
+                  .in('sesi', assignedSessions)
+                  .order('check_in_timestamp', { ascending: false })
+                  .limit(1)
+                  .maybeSingle(),
+                'Pemeriksaan absensi guru sebelumnya',
+              );
+              if (previousAttendanceError) throw previousAttendanceError;
 
               if (previousAttendance) {
                 setLastScan({
@@ -583,23 +788,27 @@ const DigitalAttendancePage = () => {
                   status: previousAttendance.status,
                   message: 'Absensi sudah tercatat.',
                 });
+                if (avatarOptions) loadAvatarInBackground(scanId, avatarOptions);
                 return;
               }
             }
         } else {
-          let { data: santriData } = await supabase
-            .from('santri')
-            .select('id, nama_lengkap, nama_panggilan, kategori, status, foto_url, avatar_path, rfid_tag, current_class_id, sesi_mengaji, jilid, points, jenis_kelamin, class:current_class_id(id, nama_kelas, sesi, id_guru, is_active)')
-            .eq('rfid_tag', tag)
-            .maybeSingle();
+          let { data: santriData, error: santriLookupError } = await requestAttendanceData(
+            supabase
+              .from('santri')
+              .select('id, nama_lengkap, nama_panggilan, kategori, status, foto_url, avatar_path, rfid_tag, current_class_id, sesi_mengaji, jilid, points, jenis_kelamin, class:current_class_id(id, nama_kelas, sesi, id_guru, is_active)')
+              .eq('rfid_tag', tag)
+              .maybeSingle(),
+            'Pencarian RFID santri',
+          );
+          if (santriLookupError) throw santriLookupError;
           if (santriData) {
-              const foto_url = await resolveAvatarUrl({
+              avatarOptions = {
                   ownerType: 'santri',
                   ownerId: santriData.id,
                   avatarPath: santriData.avatar_path,
                   fallbackUrl: santriData.foto_url,
-              });
-              santriData = { ...santriData, foto_url };
+              };
               if (!isActiveSantri(santriData.status)) {
                   setLastScan({ type: 'warning', message: 'Santri nonaktif tidak dapat dicatat absensinya.', name: santriData.nama_lengkap, photo: santriData.foto_url });
                   return;
@@ -614,50 +823,64 @@ const DigitalAttendancePage = () => {
         const isPentashih = userRole === 'guru' && ((user.roles && user.roles.includes('Pentashih')) || (user.jabatan && user.jabatan.toLowerCase().includes('pentashih')));
         if (userRole === 'guru' && !sesiUser && !isPentashih) {
               const [classesResult, attendanceCountResult, historyResult] = await Promise.all([
-                  guruClasses.length > 0
-                    ? Promise.resolve({ data: guruClasses })
-                    : supabase.from('classes').select('*, santri(id, nama_lengkap, jilid, foto_url)').eq('id_guru', user.id).order('sesi'),
-                  supabase.from('attendance').select('*', { count: 'exact', head: true }).eq('user_id', user.id).gte('attendance_date', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString()),
-                  supabase.from('attendance').select('attendance_date').eq('user_id', user.id).order('attendance_date', { ascending: false }).limit(30)
+                  requestAttendanceData(
+                    supabase.from('classes').select('*, santri(id, nama_lengkap, jilid, foto_url)').eq('id_guru', user.id).order('sesi'),
+                    'Pemuatan detail kelas guru',
+                    OPTIONAL_DETAILS_TIMEOUT_MS,
+                  ),
+                  requestAttendanceData(
+                    supabase.from('attendance').select('*', { count: 'exact', head: true }).eq('user_id', user.id).gte('attendance_date', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString()),
+                    'Pemuatan statistik bulanan guru',
+                    OPTIONAL_DETAILS_TIMEOUT_MS,
+                  ),
+                  requestAttendanceData(
+                    supabase.from('attendance').select('attendance_date').eq('user_id', user.id).order('attendance_date', { ascending: false }).limit(30),
+                    'Pemuatan riwayat guru',
+                    OPTIONAL_DETAILS_TIMEOUT_MS,
+                  ),
               ]);
-              const guruClasses = classesResult.data;
-              const uniqueSessions = [...new Set((guruClasses || []).map(c => c.sesi))];
+              const detailError = classesResult.error || attendanceCountResult.error || historyResult.error;
+              if (detailError) throw detailError;
+              const detailedGuruClasses = classesResult.data || [];
+              const uniqueSessions = [...new Set(detailedGuruClasses.map(c => c.sesi))];
               const scheduledSessionsCount = uniqueSessions.length;
               const totalMonthAttendance = attendanceCountResult.count || 0;
               const hoursTaught = (totalMonthAttendance * 1.25).toFixed(2);
               const uniqueDates = [...new Set(historyResult.data?.map(h => h.attendance_date) || [])];
-              let streak = 0;
-              const checkDate = new Date(); checkDate.setDate(checkDate.getDate() - 1);
-              while (true) {
-                  const dateStr = checkDate.toLocaleDateString('en-CA');
-                  if (uniqueDates.includes(dateStr)) { streak++; checkDate.setDate(checkDate.getDate() - 1); }
-                  else { const day = checkDate.getDay(); if (day === 0 || day === 6) { checkDate.setDate(checkDate.getDate() - 1); continue; } break; }
-              }
-              if ((attendanceCountResult.count || 0) > 0) streak++;
+              const streak = calculateGuruStreak(uniqueDates, { includeToday: totalMonthAttendance > 0 });
               const timeMap = { 'Pagi': 8, 'Siang': 14, 'Sore': 16, 'Malam': 18 };
               const sortedSessions = uniqueSessions.sort((a, b) => (timeMap[a] || 0) - (timeMap[b] || 0));
               const currentHour = new Date().getHours();
               let nextSession = sortedSessions.find(s => (timeMap[s] || 0) > currentHour);
               if (!nextSession && sortedSessions.length > 0) { nextSession = `${sortedSessions[0]} (Besok)`; } else if (!nextSession) { nextSession = "-"; } else { const startTime = sessionTimes[nextSession]?.start || ''; nextSession = `${nextSession} (${startTime})`; }
               const quote = guruQuotes[Math.floor(Math.random() * guruQuotes.length)];
-              setLastScan({ type: 'guru_info', rfid: tag, role: 'guru', name: user.nama, photo: user.foto_url, quote, classesData: guruClasses, roles: user.roles || [], jabatan: user.jabatan, gender: user.jenis_kelamin || 'Laki-laki', no_hp: user.no_hp, stats: { sessions: scheduledSessionsCount, hours: hoursTaught, streak: streak, nextSession }});
+              setLastScan({ type: 'guru_info', rfid: tag, role: 'guru', name: user.nama, photo: user.foto_url, quote, classesData: detailedGuruClasses, roles: user.roles || [], jabatan: user.jabatan, gender: user.jenis_kelamin || 'Laki-laki', no_hp: user.no_hp, stats: { sessions: scheduledSessionsCount, hours: hoursTaught, streak: streak, nextSession }});
+              if (avatarOptions) loadAvatarInBackground(scanId, avatarOptions);
               return;
         }
 
         let existingAttendance = null;
         if (userRole === 'guru') {
-             const { data } = await supabase.from('attendance').select('*').eq('user_id', user.id).eq('attendance_date', todayStr).eq('sesi', sesiUser).maybeSingle();
+             const { data, error } = await requestAttendanceData(
+               supabase.from('attendance').select('*').eq('user_id', user.id).eq('attendance_date', todayStr).eq('sesi', sesiUser).maybeSingle(),
+               'Pemeriksaan absensi guru',
+             );
+             if (error) throw error;
              existingAttendance = data;
         } else {
-             const { data } = await supabase
-               .from('attendance')
-               .select('*')
-               .eq('user_id', user.id)
-               .eq('attendance_date', todayStr)
-               .order('check_in_timestamp', { ascending: true, nullsFirst: false })
-               .order('created_at', { ascending: true })
-               .limit(1)
-               .maybeSingle();
+             const { data, error } = await requestAttendanceData(
+               supabase
+                 .from('attendance')
+                 .select('*')
+                 .eq('user_id', user.id)
+                 .eq('attendance_date', todayStr)
+                 .order('check_in_timestamp', { ascending: true, nullsFirst: false })
+                 .order('created_at', { ascending: true })
+                 .limit(1)
+                 .maybeSingle(),
+               'Pemeriksaan absensi santri',
+             );
+             if (error) throw error;
              existingAttendance = data;
         }
 
@@ -672,22 +895,29 @@ const DigitalAttendancePage = () => {
         if (existingAttendance && !shouldRestoreAbsentAttendance) {
           if (userRole === 'santri') {
              const levelInfo = (!isAdult) ? getLevelInfo(user.points, user.jenis_kelamin) : null;
-             const [monthlyStats, learningHighlights] = await Promise.all([
-                 getSantriMonthlyAttendanceStats(user.id),
-                 getSantriLearningHighlights(user.id),
-             ]);
              setLastScan({
                 ...successData,
-                 message: 'Absensi sudah tercatat.',
+                message: 'Absensi sudah tercatat.',
                 time: existingAttendance.check_in_time,
                 status: existingAttendance.status,
                 levelInfo,
-                monthlyStats,
-                ...learningHighlights
+                detailsLoading: true,
+             });
+             if (avatarOptions) loadAvatarInBackground(scanId, avatarOptions);
+             void loadPostAttendanceDetails({
+               scanId,
+               user,
+               userRole,
+               isAdult,
+               isPentashih,
+               sesiUser,
+               points: user.points || 0,
+               levelInfo,
              });
              return;
           }
           setLastScan({ ...successData, message: 'Absensi sudah tercatat.', time: existingAttendance.check_in_time, status: existingAttendance.status });
+          if (avatarOptions) loadAvatarInBackground(scanId, avatarOptions);
           return;
         }
 
@@ -738,62 +968,102 @@ const DigitalAttendancePage = () => {
               })
               .eq('id', existingAttendance.id)
           : supabase.from('attendance').insert(newAttendance);
-        const { error: insertError } = await attendanceMutation;
+        const verifySavedAttendance = (mutationError) => {
+          if (shouldRestoreAbsentAttendance) {
+            return supabase
+              .from('attendance')
+              .select('id')
+              .eq('id', existingAttendance.id)
+              .eq('status', newAttendance.status)
+              .eq('check_in_timestamp', newAttendance.check_in_timestamp)
+              .maybeSingle();
+          }
+          let verificationQuery = supabase
+            .from('attendance')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('attendance_date', todayStr)
+            .eq('sesi', newAttendance.sesi);
+          if (isAttendanceRequestTimeout(mutationError)) {
+            verificationQuery = verificationQuery.eq('check_in_timestamp', newAttendance.check_in_timestamp);
+          }
+          return verificationQuery.maybeSingle();
+        };
 
-        if (insertError) { setLastScan({ type: 'error', message: getAttendanceErrorMessage(insertError), name: user.nama || user.nama_lengkap, photo: user.foto_url }); }
-        else {
-          let newPoints = user.points || 0;
-          if (userRole === 'santri' && !isAdult && attendanceStatusText === 'Hadir' && !shouldRestoreAbsentAttendance) {
-            await supabase.rpc('increment_santri_points', { p_santri_id: user.id, p_amount: 1 });
-            newPoints += 1;
-          }
-          const levelInfo = (userRole === 'santri' && !isAdult) ? getLevelInfo(newPoints, user.jenis_kelamin) : null;
-          const [monthlyStats, learningHighlights] = userRole === 'santri'
-            ? await Promise.all([
-                getSantriMonthlyAttendanceStats(user.id),
-                getSantriLearningHighlights(user.id),
-              ])
-            : [undefined, {}];
-          let adultStats = null;
-          if (isAdult) {
-              const { count: daysCount } = await supabase.from('attendance').select('*', { count: 'exact', head: true }).eq('user_id', user.id);
-              adultStats = { daysStudied: daysCount || 1, timesStudied: daysCount || 1 };
-          }
-          let guruStats = null;
-          if (userRole === 'guru' && !isPentashih) {
-             const { count: totalMonthAttendance } = await supabase.from('attendance').select('*', { count: 'exact', head: true }).eq('user_id', user.id).gte('attendance_date', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString());
-             const hoursTaught = ((totalMonthAttendance || 1) * 1.25).toFixed(2);
-             const { data: historyResult } = await supabase.from('attendance').select('attendance_date').eq('user_id', user.id).order('attendance_date', { ascending: false }).limit(30);
-             const uniqueDates = [...new Set(historyResult?.map(h => h.attendance_date) || [])];
-              let streak = 0;
-              const checkDate = new Date(); checkDate.setDate(checkDate.getDate() - 1);
-              while (true) {
-                  const dateStr = checkDate.toLocaleDateString('en-CA');
-                  if (uniqueDates.includes(dateStr)) { streak++; checkDate.setDate(checkDate.getDate() - 1); }
-                  else { const day = checkDate.getDay(); if (day === 0 || day === 6) { checkDate.setDate(checkDate.getDate() - 1); continue; } break; }
-              }
-              streak++;
-              guruStats = { hours: hoursTaught, streak, session: sesiUser };
-          }
-          setLastScan({
-            ...successData,
-            message: userRole === 'santri'
-              ? getSantriAttendanceSuccessMessage({ assignedSession: sesiUser, attendedSession: newAttendance.attended_session })
-              : `Absensi ${isPentashih ? '' : `sesi ${sesiUser}`} berhasil!`,
-            time: newAttendance.check_in_time,
-            status: newAttendance.status,
-            points: newPoints,
-            levelInfo,
-            monthlyStats,
-            ...learningHighlights,
-            adultStats,
-            guruStats,
-          });
+        const mutationResult = await executeVerifiedAttendanceMutation({
+          mutation: attendanceMutation,
+          verify: verifySavedAttendance,
+          operation: 'Penyimpanan absensi',
+        });
+
+        const shouldIncrementPoints = userRole === 'santri'
+          && !isAdult
+          && attendanceStatusText === 'Hadir'
+          && !shouldRestoreAbsentAttendance
+          && mutationResult.recoveryReason !== 'duplicate';
+        const newPoints = (user.points || 0) + (shouldIncrementPoints ? 1 : 0);
+        const levelInfo = (userRole === 'santri' && !isAdult) ? getLevelInfo(newPoints, user.jenis_kelamin) : null;
+
+        setLastScan({
+          ...successData,
+          message: userRole === 'santri'
+            ? getSantriAttendanceSuccessMessage({ assignedSession: sesiUser, attendedSession: newAttendance.attended_session })
+            : `Absensi ${isPentashih ? '' : `sesi ${sesiUser}`} berhasil!`,
+          time: newAttendance.check_in_time,
+          status: newAttendance.status,
+          points: newPoints,
+          levelInfo,
+          detailsLoading: userRole === 'santri' || (userRole === 'guru' && !isPentashih),
+        });
+        if (avatarOptions) loadAvatarInBackground(scanId, avatarOptions);
+
+        if (shouldIncrementPoints) {
+          requestAttendanceData(
+            supabase.rpc('increment_santri_points', { p_santri_id: user.id, p_amount: 1 }),
+            'Penambahan poin santri',
+            OPTIONAL_DETAILS_TIMEOUT_MS,
+          )
+            .then(result => {
+              if (result?.error) throw result.error;
+            })
+            .catch(error => console.warn('Poin santri gagal diperbarui:', error));
         }
+
+        void loadPostAttendanceDetails({
+          scanId,
+          user,
+          userRole,
+          isAdult,
+          isPentashih,
+          sesiUser,
+          points: newPoints,
+          levelInfo,
+        });
+      } catch (error) {
+        setLastScan({
+          type: 'error',
+          message: error?.code?.startsWith?.('ATTENDANCE_')
+            ? getAttendanceRequestErrorMessage(error)
+            : getAttendanceErrorMessage(error),
+          name: 'Proses Absensi',
+        });
       } finally { setIsLoading(false); setRfidTag(''); setTimeout(forceFocus, 50); }
   };
 
-  const handleRfidSubmit = async e => { e.preventDefault(); processScan(rfidTag); };
+  const handleRfidSubmit = async e => {
+    e.preventDefault();
+    if (scanLockRef.current) return;
+
+    scanLockRef.current = true;
+    const scanId = scanSequenceRef.current + 1;
+    scanSequenceRef.current = scanId;
+    activeScanIdRef.current = scanId;
+    try {
+      await processScan(rfidTag, scanId);
+    } finally {
+      scanLockRef.current = false;
+    }
+  };
 
   // --- Scan Result Component (modernized) ---
   const ScanResult = ({ scan }) => {
@@ -1011,6 +1281,7 @@ const DigitalAttendancePage = () => {
             showSuccessBadge={scan.type === 'success'}
             isPentashih={isPentashih}
           />
+          <AttendanceDetailsStatus scan={scan} />
           {/* Pentashih success: extra info grid */}
           {scan.type === 'success' && isPentashih && scan.name && (
             <div className="attendance-stats-row mt-4">
@@ -1049,6 +1320,7 @@ const DigitalAttendancePage = () => {
             quote={scan.quote}
             showSuccessBadge
           />
+          <AttendanceDetailsStatus scan={scan} />
         </motion.div>
       );
     }
@@ -1075,6 +1347,7 @@ const DigitalAttendancePage = () => {
             quote={scan.quote}
             showSuccessBadge
           />
+          <AttendanceDetailsStatus scan={scan} />
         </motion.div>
       );
     }
