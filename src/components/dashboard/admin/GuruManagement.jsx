@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { toast } from '@/components/ui/use-toast';
-import { Plus, Edit, Trash2, Search, Upload, Eye, EyeOff, UserCheck, Filter, Mail, Key, XCircle, CreditCard, Calendar, Cake, Loader2, Download } from 'lucide-react';
+import { Plus, Edit, Trash2, Search, Upload, Eye, EyeOff, UserCheck, Filter, Mail, Key, XCircle, CreditCard, Calendar, Cake, Loader2, Download, ShieldCheck } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -20,7 +20,7 @@ import { getStorageErrorMessage, resolveAvatarRecords, uploadAvatar } from '@/li
 import { getBirthdaysThisMonth } from '@/lib/birthdayUtils';
 import { invokeAuthenticatedEdgeFunction } from '@/lib/edgeFunctionAdapters';
 
-const AVAILABLE_ROLES = ['Pengajar', 'Pentashih', 'Staff Operasional'];
+const AVAILABLE_ROLES = ['Pengajar', 'Pentashih', 'Staff Operasional', 'Admin'];
 
 const GuruManagement = () => {
   const [guruList, setGuruList] = useState([]);
@@ -541,16 +541,30 @@ const GuruManagement = () => {
                 <div className="space-y-1.5"><label htmlFor="rfid_tag" className="text-xs font-medium uppercase text-muted-foreground">RFID Tag</label><Input id="rfid_tag" value={formData.rfid_tag || ''} onChange={handleInputChange} /></div>
               </div>
 
-              <div className="border p-4 rounded-xl bg-slate-50 dark:bg-slate-900/50">
-                  <label className="text-sm font-semibold mb-3 block uppercase text-muted-foreground">Roles / Jabatan (Fungsional)</label>
-                  <div className="flex flex-wrap gap-4">
+              <div className="relative overflow-hidden rounded-2xl border border-cyan-200/70 bg-gradient-to-br from-white/85 via-cyan-50/70 to-blue-50/80 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_16px_40px_rgba(14,116,144,0.08)] backdrop-blur-xl dark:border-cyan-800/60 dark:from-slate-900/85 dark:via-cyan-950/35 dark:to-blue-950/35">
+                  <div className="pointer-events-none absolute -right-16 -top-20 h-40 w-40 rounded-full bg-cyan-300/20 blur-3xl dark:bg-cyan-500/10" aria-hidden="true" />
+                  <div className="relative mb-3 flex items-start gap-3">
+                      <div className="rounded-xl border border-cyan-200/80 bg-white/70 p-2 text-cyan-700 shadow-sm dark:border-cyan-800 dark:bg-slate-900/70 dark:text-cyan-300">
+                          <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+                      </div>
+                      <div>
+                          <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Roles / Jabatan Fungsional</p>
+                          <p className="mt-0.5 text-xs leading-relaxed text-slate-600 dark:text-slate-300">Role Admin memberikan akses penuh ke Dashboard Admin. Berikan hanya kepada pengelola yang dipercaya.</p>
+                      </div>
+                  </div>
+                  <div className="relative grid gap-2 sm:grid-cols-2">
                       {AVAILABLE_ROLES.map(role => (
-                          <div key={role} className="flex items-center space-x-2">
+                          <div key={role} className={`flex min-h-11 items-center space-x-2 rounded-xl border px-3 py-2 transition-colors ${(formData.roles || []).includes(role) ? 'border-cyan-300 bg-white/85 shadow-sm dark:border-cyan-700 dark:bg-slate-900/80' : 'border-white/70 bg-white/45 hover:bg-white/70 dark:border-slate-700/70 dark:bg-slate-900/35 dark:hover:bg-slate-900/60'}`}>
                               <Checkbox id={`role-${role}`} checked={(formData.roles || []).includes(role)} onCheckedChange={(checked) => handleRoleChange(role, checked)} />
-                              <label htmlFor={`role-${role}`} className="text-sm cursor-pointer select-none">{role}</label>
+                              <label htmlFor={`role-${role}`} className="flex-1 cursor-pointer select-none text-sm font-medium">{role}</label>
                           </div>
                       ))}
                   </div>
+                  {(formData.roles || []).includes('Admin') && (
+                    <p className="relative mt-3 rounded-xl border border-amber-200/80 bg-amber-50/80 px-3 py-2 text-xs font-medium text-amber-900 dark:border-amber-800/70 dark:bg-amber-950/30 dark:text-amber-200" role="status">
+                      Saat login, akun ini akan diarahkan ke Dashboard Admin dan memperoleh kewenangan administrasi penuh.
+                    </p>
+                  )}
               </div>
 
               <div className="flex items-center space-x-2 pt-2"><Checkbox id="is_notulen" checked={formData.is_notulen} onCheckedChange={handleCheckboxChange} /><label htmlFor="is_notulen" className="text-sm font-medium cursor-pointer">Jadikan sebagai Notulen MMQ</label></div>

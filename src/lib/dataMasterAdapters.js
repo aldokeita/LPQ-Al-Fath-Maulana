@@ -88,9 +88,11 @@ export const pickGuruProfileFields = (input, role = 'guru') => ({
   avatar_path: input.avatar_path || null,
   rfid_tag: input.rfid_tag || null,
   jabatan: input.jabatan || null,
-  roles: role === 'pentashih'
-    ? Array.from(new Set([...(input.roles || []).filter((item) => item !== 'Admin'), 'Pentashih']))
-    : (input.roles || []).filter((item) => !['Admin', 'Pentashih'].includes(item)),
+  roles: Array.from(new Set([
+    ...(input.roles || []).filter((item) => !['Admin', 'Pentashih'].includes(item)),
+    ...((input.roles || []).includes('Pentashih') ? ['Pentashih'] : []),
+    ...(role === 'admin' ? ['Admin'] : []),
+  ])),
   is_notulen: Boolean(input.is_notulen),
   jenis_kelamin: input.jenis_kelamin || null,
   tanggal_lahir: input.tanggal_lahir || null,
@@ -99,4 +101,6 @@ export const pickGuruProfileFields = (input, role = 'guru') => ({
 });
 
 export const getOperationalRoleFromGuruForm = (input) =>
-  (input.roles || []).includes('Pentashih') ? 'pentashih' : 'guru';
+  (input.roles || []).includes('Admin')
+    ? 'admin'
+    : ((input.roles || []).includes('Pentashih') ? 'pentashih' : 'guru');
