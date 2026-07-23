@@ -41,6 +41,7 @@ import { deleteAvatar, getStorageErrorMessage, resolveAvatarUrl, uploadAvatar } 
 import { getBirthdaysThisMonth } from '@/lib/birthdayUtils';
 import AvatarPreviewDialog from '@/components/dashboard/shared/AvatarPreviewDialog';
 import StudentTransferModal from '@/components/dashboard/guru/StudentTransferModal';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const ProfileConstellationScene = lazy(() => import('@/components/dashboard/santri/SantriLevelScene'));
 
@@ -553,16 +554,22 @@ const GuruDashboard = () => {
                                                 <td className="py-3 px-4">
                                                     <div className="flex items-center gap-1">
                                                         <Button size="sm" variant="ghost" onClick={() => openDetailModal(santri)} className={cn("text-primary hover:text-primary hover:bg-primary/10")}>Detail</Button>
-                                                        <Button
-                                                            size="sm"
-                                                            variant="outline"
-                                                            onClick={() => openTransferModal(santri)}
-                                                            className="h-8 border-cyan-300/70 bg-cyan-50/70 text-cyan-700 shadow-sm hover:border-cyan-400 hover:bg-cyan-100 dark:border-cyan-400/30 dark:bg-cyan-950/30 dark:text-cyan-200 dark:hover:bg-cyan-900/40"
-                                                            title={`Transfer ${santri.nama_lengkap} ke kelas lain`}
-                                                        >
-                                                            <ArrowRightLeft className="mr-1.5 h-3.5 w-3.5" />
-                                                            Transfer
-                                                        </Button>
+                                                        <TooltipProvider delayDuration={250}>
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <Button
+                                                                        size="icon"
+                                                                        variant="outline"
+                                                                        onClick={() => openTransferModal(santri)}
+                                                                        className="guru-transfer-action h-10 w-10 rounded-xl"
+                                                                        aria-label={`Transfer ${santri.nama_lengkap} ke kelas lain`}
+                                                                    >
+                                                                        <ArrowRightLeft className="h-4 w-4" />
+                                                                    </Button>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent side="top" className="rounded-lg bg-slate-950 px-3 py-2 text-xs font-semibold text-white dark:bg-white dark:text-slate-950">Transfer kelas</TooltipContent>
+                                                            </Tooltip>
+                                                        </TooltipProvider>
                                                     </div>
                                                 </td>
                                             </tr>

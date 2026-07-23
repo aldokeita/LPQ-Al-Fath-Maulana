@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/customSupabaseClient';
 import { toast } from '@/components/ui/use-toast';
-import { Loader2, ArrowRightLeft, School, User, Clock, CheckCircle } from 'lucide-react';
+import { Loader2, ArrowRightLeft, School, User, Clock, CheckCircle, AlertCircle, RefreshCw, Sparkles, ChevronRight } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -15,17 +15,20 @@ const StudentTransferModal = ({ isOpen, onClose, santri, onTransferSuccess }) =>
     const [isLoading, setIsLoading] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [showConfirmation, setShowConfirmation] = useState(false);
+    const [loadError, setLoadError] = useState(null);
 
     useEffect(() => {
         if (isOpen) {
             fetchClasses();
             setSelectedClassId(null);
             setShowConfirmation(false);
+            setLoadError(null);
         }
-    }, [isOpen]);
+    }, [isOpen, santri?.id]);
 
     const fetchClasses = async () => {
         setIsLoading(true);
+        setLoadError(null);
         try {
             const { data, error } = await supabase.rpc('list_guru_transfer_destinations', {
                 p_santri_id: santri.id,
@@ -37,7 +40,20 @@ const StudentTransferModal = ({ isOpen, onClose, santri, onTransferSuccess }) =>
                 guru: item.guru_nama ? { nama: item.guru_nama } : null,
             })));
         } catch (error) {
-            toast({ title: 'Gagal memuat kelas', description: error.message, variant: 'destructive' });
+            const backendNotReady = error?.code === 'PGRST202'
+                || error?.message?.includes('list_guru_transfer_destinations');
+            setClasses([]);
+            setLoadError({
+                title: backendNotReady ? 'Fitur transfer belum diaktifkan' : 'Daftar kelas belum dapat dimuat',
+                description: backendNotReady
+                    ? 'Pembaruan database untuk transfer kelas belum diterapkan. Hubungi admin untuk mengaktifkannya.'
+                    : 'Periksa koneksi Anda, lalu coba muat kembali daftar kelas.',
+            });
+            toast({
+                title: backendNotReady ? 'Transfer belum aktif' : 'Gagal memuat kelas',
+                description: backendNotReady ? 'Pembaruan database masih diperlukan.' : 'Silakan coba kembali.',
+                variant: 'destructive',
+            });
         } finally {
             setIsLoading(false);
         }
@@ -67,7 +83,8 @@ const StudentTransferModal = ({ isOpen, onClose, santri, onTransferSuccess }) =>
     };
 
     // Find current class name from the fetched classes list to ensure accuracy
-    const currentClassData = classes.find(c => c.id === santri?.id_kelas);
+    const currentClassId = santri?.id_kelas || santri?.current_class_id || santri?.class?.id;
+    const currentClassData = classes.find(c => c.id === currentClassId) || santri?.class || null;
     const selectedClassData = classes.find(c => c.id === selectedClassId);
 
     // Group and sort classes
@@ -80,15 +97,6 @@ const StudentTransferModal = ({ isOpen, onClose, santri, onTransferSuccess }) =>
         if (orderA !== orderB) return orderA - orderB;
         return a.nama_kelas.localeCompare(b.nama_kelas);
     });
-
-    const getSessionColor = (sesi) => {
-        switch(sesi) {
-            case 'Pagi': return 'bg-sky-50 border-sky-200 text-sky-700 hover:border-sky-400';
-            case 'Siang': return 'bg-amber-50 border-amber-200 text-amber-700 hover:border-amber-400';
-            case 'Sore': return 'bg-orange-50 border-orange-200 text-orange-700 hover:border-orange-400';
-            default: return 'bg-slate-50 border-slate-200 text-slate-700';
-        }
-    };
 
     const getSessionBadgeColor = (sesi) => {
         switch(sesi) {
@@ -104,33 +112,43 @@ const StudentTransferModal = ({ isOpen, onClose, santri, onTransferSuccess }) =>
     if (showConfirmation) {
         return (
             <Dialog open={isOpen} onOpenChange={() => { if(!isSubmitting) setShowConfirmation(false); }}>
-                <DialogContent className="max-w-md">
-                    <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2 text-red-600"><ArrowRightLeft className="w-6 h-6"/> Konfirmasi Transfer</DialogTitle>
-                        <DialogDescription>Anda akan memindahkan santri ini.</DialogDescription>
-                    </DialogHeader>
-                    <div className="py-4 space-y-4">
-                        <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl border flex items-center gap-4">
-                            <Avatar className="w-12 h-12"><AvatarImage src={santri.foto_url} /><AvatarFallback>{santri.nama_lengkap[0]}</AvatarFallback></Avatar>
-                            <div><p className="font-bold">{santri.nama_lengkap}</p><p className="text-xs text-muted-foreground">{santri.jilid}</p></div>
-                        </div>
-                        <div className="flex items-center justify-between px-4">
-                            <div className="text-center">
-                                <p className="text-xs text-muted-foreground">Dari Kelas</p>
-                                <p className="font-bold text-red-500">{currentClassData?.nama_kelas || santri.class?.nama_kelas || 'Belum Masuk'}</p>
+                <DialogContent className="guru-transfer-dialog guru-transfer-dialog--confirm max-w-xl overflow-hidden p-0">
+                    <div className="guru-transfer-aurora" aria-hidden="true" />
+                    <div className="relative p-6 sm:p-8">
+                        <DialogHeader className="text-left">
+                            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl border border-teal-200/70 bg-teal-50/80 text-teal-700 shadow-sm dark:border-teal-400/20 dark:bg-teal-400/10 dark:text-teal-200">
+                                <ArrowRightLeft className="h-5 w-5" />
                             </div>
-                            <ArrowRightLeft className="w-5 h-5 text-slate-400" />
-                            <div className="text-center">
-                                <p className="text-xs text-muted-foreground">Ke Kelas</p>
-                                <p className="font-bold text-green-500">{selectedClassData?.nama_kelas}</p>
-                                <Badge variant="outline" className="mt-1 text-[10px]">{selectedClassData?.sesi}</Badge>
+                            <DialogTitle className="text-2xl font-black tracking-tight text-slate-900 dark:text-white">Pastikan perpindahan kelas</DialogTitle>
+                            <DialogDescription className="max-w-md text-sm leading-relaxed">Periksa kelas asal dan tujuan sebelum menyimpan perubahan untuk <strong className="font-bold text-foreground">{santri.nama_lengkap}</strong>.</DialogDescription>
+                        </DialogHeader>
+
+                        <div className="mt-6 flex items-center gap-3 rounded-2xl border border-white/70 bg-white/55 p-3 shadow-[inset_1px_1px_0_rgba(255,255,255,0.85)] backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/35">
+                            <Avatar className="h-12 w-12 border-2 border-white shadow-md dark:border-slate-700"><AvatarImage src={santri.foto_url} className="object-cover" /><AvatarFallback>{santri.nama_lengkap[0]}</AvatarFallback></Avatar>
+                            <div className="min-w-0"><p className="truncate font-bold text-foreground">{santri.nama_lengkap}</p><p className="text-xs font-medium text-muted-foreground">{santri.jilid || 'Jilid belum diatur'}</p></div>
+                        </div>
+
+                        <div className="guru-transfer-route mt-5">
+                            <div className="guru-transfer-route__stop">
+                                <span className="guru-transfer-route__label">Kelas asal</span>
+                                <strong>{currentClassData?.nama_kelas || 'Kelas saat ini'}</strong>
+                                <span>{currentClassData?.sesi || santri.sesi_mengaji || 'Sesi belum diatur'}</span>
+                            </div>
+                            <div className="guru-transfer-route__arrow" aria-hidden="true"><ChevronRight className="h-5 w-5" /></div>
+                            <div className="guru-transfer-route__stop guru-transfer-route__stop--target">
+                                <span className="guru-transfer-route__label">Kelas tujuan</span>
+                                <strong>{selectedClassData?.nama_kelas}</strong>
+                                <span>{selectedClassData?.sesi || 'Sesi belum diatur'}</span>
                             </div>
                         </div>
+
+                        <DialogFooter className="mt-7 gap-2 sm:gap-2">
+                            <Button variant="outline" onClick={() => setShowConfirmation(false)} disabled={isSubmitting} className="h-11 rounded-xl border-white/70 bg-white/45 px-5 shadow-sm backdrop-blur-md dark:border-white/10 dark:bg-white/5">Kembali</Button>
+                            <Button onClick={handleTransfer} disabled={isSubmitting} className="guru-transfer-primary h-11 min-w-[170px] rounded-xl px-5 text-white">
+                                {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Memindahkan...</> : <><ArrowRightLeft className="mr-2 h-4 w-4" />Pindahkan santri</>}
+                            </Button>
+                        </DialogFooter>
                     </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setShowConfirmation(false)} disabled={isSubmitting}>Batal</Button>
-                        <Button onClick={handleTransfer} disabled={isSubmitting} className="bg-red-600 hover:bg-red-700 text-white">{isSubmitting ? <Loader2 className="w-4 h-4 animate-spin"/> : 'Ya, Pindahkan'}</Button>
-                    </DialogFooter>
                 </DialogContent>
             </Dialog>
         )
@@ -138,106 +156,99 @@ const StudentTransferModal = ({ isOpen, onClose, santri, onTransferSuccess }) =>
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="max-w-3xl h-[85vh] flex flex-col p-0 overflow-hidden">
-                <div className="p-6 border-b bg-white dark:bg-slate-950 z-10">
-                    <DialogTitle className="flex items-center gap-2 text-xl text-primary"><ArrowRightLeft className="w-6 h-6" /> Transfer Santri</DialogTitle>
-                    <DialogDescription className="mt-1">Pilih kelas tujuan untuk <strong>{santri.nama_lengkap}</strong>.</DialogDescription>
+            <DialogContent className="guru-transfer-dialog flex h-[min(88vh,760px)] max-w-4xl flex-col overflow-hidden p-0">
+                <div className="guru-transfer-aurora" aria-hidden="true" />
 
-                    <div className="mt-4 flex flex-col sm:flex-row sm:items-center gap-3 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 px-4 py-3 rounded-lg text-sm border border-blue-100 dark:border-blue-800 shadow-sm">
-                        <div className="flex items-center gap-2">
-                            <School className="w-4 h-4 text-blue-600" />
-                            <span className="text-xs font-semibold uppercase text-blue-600/80">Kelas Saat Ini:</span>
+                <div className="guru-transfer-header relative z-10 px-5 pb-5 pt-6 sm:px-7 sm:pt-7">
+                    <DialogHeader className="text-left">
+                        <div className="mb-3 flex items-center gap-2 text-xs font-black uppercase tracking-[0.18em] text-teal-700 dark:text-teal-200">
+                            <span className="flex h-8 w-8 items-center justify-center rounded-xl border border-teal-200/70 bg-teal-50/70 shadow-sm dark:border-teal-400/20 dark:bg-teal-400/10"><Sparkles className="h-4 w-4" /></span>
+                            Mutasi kelas
                         </div>
-                        <div className="flex-1 font-bold text-base">
-                            {currentClassData ? (
-                                <div className="flex items-center gap-2">
-                                    {currentClassData.nama_kelas}
-                                    <Badge variant="secondary" className="text-xs font-normal bg-white/50">{currentClassData.sesi}</Badge>
-                                </div>
-                            ) : (
-                                <span className="text-muted-foreground italic font-normal">Kelas saat ini tidak ditemukan</span>
-                            )}
-                        </div>
-                        {currentClassData?.guru?.nama && (
-                            <div className="flex items-center gap-1 text-xs opacity-80 bg-white/40 px-2 py-1 rounded">
-                                <User className="w-3 h-3" /> {currentClassData.guru.nama}
+                        <DialogTitle className="text-2xl font-black tracking-tight text-slate-900 dark:text-white sm:text-3xl">Transfer santri</DialogTitle>
+                        <DialogDescription className="mt-1 max-w-xl text-sm leading-relaxed">Pilih kelas tujuan yang paling tepat untuk perjalanan belajar <strong className="font-bold text-foreground">{santri.nama_lengkap}</strong>.</DialogDescription>
+                    </DialogHeader>
+
+                    <div className="guru-transfer-student mt-5">
+                        <Avatar className="h-12 w-12 border-2 border-white shadow-lg dark:border-slate-700 sm:h-14 sm:w-14"><AvatarImage src={santri.foto_url} className="object-cover" /><AvatarFallback>{santri.nama_lengkap[0]}</AvatarFallback></Avatar>
+                        <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-black text-slate-900 dark:text-white sm:text-base">{santri.nama_lengkap}</p>
+                            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-medium text-muted-foreground">
+                                <span className="inline-flex items-center gap-1.5"><School className="h-3.5 w-3.5 text-teal-600" />{currentClassData?.nama_kelas || 'Kelas saat ini'}</span>
+                                <span className="inline-flex items-center gap-1.5"><Clock className="h-3.5 w-3.5 text-sky-600" />{currentClassData?.sesi || santri.sesi_mengaji || 'Sesi belum diatur'}</span>
                             </div>
-                        )}
+                        </div>
+                        <Badge variant="outline" className="hidden border-white/70 bg-white/55 px-3 py-1 text-xs font-bold shadow-sm backdrop-blur-md dark:border-white/10 dark:bg-white/5 sm:inline-flex">{santri.jilid || 'Jilid belum diatur'}</Badge>
                     </div>
                 </div>
 
-                <ScrollArea className="flex-1 bg-slate-50/50 dark:bg-slate-900/50">
-                    <div className="p-6">
-                        {isLoading ? (
-                            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                                <Loader2 className="w-10 h-10 animate-spin mb-2 text-primary" />
-                                <p>Memuat daftar kelas...</p>
+                <ScrollArea className="relative z-10 min-h-0 flex-1 border-y border-white/50 bg-white/20 dark:border-white/10 dark:bg-slate-950/15">
+                    <div className="p-5 sm:p-7">
+                        <div className="mb-4 flex items-end justify-between gap-4">
+                            <div><h3 className="font-black text-slate-900 dark:text-white">Pilih kelas tujuan</h3><p className="mt-0.5 text-xs text-muted-foreground">Kelas saat ini tidak dapat dipilih kembali.</p></div>
+                            {!isLoading && !loadError && <span className="text-xs font-bold text-teal-700 dark:text-teal-200">{Math.max(sortedClasses.length - 1, 0)} pilihan</span>}
+                        </div>
+
+                        {isLoading && (
+                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3" aria-label="Memuat daftar kelas">
+                                {[1, 2, 3, 4, 5, 6].map((item) => <div key={item} className="guru-transfer-skeleton h-36 rounded-2xl" />)}
                             </div>
-                        ) : (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        )}
+
+                        {!isLoading && loadError && (
+                            <div className="guru-transfer-state guru-transfer-state--error" role="alert">
+                                <span className="guru-transfer-state__icon"><AlertCircle className="h-6 w-6" /></span>
+                                <h4>{loadError.title}</h4>
+                                <p>{loadError.description}</p>
+                                <Button type="button" variant="outline" onClick={fetchClasses} className="mt-5 h-10 rounded-xl border-rose-200/70 bg-white/60 px-4 text-rose-700 shadow-sm hover:bg-white dark:border-rose-400/20 dark:bg-white/5 dark:text-rose-200 dark:hover:bg-white/10"><RefreshCw className="mr-2 h-4 w-4" />Coba lagi</Button>
+                            </div>
+                        )}
+
+                        {!isLoading && !loadError && sortedClasses.length > 0 && (
+                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                                 {sortedClasses.map(cls => {
-                                    const isCurrent = cls.id === santri.id_kelas;
+                                    const isCurrent = cls.id === currentClassId;
                                     const isSelected = cls.id === selectedClassId;
-                                    const sessionColorClass = getSessionColor(cls.sesi);
-
                                     return (
-                                        <div
+                                        <button
+                                            type="button"
                                             key={cls.id}
-                                            onClick={() => !isCurrent && setSelectedClassId(cls.id)}
-                                            className={cn(
-                                                "relative p-4 rounded-xl border-2 transition-all cursor-pointer flex flex-col gap-3 group shadow-sm",
-                                                isCurrent ? "opacity-60 cursor-not-allowed bg-slate-100 border-slate-200 grayscale" :
-                                                isSelected ? "ring-2 ring-primary border-primary shadow-lg transform scale-[1.02] z-10" :
-                                                `${sessionColorClass} hover:shadow-md`
-                                            )}
+                                            onClick={() => setSelectedClassId(cls.id)}
+                                            disabled={isCurrent}
+                                            aria-pressed={isSelected}
+                                            className={cn('guru-transfer-class group', isCurrent && 'guru-transfer-class--current', isSelected && 'guru-transfer-class--selected')}
                                         >
-                                            <div className="flex justify-between items-start">
-                                                <Badge className={cn("text-[10px] px-2 py-0.5 pointer-events-none", getSessionBadgeColor(cls.sesi))}>
-                                                    {cls.sesi}
-                                                </Badge>
-                                                {isSelected && <CheckCircle className="w-5 h-5 text-primary fill-white" />}
-                                                {isCurrent && <Badge variant="secondary" className="text-[10px]">Kelas saat ini</Badge>}
+                                            <div className="flex items-start justify-between gap-3">
+                                                <Badge className={cn('pointer-events-none border-0 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider', getSessionBadgeColor(cls.sesi))}>{cls.sesi || 'Tanpa sesi'}</Badge>
+                                                {isSelected ? <CheckCircle className="h-5 w-5 text-teal-600 dark:text-teal-300" /> : isCurrent ? <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Saat ini</span> : <ChevronRight className="h-5 w-5 text-slate-300 transition-transform group-hover:translate-x-0.5 dark:text-slate-600" />}
                                             </div>
-
-                                            <div>
-                                                <h4 className="font-bold text-lg leading-tight mb-1">{cls.nama_kelas}</h4>
-                                                <div className="flex items-center gap-1.5 text-xs opacity-80">
-                                                    <User className="w-3 h-3" />
-                                                    <span className="truncate max-w-[120px]">{cls.guru?.nama || 'Tanpa Guru'}</span>
-                                                </div>
+                                            <div className="mt-5 text-left">
+                                                <h4 className="text-lg font-black leading-tight text-slate-900 dark:text-white">{cls.nama_kelas}</h4>
+                                                <p className="mt-2 flex items-center gap-1.5 text-xs font-medium text-muted-foreground"><User className="h-3.5 w-3.5" /><span className="truncate">{cls.guru?.nama || 'Guru belum ditentukan'}</span></p>
                                             </div>
-
-                                            <div className="mt-auto pt-2 border-t border-black/5 flex justify-between text-xs opacity-70">
-                                                <span className="flex items-center gap-1"><Clock className="w-3 h-3"/> Sesi {cls.sesi}</span>
-                                            </div>
-                                        </div>
-                                    )
+                                        </button>
+                                    );
                                 })}
                             </div>
                         )}
-                        {!isLoading && sortedClasses.length === 0 && (
-                            <div className="rounded-xl border border-dashed border-border bg-background/70 px-6 py-12 text-center">
-                                <School className="mx-auto mb-3 h-9 w-9 text-muted-foreground" />
-                                <p className="font-semibold text-foreground">Belum ada kelas tujuan yang tersedia</p>
-                                <p className="mt-1 text-sm text-muted-foreground">Hubungi admin untuk menambahkan kelas aktif dengan kategori yang sama.</p>
+
+                        {!isLoading && !loadError && sortedClasses.length === 0 && (
+                            <div className="guru-transfer-state">
+                                <span className="guru-transfer-state__icon"><School className="h-6 w-6" /></span>
+                                <h4>Belum ada kelas tujuan</h4>
+                                <p>Admin perlu menambahkan kelas aktif dengan kategori yang sama terlebih dahulu.</p>
                             </div>
                         )}
                     </div>
                 </ScrollArea>
 
-                <div className="p-4 border-t bg-white dark:bg-slate-950 flex justify-between items-center gap-4 z-10">
-                    <div className="text-xs text-muted-foreground hidden sm:block">
-                        <span className="font-medium text-foreground">Tip:</span> Pilih kelas tujuan lalu klik "Lanjut Transfer".
+                <div className="guru-transfer-footer relative z-10 flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-7">
+                    <div className="min-w-0 text-xs text-muted-foreground">
+                        {selectedClassData ? <span>Tujuan dipilih: <strong className="font-black text-foreground">{selectedClassData.nama_kelas}</strong> · {selectedClassData.sesi}</span> : <span>Pilih satu kelas untuk melanjutkan.</span>}
                     </div>
-                    <div className="flex gap-2 ml-auto">
-                        <Button variant="outline" onClick={onClose}>Batal</Button>
-                        <Button
-                            onClick={() => setShowConfirmation(true)}
-                            disabled={!selectedClassId}
-                            className="bg-blue-600 hover:bg-blue-700 text-white min-w-[140px] shadow-md"
-                        >
-                            Lanjut Transfer <ArrowRightLeft className="w-4 h-4 ml-2" />
-                        </Button>
+                    <div className="flex gap-2 sm:shrink-0">
+                        <Button variant="outline" onClick={onClose} className="h-11 flex-1 rounded-xl border-white/70 bg-white/45 px-5 shadow-sm backdrop-blur-md dark:border-white/10 dark:bg-white/5 sm:flex-none">Batal</Button>
+                        <Button onClick={() => setShowConfirmation(true)} disabled={!selectedClassId || Boolean(loadError)} className="guru-transfer-primary h-11 flex-1 rounded-xl px-5 text-white sm:min-w-[170px] sm:flex-none">Lanjutkan <ChevronRight className="ml-2 h-4 w-4" /></Button>
                     </div>
                 </div>
             </DialogContent>

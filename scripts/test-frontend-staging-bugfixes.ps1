@@ -171,9 +171,11 @@ Add-Check "guru dashboard restores scoped class transfer action" {
 
   if ($dashboard -notmatch "StudentTransferModal") { throw "guru transfer modal is not mounted" }
   if ($dashboard -notmatch "openTransferModal\(santri\)") { throw "transfer action is not wired to each santri row" }
-  if ($dashboard -notmatch ">\s*Transfer\s*<") { throw "transfer button label is missing" }
+  if ($dashboard -notmatch 'aria-label=\{`Transfer \$\{santri\.nama_lengkap\} ke kelas lain`\}') { throw "icon-only transfer action has no accessible name" }
+  if ($dashboard -notmatch 'guru-transfer-action') { throw "icon-only transfer action style is missing" }
   if ($modal -notmatch "list_guru_transfer_destinations") { throw "transfer modal does not use scoped destination RPC" }
   if ($modal -notmatch "move_santri_to_class_by_guru") { throw "transfer modal does not use guru-scoped transfer RPC" }
+  if ($modal -notmatch "PGRST202" -or $modal -notmatch "Pembaruan database untuk transfer kelas belum diterapkan") { throw "missing RPC error is not translated into an actionable message" }
   if ($migration -notmatch "v_active_membership\.id_guru is distinct from v_actor") { throw "transfer RPC does not verify the source teacher" }
   if ($migration -notmatch "kategori yang sama") { throw "transfer RPC does not enforce matching class category" }
 }
