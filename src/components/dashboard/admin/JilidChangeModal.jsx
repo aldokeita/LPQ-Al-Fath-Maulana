@@ -5,9 +5,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/lib/customSupabaseClient';
 import { MessageCircle, ChevronRight, Check, AlertTriangle } from 'lucide-react';
-import { generateWhatsAppLink, resolveWhatsAppGroupLink, WHATSAPP_GROUP_LINKS } from '@/utils/whatsappMessages';
+import { generateWhatsAppLink, resolveWhatsAppGroupLink } from '@/utils/whatsappMessages';
 import { toast } from '@/components/ui/use-toast';
 import { fetchWhatsAppTemplates, renderWhatsAppTemplate } from '@/lib/whatsappTemplateAdapters';
+import { fetchWhatsAppGroupLink } from '@/lib/whatsappGroupLinksAdapters';
 
 const JilidChangeModal = ({ isOpen, onClose, santri, direction, currentJilid, nextJilid, onConfirm, kategori = 'Anak' }) => {
     const [message, setMessage] = useState('');
@@ -38,25 +39,7 @@ const JilidChangeModal = ({ isOpen, onClose, santri, direction, currentJilid, ne
         let groupLink = '';
 
         try {
-            // First check hardcoded mapping for immediate result
-            const targetJilid = direction === 'up' ? nextJilid : nextJilid; // For demotion nextJilid is the target destination too
-            const mapKey = Object.keys(WHATSAPP_GROUP_LINKS).find(k => targetJilid?.includes(k));
-            if (mapKey) {
-                groupLink = WHATSAPP_GROUP_LINKS[mapKey];
-            }
-
-            // If not found in mapping, try DB (fallback)
-            if (!groupLink) {
-                const { data, error } = await supabase
-                    .from('whatsapp_group_links')
-                    .select('whatsapp_link')
-                    .eq('jilid', targetJilid)
-                    .maybeSingle();
-
-                if (!error && data) {
-                    groupLink = data.whatsapp_link;
-                }
-            }
+            groupLink = await fetchWhatsAppGroupLink(nextJilid);
         } catch (err) {
             console.error("Error fetching whatsapp link:", err);
         } finally {
