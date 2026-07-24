@@ -2119,7 +2119,7 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
   height: 100% !important;
   min-width: clamp(7.25rem, 10vw, 8.75rem);
   min-height: clamp(7.25rem, 10vw, 8.75rem);
-  border: 4px solid rgb(255 255 255 / 0.9);
+  border: none;
   box-shadow: 0 14px 32px -18px color-mix(in srgb, var(--guru-profile-accent) 62%, #0f172a);
 }
 
