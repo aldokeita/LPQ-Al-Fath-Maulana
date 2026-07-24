@@ -459,7 +459,7 @@ const GuruDashboard = () => {
               <div className="guru-profile-neo__avatar-shell">
                 <span className="guru-profile-neo__avatar-orbit" aria-hidden="true" />
                 <button type="button" onClick={() => setIsOwnAvatarPreviewOpen(true)} className="guru-profile-neo__avatar-button" aria-label="Lihat foto profil guru">
-                  <Avatar className="guru-profile-neo__avatar"><AvatarImage src={guruData.foto_url} className="object-cover"/><AvatarFallback className="guru-profile-neo__avatar-fallback">{guruData.nama?.charAt(0)}</AvatarFallback></Avatar>
+                  <Avatar className="guru-profile-neo__avatar w-full h-full"><AvatarImage src={guruData.foto_url} className="object-cover"/><AvatarFallback className="guru-profile-neo__avatar-fallback">{guruData.nama?.charAt(0)}</AvatarFallback></Avatar>
                 </button>
               </div>
               <div className="guru-profile-neo__identity">
