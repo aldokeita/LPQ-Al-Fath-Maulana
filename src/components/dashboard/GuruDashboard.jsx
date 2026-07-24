@@ -42,6 +42,7 @@ import { getBirthdaysThisMonth } from '@/lib/birthdayUtils';
 import AvatarPreviewDialog from '@/components/dashboard/shared/AvatarPreviewDialog';
 import StudentTransferModal from '@/components/dashboard/guru/StudentTransferModal';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { useTheme } from '@/contexts/ThemeContext';
 
 const ProfileConstellationScene = lazy(() => import('@/components/dashboard/santri/SantriLevelScene'));
 
@@ -162,6 +163,7 @@ const EditGuruProfileModal = ({ isOpen, onOpenChange, guruData, onProfileUpdate,
 
 const GuruDashboard = () => {
   const { user } = useAuth();
+  const { isDark } = useTheme();
   const navigate = useNavigate();
   const [guruData, setGuruData] = useState(null);
   const [isMmqOpen, setIsMmqOpen] = useState(false);
@@ -405,7 +407,7 @@ const GuruDashboard = () => {
   if (isLoading) return <div className="p-8 text-center text-muted-foreground flex items-center justify-center h-64"><RefreshCw className="w-8 h-8 animate-spin mr-2"/>Memuat data guru...</div>;
 
   const isFemale = guruData?.jenis_kelamin === 'Perempuan';
-  const themeGradient = isFemale ? 'from-teal-500 to-emerald-600' : 'from-green-600 to-green-800';
+  const themeGradient = isFemale ? 'from-pink-500 to-rose-600' : 'from-sky-500 to-blue-700';
   const headerGradient = isFemale ? 'from-teal-50 to-emerald-50' : 'from-green-50 to-emerald-50';
   const headerText = isFemale ? 'text-teal-700' : 'text-green-700';
   const hafalanTargets = selectedHafalan.programScope === 'PTPT'
@@ -445,27 +447,36 @@ const GuruDashboard = () => {
             </div>
         </div>
         {guruData && (
-          <section className="relative mb-8 overflow-hidden rounded-2xl border border-white/80 bg-slate-100 text-slate-900 shadow-[14px_14px_32px_rgba(15,23,42,0.16),-12px_-12px_28px_rgba(255,255,255,0.92)] dark:border-white/10 dark:bg-slate-950 dark:text-white dark:shadow-[14px_14px_32px_rgba(0,0,0,0.5),-10px_-10px_26px_rgba(30,41,59,0.3)]">
-            <Suspense fallback={null}><ProfileConstellationScene accentColor={isFemale ? '#14b8a6' : '#3b82f6'} points={myClasses.length * 7} /></Suspense>
-            <div className={cn('absolute inset-x-0 top-0 z-10 h-1 bg-gradient-to-r', isFemale ? 'from-cyan-400 via-teal-400 to-violet-400' : 'from-cyan-500 via-blue-500 to-violet-500')} />
-            <div className="relative z-10 grid gap-7 p-6 md:grid-cols-[auto_minmax(0,1fr)_auto] md:items-center md:p-8">
-              <div className="mx-auto rounded-full bg-slate-100 p-2 shadow-[inset_5px_5px_12px_rgba(15,23,42,0.12),inset_-5px_-5px_12px_rgba(255,255,255,0.9)] dark:bg-slate-900 dark:shadow-[inset_5px_5px_12px_rgba(0,0,0,0.45),inset_-5px_-5px_12px_rgba(51,65,85,0.28)] md:mx-0">
-                <button type="button" onClick={() => setIsOwnAvatarPreviewOpen(true)} className="block rounded-full transition-transform hover:scale-[1.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2" aria-label="Lihat foto profil guru">
-                  <Avatar className="h-28 w-28 border-4 border-white shadow-lg dark:border-slate-800 md:h-32 md:w-32"><AvatarImage src={guruData.foto_url} className="object-cover"/><AvatarFallback className="bg-slate-200 text-4xl font-black text-slate-700 dark:bg-slate-800 dark:text-white">{guruData.nama?.charAt(0)}</AvatarFallback></Avatar>
+          <section className={cn('guru-profile-neo', isFemale ? 'guru-profile-neo--female' : 'guru-profile-neo--male')}>
+            {isDark && (
+              <div className="guru-profile-neo__constellation">
+                <Suspense fallback={null}><ProfileConstellationScene accentColor={isFemale ? '#f472b6' : '#60a5fa'} points={myClasses.length * 7} /></Suspense>
+              </div>
+            )}
+            <div className="guru-profile-neo__aurora" aria-hidden="true" />
+            <div className="guru-profile-neo__rail" aria-hidden="true" />
+            <div className="guru-profile-neo__content">
+              <div className="guru-profile-neo__avatar-shell">
+                <span className="guru-profile-neo__avatar-orbit" aria-hidden="true" />
+                <button type="button" onClick={() => setIsOwnAvatarPreviewOpen(true)} className="guru-profile-neo__avatar-button" aria-label="Lihat foto profil guru">
+                  <Avatar className="guru-profile-neo__avatar"><AvatarImage src={guruData.foto_url} className="object-cover"/><AvatarFallback className="guru-profile-neo__avatar-fallback">{guruData.nama?.charAt(0)}</AvatarFallback></Avatar>
                 </button>
               </div>
-              <div className="min-w-0 space-y-3 text-center md:text-left">
-                <p className={cn('text-xs font-black uppercase tracking-[0.18em]', isFemale ? 'text-teal-600 dark:text-teal-300' : 'text-blue-600 dark:text-blue-300')}>Profil pengajar</p>
-                <div><h2 className="truncate text-3xl font-black tracking-tight sm:text-4xl">{guruData.nama}</h2><p className="mt-1 text-base font-semibold text-muted-foreground">{guruData.jabatan}</p></div>
-                <div className="flex flex-wrap justify-center gap-2 md:justify-start">
-                  <span className="inline-flex items-center gap-2 rounded-full border border-white/80 bg-slate-100 px-3 py-2 text-xs font-bold shadow-[inset_2px_2px_5px_rgba(15,23,42,0.1),inset_-2px_-2px_5px_rgba(255,255,255,0.9)] dark:border-white/10 dark:bg-slate-900"><Users className="h-4 w-4 text-cyan-600" />{myClasses.length} kelas</span>
-                  <span className="inline-flex items-center gap-2 rounded-full border border-white/80 bg-slate-100 px-3 py-2 text-xs font-bold shadow-[inset_2px_2px_5px_rgba(15,23,42,0.1),inset_-2px_-2px_5px_rgba(255,255,255,0.9)] dark:border-white/10 dark:bg-slate-900"><UserCheck className="h-4 w-4 text-emerald-600" />Aktif</span>
+              <div className="guru-profile-neo__identity">
+                <div className="guru-profile-neo__eyebrow"><Sparkles className="h-3.5 w-3.5" /> Profil pengajar</div>
+                <div>
+                  <h2 className="guru-profile-neo__name">{guruData.nama}</h2>
+                  <p className="guru-profile-neo__role">{guruData.jabatan}</p>
+                </div>
+                <div className="guru-profile-neo__metrics" aria-label="Ringkasan profil guru">
+                  <span className="guru-profile-neo__metric"><Users className="h-4 w-4" /><strong>{myClasses.length}</strong> kelas</span>
+                  <span className="guru-profile-neo__metric"><UserCheck className="h-4 w-4" /><strong>Aktif</strong></span>
                 </div>
               </div>
-              <div className="grid min-w-[190px] gap-2 sm:grid-cols-2 md:grid-cols-1">
-                <Button onClick={() => setIsEditProfileOpen(true)} variant="outline" className="border-white/80 bg-slate-100 shadow-[5px_5px_12px_rgba(15,23,42,0.12),-5px_-5px_12px_rgba(255,255,255,0.9)] transition-all hover:-translate-y-0.5 hover:border-primary hover:bg-primary hover:text-primary-foreground dark:border-white/10 dark:bg-slate-900 dark:hover:border-primary dark:hover:bg-primary dark:hover:text-primary-foreground"><Edit className="mr-2 h-4 w-4" /> Edit Profil</Button>
-                <div className="grid grid-cols-2 gap-2"><Button onClick={() => setIsMmqOpen(true)} size="sm" variant="outline">MMQ</Button><Button onClick={() => setIsRecapOpen(true)} size="sm" variant="outline">Absensi</Button></div>
-                <Button onClick={() => setIsMurojaahOpen(true)} size="sm" className="relative overflow-hidden bg-slate-900 text-white hover:bg-slate-800 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200"><Mic className="mr-2 h-4 w-4"/> Setoran Muroja'ah{pendingSubmissionsCount > 0 && <span className="absolute right-1 top-1 h-2.5 w-2.5 rounded-full bg-rose-500"></span>}</Button>
+              <div className="guru-profile-neo__actions">
+                <Button onClick={() => setIsEditProfileOpen(true)} variant="outline" className="guru-profile-neo__button"><Edit className="mr-2 h-4 w-4" /> Edit Profil</Button>
+                <div className="guru-profile-neo__action-pair"><Button onClick={() => setIsMmqOpen(true)} size="sm" variant="outline" className="guru-profile-neo__button">MMQ</Button><Button onClick={() => setIsRecapOpen(true)} size="sm" variant="outline" className="guru-profile-neo__button">Absensi</Button></div>
+                <Button onClick={() => setIsMurojaahOpen(true)} size="sm" className="guru-profile-neo__button guru-profile-neo__button--accent"><Mic className="mr-2 h-4 w-4"/> Setoran Muroja'ah{pendingSubmissionsCount > 0 && <span className="guru-profile-neo__notification-dot" aria-label={`${pendingSubmissionsCount} setoran menunggu peninjauan`}></span>}</Button>
               </div>
             </div>
           </section>

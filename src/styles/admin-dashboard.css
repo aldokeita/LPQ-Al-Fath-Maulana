@@ -1974,6 +1974,393 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
   background-color: hsl(152 58% 37% / 0.1) !important;
 }
 
+/* ============================================================
+   GURU PROFILE — LPQ AURORA NEO-GLASS
+   ============================================================ */
+
+.guru-profile-neo {
+  --guru-profile-accent: #3b82f6;
+  --guru-profile-accent-deep: #1d4ed8;
+  --guru-profile-accent-soft: rgb(147 197 253 / 0.34);
+  --guru-profile-surface: rgb(239 247 255 / 0.76);
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  margin-bottom: 2rem;
+  color: #10213c;
+  border: 1px solid rgb(255 255 255 / 0.82);
+  border-radius: clamp(1.5rem, 3vw, 2.15rem);
+  background:
+    radial-gradient(circle at 12% 18%, var(--guru-profile-accent-soft), transparent 31%),
+    radial-gradient(circle at 88% 76%, rgb(125 211 252 / 0.2), transparent 34%),
+    linear-gradient(135deg, var(--guru-profile-surface), rgb(248 250 252 / 0.72));
+  box-shadow:
+    18px 20px 48px -32px rgb(30 64 175 / 0.48),
+    -12px -12px 30px rgb(255 255 255 / 0.86),
+    inset 0 1px 0 rgb(255 255 255 / 0.94);
+  backdrop-filter: blur(22px) saturate(132%);
+}
+
+.guru-profile-neo--female {
+  --guru-profile-accent: #ec4899;
+  --guru-profile-accent-deep: #be185d;
+  --guru-profile-accent-soft: rgb(249 168 212 / 0.35);
+  --guru-profile-surface: rgb(255 241 248 / 0.78);
+  background:
+    radial-gradient(circle at 12% 18%, var(--guru-profile-accent-soft), transparent 31%),
+    radial-gradient(circle at 88% 76%, rgb(196 181 253 / 0.2), transparent 34%),
+    linear-gradient(135deg, var(--guru-profile-surface), rgb(255 250 252 / 0.72));
+  box-shadow:
+    18px 20px 48px -32px rgb(190 24 93 / 0.42),
+    -12px -12px 30px rgb(255 255 255 / 0.88),
+    inset 0 1px 0 rgb(255 255 255 / 0.94);
+}
+
+.guru-profile-neo__aurora {
+  position: absolute;
+  z-index: -1;
+  width: clamp(16rem, 32vw, 30rem);
+  aspect-ratio: 1;
+  right: -9%;
+  bottom: -78%;
+  border-radius: 50%;
+  background: var(--guru-profile-accent-soft);
+  filter: blur(52px);
+  opacity: 0.72;
+  pointer-events: none;
+}
+
+.guru-profile-neo__rail {
+  position: absolute;
+  z-index: 3;
+  inset: 0 auto 0 0;
+  width: 0.34rem;
+  background: linear-gradient(180deg, var(--guru-profile-accent), color-mix(in srgb, var(--guru-profile-accent) 35%, #8b5cf6), transparent 94%);
+  box-shadow: 0 0 18px var(--guru-profile-accent-soft);
+}
+
+.guru-profile-neo__constellation {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  display: none;
+  pointer-events: none;
+}
+
+.guru-profile-neo__content {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) minmax(12rem, auto);
+  align-items: center;
+  gap: clamp(1.5rem, 3vw, 2.5rem);
+  padding: clamp(1.35rem, 3vw, 2.2rem);
+}
+
+.guru-profile-neo__avatar-shell {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: clamp(8.4rem, 12vw, 10rem);
+  aspect-ratio: 1;
+  padding: 0.55rem;
+  border: 1px solid rgb(255 255 255 / 0.86);
+  border-radius: 50%;
+  background: rgb(255 255 255 / 0.48);
+  box-shadow:
+    10px 12px 26px -18px color-mix(in srgb, var(--guru-profile-accent) 62%, #0f172a),
+    -7px -7px 18px rgb(255 255 255 / 0.84),
+    inset 2px 2px 6px rgb(15 23 42 / 0.08),
+    inset -3px -3px 7px rgb(255 255 255 / 0.82);
+}
+
+.guru-profile-neo__avatar-orbit {
+  position: absolute;
+  inset: -0.35rem;
+  border: 1px solid color-mix(in srgb, var(--guru-profile-accent) 48%, transparent);
+  border-radius: 50%;
+  mask-image: linear-gradient(90deg, #000 0 33%, transparent 52% 68%, #000 85%);
+  animation: guru-profile-orbit 12s linear infinite;
+}
+
+.guru-profile-neo__avatar-orbit::after {
+  content: "";
+  position: absolute;
+  top: 11%;
+  right: 4%;
+  width: 0.55rem;
+  height: 0.55rem;
+  border: 2px solid rgb(255 255 255 / 0.92);
+  border-radius: 50%;
+  background: var(--guru-profile-accent);
+  box-shadow: 0 0 14px var(--guru-profile-accent);
+}
+
+.guru-profile-neo__avatar-button {
+  position: relative;
+  display: block;
+  border-radius: 50%;
+  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.guru-profile-neo__avatar-button:hover {
+  transform: scale(1.035);
+}
+
+.guru-profile-neo__avatar-button:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--guru-profile-accent) 72%, white);
+  outline-offset: 4px;
+}
+
+.guru-profile-neo__avatar {
+  width: clamp(7.25rem, 10vw, 8.75rem);
+  height: clamp(7.25rem, 10vw, 8.75rem);
+  border: 4px solid rgb(255 255 255 / 0.9);
+  box-shadow: 0 14px 32px -18px color-mix(in srgb, var(--guru-profile-accent) 62%, #0f172a);
+}
+
+.guru-profile-neo__avatar-fallback {
+  color: var(--guru-profile-accent-deep);
+  background: color-mix(in srgb, var(--guru-profile-accent) 14%, white);
+  font-size: 2.5rem;
+  font-weight: 900;
+}
+
+.guru-profile-neo__identity {
+  min-width: 0;
+}
+
+.guru-profile-neo__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-bottom: 0.7rem;
+  color: var(--guru-profile-accent-deep);
+  font-size: 0.7rem;
+  font-weight: 900;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.guru-profile-neo__name {
+  overflow: hidden;
+  color: #10213c;
+  font-size: clamp(1.8rem, 4vw, 2.65rem);
+  font-weight: 900;
+  line-height: 1.08;
+  letter-spacing: -0.035em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.guru-profile-neo__role {
+  margin-top: 0.4rem;
+  color: #64748b;
+  font-size: 0.96rem;
+  font-weight: 700;
+}
+
+.guru-profile-neo__metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin-top: 1rem;
+}
+
+.guru-profile-neo__metric {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 2.25rem;
+  padding: 0.45rem 0.75rem;
+  color: #526278;
+  border: 1px solid rgb(255 255 255 / 0.82);
+  border-radius: 0.8rem;
+  background: rgb(255 255 255 / 0.52);
+  box-shadow:
+    4px 5px 12px rgb(15 23 42 / 0.07),
+    -3px -3px 10px rgb(255 255 255 / 0.75),
+    inset 0 1px 0 rgb(255 255 255 / 0.88);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.guru-profile-neo__metric svg,
+.guru-profile-neo__metric strong {
+  color: var(--guru-profile-accent-deep);
+}
+
+.guru-profile-neo__actions {
+  display: grid;
+  min-width: 12rem;
+  gap: 0.6rem;
+}
+
+.guru-profile-neo__action-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.55rem;
+}
+
+.guru-profile-neo__button {
+  border-color: rgb(255 255 255 / 0.78) !important;
+  background: rgb(255 255 255 / 0.5) !important;
+  box-shadow:
+    5px 6px 13px rgb(15 23 42 / 0.09),
+    -4px -4px 11px rgb(255 255 255 / 0.76),
+    inset 0 1px 0 rgb(255 255 255 / 0.85);
+  transition: color 180ms ease, background-color 180ms ease, border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+}
+
+.guru-profile-neo__button:hover {
+  color: var(--guru-profile-accent-deep) !important;
+  border-color: color-mix(in srgb, var(--guru-profile-accent) 44%, white) !important;
+  background: color-mix(in srgb, var(--guru-profile-accent) 9%, white) !important;
+  box-shadow: 7px 9px 17px rgb(15 23 42 / 0.1), -3px -3px 9px rgb(255 255 255 / 0.7);
+  transform: translateY(-2px);
+}
+
+.guru-profile-neo__button:active {
+  box-shadow: inset 3px 3px 7px rgb(15 23 42 / 0.12), inset -2px -2px 6px rgb(255 255 255 / 0.65);
+  transform: translateY(0) scale(0.985);
+}
+
+.guru-profile-neo__button--accent {
+  position: relative;
+  color: white !important;
+  border-color: color-mix(in srgb, var(--guru-profile-accent) 72%, white) !important;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--guru-profile-accent) 72%, white), var(--guru-profile-accent-deep)) !important;
+  box-shadow: 0 12px 24px -14px color-mix(in srgb, var(--guru-profile-accent) 78%, #0f172a);
+}
+
+.guru-profile-neo__button--accent:hover {
+  color: white !important;
+  border-color: white !important;
+  background: linear-gradient(135deg, var(--guru-profile-accent), var(--guru-profile-accent-deep)) !important;
+}
+
+.guru-profile-neo__notification-dot {
+  position: absolute;
+  top: 0.35rem;
+  right: 0.4rem;
+  width: 0.58rem;
+  height: 0.58rem;
+  border: 2px solid white;
+  border-radius: 50%;
+  background: #fb7185;
+  box-shadow: 0 0 10px rgb(251 113 133 / 0.7);
+}
+
+.dark .guru-profile-neo {
+  --guru-profile-surface: rgb(10 18 37 / 0.82);
+  color: #f8fafc;
+  border-color: rgb(255 255 255 / 0.11);
+  background:
+    radial-gradient(circle at 12% 18%, var(--guru-profile-accent-soft), transparent 31%),
+    radial-gradient(circle at 88% 76%, rgb(99 102 241 / 0.14), transparent 34%),
+    linear-gradient(135deg, rgb(10 18 37 / 0.88), rgb(15 23 42 / 0.82));
+  box-shadow:
+    18px 20px 48px -26px rgb(0 0 0 / 0.72),
+    -8px -8px 26px rgb(51 65 85 / 0.12),
+    inset 0 1px 0 rgb(255 255 255 / 0.08);
+}
+
+.dark .guru-profile-neo__constellation {
+  display: block;
+  opacity: 0.88;
+}
+
+.dark .guru-profile-neo__avatar-shell,
+.dark .guru-profile-neo__metric,
+.dark .guru-profile-neo__button {
+  border-color: rgb(255 255 255 / 0.1) !important;
+  background: rgb(15 23 42 / 0.58) !important;
+  box-shadow:
+    7px 9px 18px rgb(0 0 0 / 0.3),
+    -3px -3px 11px rgb(71 85 105 / 0.08),
+    inset 0 1px 0 rgb(255 255 255 / 0.06);
+  backdrop-filter: blur(14px);
+}
+
+.dark .guru-profile-neo__avatar {
+  border-color: rgb(30 41 59 / 0.92);
+  box-shadow: 0 0 28px color-mix(in srgb, var(--guru-profile-accent) 34%, transparent);
+}
+
+.dark .guru-profile-neo__name {
+  color: #f8fafc;
+}
+
+.dark .guru-profile-neo__role,
+.dark .guru-profile-neo__metric {
+  color: #a9b7ca;
+}
+
+.dark .guru-profile-neo__eyebrow,
+.dark .guru-profile-neo__metric svg,
+.dark .guru-profile-neo__metric strong {
+  color: color-mix(in srgb, var(--guru-profile-accent) 62%, white);
+}
+
+.dark .guru-profile-neo__button--accent {
+  color: white !important;
+  border-color: color-mix(in srgb, var(--guru-profile-accent) 45%, transparent) !important;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--guru-profile-accent) 76%, #334155), var(--guru-profile-accent-deep)) !important;
+}
+
+@keyframes guru-profile-orbit {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 900px) {
+  .guru-profile-neo__content {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .guru-profile-neo__actions {
+    grid-column: 1 / -1;
+    grid-template-columns: 1fr 1fr 1.2fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .guru-profile-neo__content {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    padding: 1.4rem 1rem;
+    text-align: center;
+  }
+
+  .guru-profile-neo__identity {
+    width: 100%;
+  }
+
+  .guru-profile-neo__name {
+    white-space: normal;
+  }
+
+  .guru-profile-neo__metrics {
+    justify-content: center;
+  }
+
+  .guru-profile-neo__actions {
+    grid-column: auto;
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .guru-profile-neo__avatar-orbit {
+    animation: none;
+  }
+
+  .guru-profile-neo__button,
+  .guru-profile-neo__avatar-button {
+    transition: none;
+  }
+}
+
 .dark body.lpq-admin-context [cmdk-root],
 .dark body.lpq-admin-context [cmdk-list] {
   background-color: hsl(222 20% 12%) !important;
