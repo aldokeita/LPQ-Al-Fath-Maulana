@@ -13,12 +13,12 @@
   --ls-cream: #faf7f0;
   --ls-paper: #fffdf7;
 
-  /* Brand — emerald spectrum */
-  --ls-emerald: #047857;
-  --ls-emerald-bright: #10b981;
-  --ls-emerald-deep: #065f46;
-  --ls-emerald-soft: #d1fae5;
-  --ls-emerald-mist: #ecfdf5;
+  /* Brand — blue spectrum */
+  --ls-emerald: #1d4ed8;
+  --ls-emerald-bright: #3b82f6;
+  --ls-emerald-deep: #1e3a8a;
+  --ls-emerald-soft: #dbeafe;
+  --ls-emerald-mist: #eff6ff;
 
   /* Accents */
   --ls-amber: #d97706;

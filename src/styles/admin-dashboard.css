@@ -16,19 +16,19 @@
   --admin-text-secondary: 220 8% 40%;   /* warm gray */
   --admin-text-muted: 220 6% 60%;       /* muted gray */
 
-  --admin-accent: 152 58% 37%;          /* emerald */
-  --admin-accent-muted: 152 40% 45%;    /* muted emerald */
-  --admin-accent-soft: 152 40% 94%;     /* very light emerald */
+  --admin-accent: 221 83% 40%;          /* royal blue */
+  --admin-accent-muted: 217 70% 50%;    /* muted blue */
+  --admin-accent-soft: 214 100% 96%;     /* light ice blue */
   --admin-accent-cyan: 199 89% 48%;     /* cyan accent */
   --admin-accent-violet: 265 70% 55%;   /* violet accent */
   --admin-accent-amber: 38 92% 50%;     /* warm amber */
 
-  --admin-nav-active-bg: 152 58% 37%;   /* emerald active */
+  --admin-nav-active-bg: 221 83% 40%;   /* blue active */
   --admin-nav-active-fg: 0 0% 100%;     /* white */
-  --admin-nav-hover-bg: 152 30% 92%;    /* light emerald hover */
-  --admin-nav-indicator: 152 58% 37%;   /* emerald indicator */
+  --admin-nav-hover-bg: 214 90% 94%;    /* light blue hover */
+  --admin-nav-indicator: 221 83% 40%;   /* blue indicator */
 
-  --admin-glow: 152 58% 37%;
+  --admin-glow: 221 83% 40%;
   --admin-shadow-color: 220 15% 60%;
 }
 
@@ -44,19 +44,19 @@
   --admin-text-secondary: 30 15% 65%;   /* muted warm gray */
   --admin-text-muted: 222 10% 45%;      /* muted */
 
-  --admin-accent: 152 45% 42%;          /* muted emerald */
-  --admin-accent-muted: 152 35% 35%;    /* darker muted emerald */
-  --admin-accent-soft: 152 30% 14%;     /* subtle emerald bg */
+  --admin-accent: 217 91% 60%;          /* bright blue */
+  --admin-accent-muted: 221 70% 45%;    /* darker muted blue */
+  --admin-accent-soft: 222 50% 16%;     /* subtle blue bg */
   --admin-accent-cyan: 199 80% 55%;
   --admin-accent-violet: 265 60% 60%;
   --admin-accent-amber: 38 85% 55%;
 
-  --admin-nav-active-bg: 152 45% 42%;
+  --admin-nav-active-bg: 217 91% 60%;
   --admin-nav-active-fg: 0 0% 100%;
-  --admin-nav-hover-bg: 152 25% 18%;
-  --admin-nav-indicator: 152 45% 42%;
+  --admin-nav-hover-bg: 222 40% 18%;
+  --admin-nav-indicator: 217 91% 60%;
 
-  --admin-glow: 152 45% 42%;
+  --admin-glow: 217 91% 60%;
   --admin-shadow-color: 222 30% 5%;
 }
 

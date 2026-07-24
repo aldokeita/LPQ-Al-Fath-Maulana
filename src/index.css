@@ -6,107 +6,107 @@
 
 @layer base {
   :root {
-    --background: 130 50% 98%;
-    --foreground: 0 0% 10%;
+    --background: 215 50% 98%;
+    --foreground: 222 47% 11%;
 
     --card: 0 0% 100%;
-    --card-foreground: 125 54% 24%;
+    --card-foreground: 221 83% 24%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 125 54% 24%;
+    --popover-foreground: 221 83% 24%;
 
-    --primary: 122 39% 49%; /* Bright Green #4CAF50 */
+    --primary: 217 91% 54%; /* Vibrant Royal Blue #2563EB */
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 125 54% 24%; /* Dark Green #1B5E20 */
+    --secondary: 221 83% 24%; /* Deep Navy Blue #1E3A8A */
     --secondary-foreground: 0 0% 100%;
 
-    --muted: 125 43% 94%;
-    --muted-foreground: 125 54% 24%;
+    --muted: 214 32% 93%;
+    --muted-foreground: 221 83% 24%;
 
     --accent: 46 65% 52%; /* Gold #D4AF37 */
-    --accent-foreground: 125 54% 24%;
+    --accent-foreground: 221 83% 24%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 125 30% 80%;
-    --input: 125 30% 80%;
-    --ring: 125 54% 24%;
+    --border: 214 32% 84%;
+    --input: 214 32% 84%;
+    --ring: 217 91% 54%;
 
     --radius: 0.75rem;
 
     /* Glassmorphism Tokens */
     --glass-bg: 0 0% 100%;
     --glass-border: 0 0% 100%;
-    --glass-shadow: 125 54% 24%;
+    --glass-shadow: 221 83% 24%;
 
     /* Status & Attendance Colors (HSL format) */
-    --status-good: 142 71% 45%;      /* Green */
+    --status-good: 217 91% 54%;      /* Blue */
     --status-moderate: 38 92% 50%;   /* Yellow */
     --status-poor: 0 84% 60%;        /* Red */
 
-    --status-hadir: 142 71% 45%;
+    --status-hadir: 217 91% 54%;
     --status-terlambat: 38 92% 50%;
     --status-tidak-hadir: 0 84% 60%;
 
     /* MMQ Status Colors */
-    --mmq-hadir: 142 71% 45%;
+    --mmq-hadir: 217 91% 54%;
     --mmq-terlambat: 38 92% 50%;
     --mmq-tidak-hadir: 0 84% 60%;
 
-    /* Islamic Green TV Display Theme (Correct HSL representation) */
-    --islamic-green-primary: 142 64% 30%;   /* #1B7D3F */
-    --islamic-green-secondary: 144 72% 21%; /* #0F5C2E */
-    --islamic-green-accent: 122 39% 49%;    /* #4CAF50 */
-    --islamic-green-light: 150 40% 96%;     /* #F0F8F4 */
+    /* Islamic Royal Blue TV Display Theme */
+    --islamic-green-primary: 221 83% 40%;   /* #1D4ED8 */
+    --islamic-green-secondary: 224 76% 25%; /* #1E3A8A */
+    --islamic-green-accent: 217 91% 60%;    /* #3B82F6 */
+    --islamic-green-light: 214 100% 97%;     /* #F0F7FF */
   }
 
   .dark {
-    --background: 125 54% 10%; /* Dark Forest Green Background */
-    --foreground: 87 50% 90%;
+    --background: 222 47% 11%; /* Dark Royal Navy Background */
+    --foreground: 213 31% 91%;
 
-    --card: 125 54% 15%;
-    --card-foreground: 87 50% 90%;
+    --card: 222 47% 15%;
+    --card-foreground: 213 31% 91%;
 
-    --popover: 125 54% 15%;
-    --popover-foreground: 87 50% 90%;
+    --popover: 222 47% 15%;
+    --popover-foreground: 213 31% 91%;
 
-    --primary: 122 39% 49%; /* Bright Green #4CAF50 */
+    --primary: 217 91% 60%; /* Bright Blue #3B82F6 */
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 125 54% 24%; /* Dark Green #1B5E20 */
-    --secondary-foreground: 87 50% 90%;
+    --secondary: 221 83% 30%; /* Deep Blue #1D4ED8 */
+    --secondary-foreground: 213 31% 91%;
 
-    --muted: 125 54% 20%;
-    --muted-foreground: 87 50% 70%;
+    --muted: 222 47% 20%;
+    --muted-foreground: 215 20% 70%;
 
     --accent: 46 65% 52%; /* Gold #D4AF37 */
-    --accent-foreground: 125 54% 10%;
+    --accent-foreground: 222 47% 11%;
 
     --destructive: 0 63% 31%;
-    --destructive-foreground: 87 50% 90%;
+    --destructive-foreground: 213 31% 91%;
 
-    --border: 125 54% 20%;
-    --input: 125 54% 20%;
-    --ring: 122 39% 49%;
+    --border: 222 47% 20%;
+    --input: 222 47% 20%;
+    --ring: 217 91% 60%;
 
     /* Glassmorphism Tokens */
-    --glass-bg: 125 54% 10%;
-    --glass-border: 87 50% 90%;
-    --glass-shadow: 125 54% 5%;
+    --glass-bg: 222 47% 11%;
+    --glass-border: 213 31% 91%;
+    --glass-shadow: 222 47% 5%;
 
     /* Status & Attendance Colors (HSL format) */
-    --status-good: 142 71% 35%;
+    --status-good: 217 91% 60%;
     --status-moderate: 38 92% 40%;
     --status-poor: 0 84% 50%;
 
-    --status-hadir: 142 71% 35%;
+    --status-hadir: 217 91% 60%;
     --status-terlambat: 38 92% 40%;
     --status-tidak-hadir: 0 84% 50%;
 
     /* MMQ Status Colors */
-    --mmq-hadir: 142 71% 35%;
+    --mmq-hadir: 217 91% 60%;
     --mmq-terlambat: 38 92% 40%;
     --mmq-tidak-hadir: 0 84% 50%;
   }
