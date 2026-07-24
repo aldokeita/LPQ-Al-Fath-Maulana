@@ -2455,22 +2455,22 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
   --att-text-secondary: 220 8% 40%;
   --att-text-muted: 220 6% 58%;
 
-  --att-accent: 152 58% 37%;
-  --att-accent-muted: 152 40% 45%;
-  --att-accent-soft: 152 40% 94%;
-  --att-accent-bg: 152 40% 96%;
-  --att-accent-border: 152 35% 80%;
+  --att-accent: 217 91% 54%;
+  --att-accent-muted: 221 70% 50%;
+  --att-accent-soft: 214 100% 96%;
+  --att-accent-bg: 214 100% 97%;
+  --att-accent-border: 214 80% 82%;
   --att-cyan: 199 89% 48%;
   --att-violet: 265 70% 55%;
   --att-amber: 38 92% 50%;
   --att-amber-bg: 38 90% 95%;
   --att-amber-border: 38 80% 78%;
-  --att-success: 152 58% 37%;
+  --att-success: 217 91% 54%;
   --att-danger: 0 84% 55%;
   --att-danger-bg: 0 84% 96%;
   --att-danger-border: 0 70% 80%;
 
-  --att-glow: 152 58% 37%;
+  --att-glow: 217 91% 54%;
   --att-shadow-color: 220 15% 60%;
   --att-radius: 1rem;
   --att-radius-sm: 0.625rem;
@@ -2488,22 +2488,22 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
   --att-text-secondary: 30 15% 65%;
   --att-text-muted: 222 10% 45%;
 
-  --att-accent: 152 45% 42%;
-  --att-accent-muted: 152 35% 35%;
-  --att-accent-soft: 152 30% 14%;
-  --att-accent-bg: 152 30% 16%;
-  --att-accent-border: 152 25% 25%;
+  --att-accent: 217 91% 60%;
+  --att-accent-muted: 221 70% 45%;
+  --att-accent-soft: 222 50% 16%;
+  --att-accent-bg: 222 50% 14%;
+  --att-accent-border: 222 40% 25%;
   --att-cyan: 199 80% 55%;
   --att-violet: 265 60% 60%;
   --att-amber: 38 85% 55%;
   --att-amber-bg: 38 40% 14%;
   --att-amber-border: 38 35% 25%;
-  --att-success: 152 45% 42%;
+  --att-success: 217 91% 60%;
   --att-danger: 0 70% 55%;
   --att-danger-bg: 0 50% 14%;
   --att-danger-border: 0 40% 25%;
 
-  --att-glow: 152 45% 42%;
+  --att-glow: 217 91% 60%;
   --att-shadow-color: 222 30% 5%;
 }
 

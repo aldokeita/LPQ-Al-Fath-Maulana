@@ -408,8 +408,8 @@ const GuruDashboard = () => {
 
   const isFemale = guruData?.jenis_kelamin === 'Perempuan';
   const themeGradient = isFemale ? 'from-pink-500 to-rose-600' : 'from-sky-500 to-blue-700';
-  const headerGradient = isFemale ? 'from-teal-50 to-emerald-50' : 'from-green-50 to-emerald-50';
-  const headerText = isFemale ? 'text-teal-700' : 'text-green-700';
+  const headerGradient = isFemale ? 'from-slate-50 to-pink-50 dark:from-slate-900 dark:to-pink-950/40' : 'from-blue-50 to-sky-50 dark:from-slate-900 dark:to-blue-950/40';
+  const headerText = isFemale ? 'text-pink-700 dark:text-pink-300' : 'text-blue-700 dark:text-blue-300';
   const hafalanTargets = selectedHafalan.programScope === 'PTPT'
       ? PTPT_TAHFIZH_TARGETS
       : ['1', '2', '3', '4', '5', '6'];
@@ -732,11 +732,11 @@ const GuruDashboard = () => {
                                 <div className="space-y-3 pt-4 border-t border-border">
                                     <label className="font-semibold text-sm">Berikan Umpan Balik / Nilai</label>
                                     <Textarea value={feedback} onChange={(e) => setFeedback(e.target.value)} placeholder="Tuliskan umpan balik untuk santri ini..." className="min-h-[100px]" />
-                                    <Button onClick={handleSubmitFeedback} className="w-full bg-green-600 hover:bg-green-700 text-white shadow-md"><Send className="w-4 h-4 mr-2"/> Simpan Penilaian</Button>
+                                    <Button onClick={handleSubmitFeedback} className="w-full bg-blue-600 hover:bg-blue-700 text-white shadow-md"><Send className="w-4 h-4 mr-2"/> Simpan Penilaian</Button>
                                 </div>
                             ) : (
-                                <div className="space-y-2 rounded-xl border border-green-100 bg-green-50 p-4 dark:border-emerald-400/25 dark:bg-slate-900/70">
-                                    <div className="flex items-center gap-2 text-green-700 dark:text-green-400 font-bold"><CheckCircle2 className="w-5 h-5"/> Telah Dinilai</div>
+                                <div className="space-y-2 rounded-xl border border-blue-100 bg-blue-50 p-4 dark:border-blue-400/25 dark:bg-slate-900/70">
+                                    <div className="flex items-center gap-2 text-blue-700 dark:text-blue-400 font-bold"><CheckCircle2 className="w-5 h-5"/> Telah Dinilai</div>
                                     <p className="text-sm italic text-foreground/80">"{currentSubmission.feedback || 'Telah diverifikasi.'}"</p>
                                 </div>
                             )}

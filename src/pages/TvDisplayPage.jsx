@@ -58,10 +58,10 @@ const DigitalClock = ({ showSeconds = true, size = "large", colorClass = "" }) =
   }
   return (
       <div className="flex flex-col items-center justify-center space-y-2">
-        <div className="text-6xl md:text-8xl font-mono font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#0F5C2E] to-[#1B7D3F] dark:from-[#4CAF50] dark:to-[#1B7D3F] drop-shadow-sm dark:drop-shadow-[0_0_15px_rgba(76,175,80,0.5)] transition-all duration-300">
+        <div className="text-6xl md:text-8xl font-mono font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-700 to-indigo-800 dark:from-blue-400 dark:to-indigo-500 drop-shadow-sm dark:drop-shadow-[0_0_15px_rgba(59,130,246,0.5)] transition-all duration-300">
             {time.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: showSeconds ? '2-digit' : undefined })}
         </div>
-        <div className="text-xl md:text-2xl text-slate-500 dark:text-[#F0F8F4]/70 font-light tracking-widest transition-colors duration-300">
+        <div className="text-xl md:text-2xl text-slate-500 dark:text-slate-200/70 font-light tracking-widest transition-colors duration-300">
             {time.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
         </div>
     </div>
@@ -74,21 +74,21 @@ const PopupScanResult = ({ scan }) => {
             initial={{ opacity: 0, y: -50, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -50, scale: 0.9 }}
-            className="fixed top-24 left-1/2 -translate-x-1/2 z-50 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl p-6 flex items-center gap-6 border-2 border-green-500 max-w-md w-full"
+            className="fixed top-24 left-1/2 -translate-x-1/2 z-50 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl p-6 flex items-center gap-6 border-2 border-blue-500 max-w-md w-full"
         >
             <div className="relative">
-                <Avatar className="w-24 h-24 border-4 border-green-500 shadow-lg">
+                <Avatar className="w-24 h-24 border-4 border-blue-500 shadow-lg">
                     <AvatarImage src={scan.photo} className="object-cover"/>
                     <AvatarFallback>{scan.name?.[0]}</AvatarFallback>
                 </Avatar>
-                <div className="absolute -bottom-2 -right-2 bg-green-500 text-white p-1 rounded-full shadow-md">
+                <div className="absolute -bottom-2 -right-2 bg-blue-500 text-white p-1 rounded-full shadow-md">
                    <CheckCircle className="w-6 h-6" />
                 </div>
             </div>
             <div>
                 <h3 className="text-2xl font-black text-slate-800 dark:text-white leading-tight">{scan.name}</h3>
                 <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide mt-1">{scan.role === 'guru' ? 'Guru Pengajar' : `Santri - ${scan.jilid || ''}`}</p>
-                <div className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 px-3 py-1 rounded-full text-xs font-bold inline-block mt-2">
+                <div className="bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 px-3 py-1 rounded-full text-xs font-bold inline-block mt-2">
                     ABSEN BERHASIL
                 </div>
             </div>
@@ -788,7 +788,7 @@ const TvDisplayPage = () => {
                                                         {[{ id: sessionData?.male, color: 'blue', label: 'Putra' }, { id: sessionData?.female, color: 'pink', label: 'Putri' }].map((item, i) => {
                                                             const santri = santriList.find(s => s.id === item.id);
                                                             return (
-                                                                <div key={i} className={`relative rounded-lg overflow-hidden h-full w-full group ${item.color === 'blue' ? 'bg-[#F0F8F4]/50 dark:bg-[#0F5C2E]/10' : 'bg-pink-50/50 dark:bg-pink-900/10'} flex flex-row items-center border border-black/5 dark:border-white/5`}>
+                                                                <div key={i} className={`relative rounded-lg overflow-hidden h-full w-full group ${item.color === 'blue' ? 'bg-blue-50/50 dark:bg-blue-950/20' : 'bg-pink-50/50 dark:bg-pink-900/10'} flex flex-row items-center border border-black/5 dark:border-white/5`}>
                                                                     <div className="relative z-10 h-full w-full flex flex-row items-center p-1.5 gap-2">
                                                                         {santri ? (
                                                                             <>
@@ -796,7 +796,7 @@ const TvDisplayPage = () => {
                                                                                     <img src={santri.foto_url} className="w-full h-full object-cover" alt={santri.nama_lengkap} />
                                                                                 </div>
                                                                                 <div className="flex-1 min-w-0 flex flex-col justify-center gap-0.5">
-                                                                                    <div className={`font-black text-xs md:text-sm uppercase tracking-wide truncate leading-tight ${item.color === 'blue' ? 'text-[#0F5C2E] dark:text-[#4CAF50]' : 'text-pink-700 dark:text-pink-300'}`}>{santri.nama_panggilan || santri.nama_lengkap.split(' ')[0]}</div>
+                                                                                    <div className={`font-black text-xs md:text-sm uppercase tracking-wide truncate leading-tight ${item.color === 'blue' ? 'text-blue-700 dark:text-blue-400' : 'text-pink-700 dark:text-pink-300'}`}>{santri.nama_panggilan || santri.nama_lengkap.split(' ')[0]}</div>
                                                                                     <div className="text-[9px] font-bold text-slate-600 dark:text-slate-400 bg-white/50 dark:bg-black/30 self-start px-1.5 rounded-sm">{santri.points || 0} Poin</div>
                                                                                 </div>
                                                                             </>
@@ -831,7 +831,7 @@ const TvDisplayPage = () => {
         <Helmet><title>TV Display Mode - LPQ Al-Fath Maulana</title></Helmet>
         <div className={`fixed inset-0 z-50 ${isDark ? 'bg-slate-950 text-white' : 'bg-slate-100 text-slate-900'} overflow-hidden flex flex-col transition-colors duration-500`}>
             <div className={`h-20 shrink-0 ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'} border-b flex justify-between items-center px-8 shadow-lg z-20`}>
-                <div className="flex items-center gap-4"><img src={logoUrl} onError={() => setLogoUrl('/logo-lpq-al-fath-maulana.webp')} alt="Logo LPQ Al-Fath Maulana" className="h-14 w-14 rounded-2xl bg-white/95 p-1.5 object-contain shadow-lg ring-1 ring-emerald-500/20" /><div><h1 className="text-2xl font-bold tracking-wider font-cinzel">LPQ AL-FATH MAULANA</h1><p className={`text-xs tracking-[0.3em] font-mono ${isDark ? 'text-[#4CAF50]' : 'text-[#1B7D3F]'}`}>INFORMATION DISPLAY SYSTEM</p></div></div>
+                <div className="flex items-center gap-4"><img src={logoUrl} onError={() => setLogoUrl('/logo-lpq-al-fath-maulana.webp')} alt="Logo LPQ Al-Fath Maulana" className="h-14 w-14 rounded-2xl bg-white/95 p-1.5 object-contain shadow-lg ring-1 ring-blue-500/20" /><div><h1 className="text-2xl font-bold tracking-wider font-cinzel">LPQ AL-FATH MAULANA</h1><p className={`text-xs tracking-[0.3em] font-mono ${isDark ? 'text-blue-400' : 'text-blue-700'}`}>INFORMATION DISPLAY SYSTEM</p></div></div>
                 <div className="flex items-center gap-4">
                     <Button variant="outline" size="icon" onClick={() => setManualScanOpen(true)} className="hidden md:flex" title="Manual Scan"><Keyboard className="w-5 h-5"/></Button>
                     <Button variant="outline" size="icon" onClick={toggleTheme}>{isDark ? <Sun className="w-5 h-5 text-yellow-400" /> : <Moon className="w-5 h-5 text-slate-600" />}</Button>
@@ -848,7 +848,7 @@ const TvDisplayPage = () => {
                 </AnimatePresence>
                 <AnimatePresence mode="wait"><motion.div key={activeSession} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="w-full h-full relative z-10">{renderContent()}</motion.div></AnimatePresence>
             </div>
-            <div className={`h-12 shrink-0 ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'} border-t flex justify-center items-center gap-4 overflow-x-auto z-20`}>{sessionOrder.map((s, idx) => (<div key={idx} onClick={() => setActiveSession(s.id)} className={`cursor-pointer flex items-center gap-2 px-4 py-1 rounded-full text-xs font-bold transition-all whitespace-nowrap hover:scale-110 ${activeSession === s.id ? (isDark ? 'bg-[#4CAF50]/20 text-[#4CAF50] ring-1 ring-[#4CAF50]' : 'bg-[#F0F8F4] text-[#1B7D3F] ring-1 ring-[#1B7D3F]') : 'opacity-30 hover:opacity-100'}`}><div className={`w-2 h-2 rounded-full ${activeSession === s.id ? 'bg-current animate-pulse' : 'bg-gray-400'}`}></div>{s.label}</div>))}</div>
+            <div className={`h-12 shrink-0 ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'} border-t flex justify-center items-center gap-4 overflow-x-auto z-20`}>{sessionOrder.map((s, idx) => (<div key={idx} onClick={() => setActiveSession(s.id)} className={`cursor-pointer flex items-center gap-2 px-4 py-1 rounded-full text-xs font-bold transition-all whitespace-nowrap hover:scale-110 ${activeSession === s.id ? (isDark ? 'bg-blue-500/20 text-blue-400 ring-1 ring-blue-400' : 'bg-blue-50 text-blue-700 ring-1 ring-blue-700') : 'opacity-30 hover:opacity-100'}`}><div className={`w-2 h-2 rounded-full ${activeSession === s.id ? 'bg-current animate-pulse' : 'bg-gray-400'}`}></div>{s.label}</div>))}</div>
 
             <Dialog open={manualScanOpen} onOpenChange={setManualScanOpen}>
                 <DialogContent className="sm:max-w-md">
