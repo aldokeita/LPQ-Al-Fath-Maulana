@@ -70,15 +70,15 @@ const HeroSection = ({ content, currentSlide, setCurrentSlide, stats }) => {
     if (cards.length) return cards;
 
     return [{
-      id: 'logo-fallback',
+      id: 'hero-fallback',
       source: 'LPQ Al-Fath Maulana',
       title: 'Ruang belajar Al-Qur’an',
-      description: 'Gambar hero akan tampil setelah admin mengunggah konten.',
-      image: logoUrl,
+      description: 'Masuki ruang belajar Al-Qur’an yang hangat dan terarah.',
+      image: '/institution/hero-learning.webp',
       slideIndex: null,
-      isLogo: true,
+      isLogo: false,
     }];
-  }, [content.facilities, content.galleryPhotos, logoUrl, slides]);
+  }, [content.facilities, content.galleryPhotos, slides]);
 
   return (
     <section className="home-hero" aria-labelledby="home-hero-title">
