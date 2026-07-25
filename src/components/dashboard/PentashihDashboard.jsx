@@ -7,9 +7,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/lib/customSupabaseClient';
 import {
-  Users, BookOpen, Award, Calendar, CheckCircle2, Phone, ShieldCheck,
-  GraduationCap, Briefcase, AlertTriangle, Trophy, BarChart3, FileSpreadsheet,
-  Printer, Search, Sparkles, Clock, ArrowUpRight, Filter, BookmarkCheck
+  Users, BookOpen, Award, Calendar, Phone, ShieldCheck,
+  GraduationCap, AlertTriangle, Trophy, BarChart3, FileSpreadsheet,
+  Printer, Search, Clock, History
 } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
 import { resolveAvatarRecord, resolveAvatarRecords } from '@/lib/storageAdapters';
@@ -17,6 +17,27 @@ import ClassManagement from '@/components/dashboard/admin/ClassManagement';
 import * as XLSX from 'xlsx';
 
 const KHOTIM_JILID_LIST = ['Jilid 6A', 'Jilid 6B', 'Al-Qur\'an', 'Ghorib Tajwid', 'Finishing'];
+
+// Helper calculation for untested duration
+const calculateUntestedDuration = (lastDateStr) => {
+  if (!lastDateStr) return { durationText: 'Belum pernah tes', daysAgo: 999, formattedDate: '-' };
+  const lastDate = new Date(lastDateStr);
+  const now = new Date();
+  const diffTime = Math.max(0, now - lastDate);
+  const daysAgo = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+  let durationText = '';
+  if (daysAgo >= 30) {
+    const months = Math.floor(daysAgo / 30);
+    const remainingDays = daysAgo % 30;
+    durationText = remainingDays > 0 ? `${months} Bln ${remainingDays} Hri` : `${months} Bulan`;
+  } else {
+    durationText = `${daysAgo} Hari`;
+  }
+
+  const formattedDate = lastDate.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+  return { durationText, daysAgo, formattedDate };
+};
 
 const PentashihDashboard = () => {
   const { user } = useAuth();
@@ -34,7 +55,7 @@ const PentashihDashboard = () => {
 
     setIsLoading(true);
     try {
-      const [guruRes, classesRes, santriRes, membershipsRes] = await Promise.all([
+      const [guruRes, classesRes, santriRes, membershipsRes, jilidHistoryRes] = await Promise.all([
         supabase
           .from('guru')
           .select('id, nama, foto_url, rfid_tag, no_hp, jabatan')
@@ -52,6 +73,10 @@ const PentashihDashboard = () => {
           .from('class_memberships')
           .select('santri_id, class_id')
           .eq('status', 'active'),
+        supabase
+          .from('jilid_history')
+          .select('santri_id, changed_at')
+          .order('changed_at', { ascending: false }),
       ]);
 
       if (guruRes.error) throw guruRes.error;
@@ -66,15 +91,31 @@ const PentashihDashboard = () => {
       const classMap = Object.fromEntries(
         (classesRes.data || []).map(c => [c.id, c])
       );
+
+      // Map last jilid test / change date per santri
+      const jilidHistoryMap = {};
+      (jilidHistoryRes.data || []).forEach(h => {
+        if (!jilidHistoryMap[h.santri_id]) {
+          jilidHistoryMap[h.santri_id] = h.changed_at;
+        }
+      });
+
       const mappedSantri = resolvedSantri.map(s => {
         const classId = s.current_class_id || membershipMap[s.id] || null;
         const cls = classId ? classMap[classId] : null;
+        const lastTestDate = jilidHistoryMap[s.id] || s.updated_at || s.created_at || null;
+        const untestedInfo = calculateUntestedDuration(lastTestDate);
+
         return {
           ...s,
           classId,
           className: cls?.nama_kelas || 'Belum Ada Kelas',
           teacherName: cls?.guru?.nama || 'Belum Ada Guru',
           teacherHp: cls?.guru?.no_hp || null,
+          lastTestDate,
+          untestedDurationText: untestedInfo.durationText,
+          untestedDaysAgo: untestedInfo.daysAgo,
+          untestedFormattedDate: untestedInfo.formattedDate,
         };
       });
 
@@ -142,25 +183,23 @@ const PentashihDashboard = () => {
   }, [santriList, khotimSearch]);
 
   // -------------------------------------------------------------
-  // Poin 1: Stagnant Student Alert Filter
+  // Poin 1: Stagnant Student Alert Filter (Ordered by untested duration)
   // -------------------------------------------------------------
   const stagnantSantriList = useMemo(() => {
-    const sixMonthsAgo = new Date();
-    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
+    return santriList
+      .filter(s => {
+        const isStagnant = s.untestedDaysAgo >= 90; // 3+ months threshold
+        if (!isStagnant) return false;
 
-    return santriList.filter(s => {
-      const lastUpdate = s.updated_at ? new Date(s.updated_at) : new Date(s.created_at || Date.now());
-      const isStagnant = lastUpdate < sixMonthsAgo;
-      if (!isStagnant) return false;
-
-      if (!stagnantSearch) return true;
-      const search = stagnantSearch.toLowerCase();
-      return (
-        s.nama_lengkap.toLowerCase().includes(search) ||
-        (s.nomor_induk_qiroati && s.nomor_induk_qiroati.toLowerCase().includes(search)) ||
-        s.className.toLowerCase().includes(search)
-      );
-    });
+        if (!stagnantSearch) return true;
+        const search = stagnantSearch.toLowerCase();
+        return (
+          s.nama_lengkap.toLowerCase().includes(search) ||
+          (s.nomor_induk_qiroati && s.nomor_induk_qiroati.toLowerCase().includes(search)) ||
+          s.className.toLowerCase().includes(search)
+        );
+      })
+      .sort((a, b) => b.untestedDaysAgo - a.untestedDaysAgo);
   }, [santriList, stagnantSearch]);
 
   // -------------------------------------------------------------
@@ -186,7 +225,8 @@ const PentashihDashboard = () => {
         'Jilid': s.jilid || '-',
         'Kelas': s.className,
         'Guru Pengampu': s.teacherName,
-        'Tanggal Registrasi': s.created_at ? new Date(s.created_at).toLocaleDateString('id-ID') : '-',
+        'Lama Belum Tes': s.untestedDurationText,
+        'Tanggal Tes Terakhir': s.untestedFormattedDate,
       }));
 
       const levelSummaryData = [
@@ -347,9 +387,7 @@ const PentashihDashboard = () => {
         </div>
       </div>
 
-      {/* ------------------------------------------------------------- */}
-      {/* POIN 4: Matriks Performa & Distribusi Jilid                     */}
-      {/* ------------------------------------------------------------- */}
+      {/* POIN 4: Matriks Performa & Distribusi Jilid */}
       <Card className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm rounded-2xl overflow-hidden print:border-slate-300">
         <CardContent className="p-5 space-y-4">
           <div className="flex items-center justify-between border-b pb-3">
@@ -416,9 +454,7 @@ const PentashihDashboard = () => {
         </CardContent>
       </Card>
 
-      {/* ------------------------------------------------------------- */}
-      {/* WIDGET GRID: POIN 3 (Khotim) & POIN 1 (Stagnant Alert)         */}
-      {/* ------------------------------------------------------------- */}
+      {/* WIDGET GRID: POIN 3 (Khotim) & POIN 1 (Stagnant Alert dengan Durasi Belum Tes) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 print:grid-cols-1">
         {/* POIN 3: Calon Khotim & Pra-Imtihan */}
         <Card className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm rounded-2xl overflow-hidden flex flex-col print:border-slate-300">
@@ -520,7 +556,7 @@ const PentashihDashboard = () => {
           </CardContent>
         </Card>
 
-        {/* POIN 1: Peringatan Santri Stagnant / Perlu Evaluasi */}
+        {/* POIN 1: Peringatan Santri Stagnant dengan Indikator Durasi Belum Tes */}
         <Card className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm rounded-2xl overflow-hidden flex flex-col print:border-slate-300">
           <CardContent className="p-5 flex-1 flex flex-col space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-3">
@@ -533,7 +569,7 @@ const PentashihDashboard = () => {
                     Evaluasi Perkembangan Santri Stagnan
                   </h3>
                   <p className="text-xs text-muted-foreground">
-                    Santri yang memerlukan perhatian khusus / bimbingan metodologi.
+                    Santri yang paling lama belum tes / naik jilid (berdasarkan riwayat pengujian).
                   </p>
                 </div>
               </div>
@@ -553,62 +589,84 @@ const PentashihDashboard = () => {
               />
             </div>
 
-            {/* List Table */}
+            {/* List Table with Untested Duration */}
             <div className="flex-1 overflow-x-auto max-h-80 overflow-y-auto custom-scrollbar">
               <table className="w-full text-xs text-left">
                 <thead>
                   <tr className="border-b text-muted-foreground bg-slate-50 dark:bg-slate-800/50">
                     <th className="py-2.5 px-3 font-semibold">Santri</th>
                     <th className="py-2.5 px-3 font-semibold">Jilid</th>
+                    <th className="py-2.5 px-3 font-semibold">Lama Belum Tes</th>
                     <th className="py-2.5 px-3 font-semibold">Guru Pengampu</th>
                     <th className="py-2.5 px-3 font-semibold text-right print:hidden">Kontak Guru</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {stagnantSantriList.map(s => (
-                    <tr key={s.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                      <td className="py-2.5 px-3 font-medium text-slate-900 dark:text-slate-100">
-                        <div className="flex items-center gap-2">
-                          <Avatar className="w-7 h-7 print:hidden">
-                            <AvatarImage src={s.foto_url} />
-                            <AvatarFallback className="text-[10px] font-bold bg-rose-100 text-rose-700">
-                              {s.nama_lengkap?.charAt(0)}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <p className="font-semibold leading-tight">{s.nama_lengkap}</p>
-                            <p className="text-[10px] text-muted-foreground">{s.className}</p>
+                  {stagnantSantriList.map(s => {
+                    const isVeryLong = s.untestedDaysAgo >= 180; // >= 6 Months
+                    return (
+                      <tr key={s.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
+                        <td className="py-2.5 px-3 font-medium text-slate-900 dark:text-slate-100">
+                          <div className="flex items-center gap-2">
+                            <Avatar className="w-7 h-7 print:hidden">
+                              <AvatarImage src={s.foto_url} />
+                              <AvatarFallback className="text-[10px] font-bold bg-rose-100 text-rose-700">
+                                {s.nama_lengkap?.charAt(0)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <p className="font-semibold leading-tight">{s.nama_lengkap}</p>
+                              <p className="text-[10px] text-muted-foreground">{s.className}</p>
+                            </div>
                           </div>
-                        </div>
-                      </td>
-                      <td className="py-2.5 px-3">
-                        <Badge variant="outline" className="border-rose-300 bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300 font-semibold text-[10px]">
-                          {s.jilid || '-'}
-                        </Badge>
-                      </td>
-                      <td className="py-2.5 px-3">
-                        <p className="font-semibold text-slate-800 dark:text-slate-200">{s.teacherName}</p>
-                      </td>
-                      <td className="py-2.5 px-3 text-right print:hidden">
-                        {s.teacherHp ? (
-                          <a
-                            href={`https://wa.me/${s.teacherHp.replace(/\D/g, '').replace(/^0/, '62')}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-1 text-[11px] text-purple-600 dark:text-purple-400 hover:underline font-semibold"
-                          >
-                            <Phone className="w-3 h-3" /> WA Guru
-                          </a>
-                        ) : (
-                          <span className="text-muted-foreground text-[10px]">-</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                        <td className="py-2.5 px-3">
+                          <Badge variant="outline" className="border-slate-300 bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 font-semibold text-[10px]">
+                            {s.jilid || '-'}
+                          </Badge>
+                        </td>
+                        <td className="py-2.5 px-3">
+                          <div className="flex flex-col">
+                            <Badge
+                              variant="outline"
+                              className={`w-fit font-bold text-[10px] px-2 py-0.5 flex items-center gap-1 ${
+                                isVeryLong
+                                  ? 'bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-950/60 dark:text-rose-300'
+                                  : 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950/60 dark:text-amber-300'
+                              }`}
+                            >
+                              <Clock className="w-3 h-3" />
+                              {s.untestedDurationText}
+                            </Badge>
+                            <span className="text-[10px] text-muted-foreground mt-0.5">
+                              sejak {s.untestedFormattedDate}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="py-2.5 px-3">
+                          <p className="font-semibold text-slate-800 dark:text-slate-200">{s.teacherName}</p>
+                        </td>
+                        <td className="py-2.5 px-3 text-right print:hidden">
+                          {s.teacherHp ? (
+                            <a
+                              href={`https://wa.me/${s.teacherHp.replace(/\D/g, '').replace(/^0/, '62')}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1 text-[11px] text-purple-600 dark:text-purple-400 hover:underline font-semibold"
+                            >
+                              <Phone className="w-3 h-3" /> WA Guru
+                            </a>
+                          ) : (
+                            <span className="text-muted-foreground text-[10px]">-</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
 
                   {stagnantSantriList.length === 0 && (
                     <tr>
-                      <td colSpan={4} className="py-8 text-center text-muted-foreground">
+                      <td colSpan={5} className="py-8 text-center text-muted-foreground">
                         Tidak ada santri yang membutuhkan evaluasi khusus saat ini.
                       </td>
                     </tr>
