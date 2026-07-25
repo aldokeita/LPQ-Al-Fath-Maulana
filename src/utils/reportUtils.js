@@ -9,8 +9,30 @@ import {
 } from '../lib/academicAdapters';
 import {
     Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
-    WidthType, AlignmentType, BorderStyle, ShadingType, Footer, PageNumber
+    WidthType, AlignmentType, BorderStyle, ShadingType, Footer, PageNumber, ImageRun
 } from 'docx';
+
+export const getLogoBase64 = () => {
+    return new Promise((resolve) => {
+        if (typeof window === 'undefined') return resolve(null);
+        const img = new Image();
+        img.crossOrigin = 'Anonymous';
+        img.src = '/logo-lpq-al-fath-maulana.webp';
+        img.onload = () => {
+            try {
+                const canvas = document.createElement('canvas');
+                canvas.width = img.naturalWidth || img.width;
+                canvas.height = img.naturalHeight || img.height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0);
+                resolve(canvas.toDataURL('image/png'));
+            } catch (e) {
+                resolve(null);
+            }
+        };
+        img.onerror = () => resolve(null);
+    });
+};
 
 export const calculateAttendanceData = async (santriId, startDate, endDate) => {
     try {
@@ -275,6 +297,7 @@ export const calculateProgressAverageScores = (attendanceData, hafalanData, char
 };
 
 export const generateRaporPDF = async (santriData, attendanceData, hafalanData, pointsData, periodText, characterData, scoresSummary) => {
+    const logoBase64 = await getLogoBase64();
     return new Promise((resolve) => {
         const doc = new jsPDF('p', 'mm', 'a4');
 
@@ -287,82 +310,96 @@ export const generateRaporPDF = async (santriData, attendanceData, hafalanData, 
 
         // --- Kop Header Section ---
         doc.setFillColor(...primaryColor);
-        doc.rect(0, 0, 210, 42, 'F');
+        doc.rect(0, 0, 210, 44, 'F');
 
-        doc.setFontSize(20);
+        if (logoBase64) {
+            try {
+                doc.addImage(logoBase64, 'PNG', 12, 6, 32, 32);
+            } catch (e) {
+                console.warn("PDF Logo render warning:", e);
+            }
+        }
+
+        const titleX = logoBase64 ? 122 : 105;
+        doc.setFontSize(17);
         doc.setTextColor(255, 255, 255);
         doc.setFont('helvetica', 'bold');
-        doc.text("RAPOR AKADEMIK & KARAKTER SANTRI", 105, 18, { align: "center" });
+        doc.text("RAPOR AKADEMIK & KARAKTER SANTRI", titleX, 17, { align: "center" });
 
-        doc.setFontSize(13);
-        doc.setFont('helvetica', 'normal');
-        doc.text("LPQ AL-FATH MAULANA (METODE QIROATI)", 105, 26, { align: "center" });
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(253, 224, 71); // Gold text accent
+        doc.text("LPQ AL-FATH MAULANA (METODE QIROATI)", titleX, 25, { align: "center" });
 
-        doc.setFontSize(10);
+        doc.setFontSize(9.5);
+        doc.setFont('helvetica', 'italic');
         doc.setTextColor(224, 231, 255);
-        doc.text(`PERIODE EVALUASI: ${periodText.toUpperCase()}`, 105, 34, { align: "center" });
+        doc.text(`PERIODE EVALUASI: ${periodText.toUpperCase()}`, titleX, 33, { align: "center" });
 
         // --- Student Info Box ---
         const sessionName = getSessionName(santriData.sesi_mengaji || santriData.sesi || santriData.class?.sesi) || 'Sesi Regular';
-        const strengthsList = (characterData?.strengths || ['Disiplin Tepat Waktu', 'Sopan & Beradab']).join(', ');
+        const strengthsList = (characterData?.strengths || []).join(', ') || '-';
+        const guardianName = santriData.nama_ibu || santriData.nama_ayah || santriData.nama_wali || '-';
 
         doc.setTextColor(...secondaryColor);
         doc.setFontSize(11);
         doc.setFont('helvetica', 'bold');
-        doc.text("I. BIODATA SANTRI", 15, 50);
+        doc.text("I. BIODATA SANTRI", 15, 52);
 
         doc.setDrawColor(226, 232, 240);
         doc.setLineWidth(0.5);
-        doc.line(15, 52, 195, 52);
+        doc.line(15, 54, 195, 54);
 
         doc.setFontSize(9.5);
         doc.setFont('helvetica', 'normal');
         doc.setTextColor(51, 65, 85);
 
         // Left Col
-        doc.text("Nama Santri", 15, 58);
+        doc.text("Nama Santri", 15, 60);
         doc.setFont('helvetica', 'bold');
-        doc.text(`: ${santriData.nama_lengkap}`, 48, 58);
+        doc.text(`: ${santriData.nama_lengkap}`, 48, 60);
         doc.setFont('helvetica', 'normal');
 
-        doc.text("Nomor Induk (NIQ)", 15, 64);
-        doc.text(`: ${santriData.nomor_induk_qiroati || '-'}`, 48, 64);
+        doc.text("Nomor Induk (NIQ)", 15, 66);
+        doc.text(`: ${santriData.nomor_induk_qiroati || '-'}`, 48, 66);
 
-        doc.text("Tingkat Jilid", 15, 70);
+        doc.text("Tingkat Jilid", 15, 72);
         doc.setFont('helvetica', 'bold');
         doc.setTextColor(126, 34, 206);
-        doc.text(`: ${santriData.jilid || '-'} (${santriData.kategori || 'Anak'})`, 48, 70);
+        doc.text(`: ${santriData.jilid || '-'} (${santriData.kategori || 'Anak'})`, 48, 72);
         doc.setFont('helvetica', 'normal');
         doc.setTextColor(51, 65, 85);
 
-        doc.text("Karakter Unggulan", 15, 76);
+        doc.text("Karakter Unggulan", 15, 78);
         doc.setFont('helvetica', 'bold');
         doc.setTextColor(126, 34, 206);
-        doc.text(`: ${strengthsList || 'Disiplin & Beradab'}`, 48, 76);
+        doc.text(`: ⭐ ${strengthsList}`, 48, 78);
         doc.setFont('helvetica', 'normal');
         doc.setTextColor(51, 65, 85);
 
         // Right Col
-        doc.text("Kelas & Sesi", 115, 58);
-        doc.text(`: ${santriData.class?.nama_kelas || santriData.className || '-'} (${sessionName})`, 150, 58);
+        doc.text("Kelas & Sesi", 115, 60);
+        doc.text(`: ${santriData.class?.nama_kelas || santriData.className || '-'} (${sessionName})`, 152, 60);
 
-        doc.text("Wali Santri", 115, 64);
-        doc.text(`: ${santriData.nama_ibu || santriData.nama_ayah || santriData.nama_wali || '-'}`, 150, 64);
+        doc.text("Wali Santri (Ibu)", 115, 66);
+        doc.setFont('helvetica', 'bold');
+        doc.text(`: ${guardianName}`, 152, 66);
+        doc.setFont('helvetica', 'normal');
 
-        doc.text("Predikat Akhir", 115, 70);
+        doc.text("Predikat Akhir", 115, 72);
         doc.setFont('helvetica', 'bold');
         doc.setTextColor(16, 185, 129);
-        doc.text(`: ${scoresSummary?.predicate || 'Sangat Baik'} (${scoresSummary?.grade || 'A'})`, 150, 70);
+        doc.text(`: ${scoresSummary?.predicate || 'Sangat Baik'} (${scoresSummary?.grade || 'A'})`, 152, 72);
 
         // --- Score Summary Box ---
         const scores = scoresSummary || { attendanceScore: 90, hafalanScore: 85, characterScore: 92, overallAverage: 89, predicate: 'Sangat Baik (Mumtaz)' };
         doc.setFontSize(11);
         doc.setFont('helvetica', 'bold');
         doc.setTextColor(...secondaryColor);
-        doc.text("II. REKAPITULASI NILAI RATA-RATA PROGRESS", 15, 85);
+        doc.text("II. REKAPITULASI NILAI RATA-RATA PROGRESS", 15, 87);
 
         doc.autoTable({
-            startY: 88,
+            startY: 90,
             head: [['Aspek Evaluasi Progress', 'Skor Capaian', 'Bobot Evaluasi', 'Predikat Progress']],
             body: [
                 ['Kehadiran & Keaktifan Mengaji', `${scores.attendanceScore} / 100`, '34%', scores.attendanceScore >= 85 ? 'Sangat Baik' : 'Baik'],
@@ -400,27 +437,29 @@ export const generateRaporPDF = async (santriData, attendanceData, hafalanData, 
             styles: { fontSize: 8.5, cellPadding: 3 }
         });
 
-        // --- Hafalan Overview Table ---
+        // --- Hafalan Progress Table ---
         currentY = doc.lastAutoTable.finalY + 6;
         doc.setFontSize(11);
         doc.setFont('helvetica', 'bold');
         doc.setTextColor(...secondaryColor);
         doc.text("IV. REKAPITULASI PROGRES HAFALAN", 15, currentY);
 
+        const hafalanSummaryBody = hafalanData.programScope === 'PTPT'
+            ? [['Tahfizh PTPT', hafalanData.tahfizh.total, hafalanData.tahfizh.completed, `${Math.round((hafalanData.tahfizh.completed / (hafalanData.tahfizh.total || 1)) * 100)}%`]]
+            : [
+                ['Doa Harian', hafalanData.doa.total, hafalanData.doa.completed, `${Math.round((hafalanData.doa.completed / (hafalanData.doa.total || 1)) * 100)}%`],
+                ['Bacaan Sholat', hafalanData.sholat.total, hafalanData.sholat.completed, `${Math.round((hafalanData.sholat.completed / (hafalanData.sholat.total || 1)) * 100)}%`],
+                ['Surat Pendek / Juz Amma', hafalanData.surat.total, hafalanData.surat.completed, `${Math.round((hafalanData.surat.completed / (hafalanData.surat.total || 1)) * 100)}%`]
+            ];
+
         doc.autoTable({
             startY: currentY + 3,
             head: [['Kategori Hafalan', 'Total Target Item', 'Telah Dikuasai / Lulus', 'Progres Ketuntasan']],
-            body: hafalanData.programScope === 'PTPT'
-                ? [['Tahfizh PTPT', hafalanData.tahfizh.total, hafalanData.tahfizh.completed, `${Math.round((hafalanData.tahfizh.completed / (hafalanData.tahfizh.total || 1)) * 100)}%`]]
-                : [
-                    ['Doa Harian', hafalanData.doa.total, hafalanData.doa.completed, `${Math.round((hafalanData.doa.completed / (hafalanData.doa.total || 1)) * 100)}%`],
-                    ['Bacaan Sholat', hafalanData.sholat.total, hafalanData.sholat.completed, `${Math.round((hafalanData.sholat.completed / (hafalanData.sholat.total || 1)) * 100)}%`],
-                    ['Surat Pendek / Juz Amma', hafalanData.surat.total, hafalanData.surat.completed, `${Math.round((hafalanData.surat.completed / (hafalanData.surat.total || 1)) * 100)}%`]
-                ],
+            body: hafalanSummaryBody,
             theme: 'grid',
-            headStyles: { fillColor: successColor, textColor: 255, fontStyle: 'bold' },
+            headStyles: { fillColor: successColor, textColor: 255, fontStyle: 'bold', halign: 'center' },
             bodyStyles: { textColor: 51, halign: 'center' },
-            columnStyles: { 0: { halign: 'left', fontStyle: 'bold' } },
+            columnStyles: { 0: { halign: 'left' } },
             styles: { fontSize: 8.5, cellPadding: 3 }
         });
 
@@ -505,7 +544,7 @@ export const generateRaporPDF = async (santriData, attendanceData, hafalanData, 
                 : 'Belum Evaluasi';
             return [
                 item.jilid || '-',
-                item.display_name || '-',
+                item.item_name || item.display_name || item.nama_item || item.title || '-',
                 item.category || '-',
                 scoreDisplay,
                 item.is_completed ? 'Lulus / Dihafal' : 'Dalam Proses',
@@ -654,6 +693,26 @@ export const generateRaporDOCX = async (santriData, attendanceData, hafalanData,
     const scores = scoresSummary || { attendanceScore: 0, hafalanScore: 0, characterScore: 0, overallAverage: 0, predicate: 'Baik' };
     const guardianName = santriData.nama_ibu || santriData.nama_ayah || santriData.nama_wali || '-';
 
+    const logoBase64 = await getLogoBase64();
+    let logoImageRun = null;
+    if (logoBase64) {
+        try {
+            const base64Data = logoBase64.replace(/^data:image\/\w+;base64,/, '');
+            const binaryString = atob(base64Data);
+            const len = binaryString.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+            logoImageRun = new ImageRun({
+                data: bytes,
+                transformation: { width: 50, height: 50 }
+            });
+        } catch (e) {
+            console.warn("DOCX logo render error:", e);
+        }
+    }
+
     const doc = new Document({
         sections: [{
             properties: {
@@ -683,9 +742,18 @@ export const generateRaporDOCX = async (santriData, attendanceData, hafalanData,
                     rows: [
                         new TableRow({
                             children: [
+                                ...(logoImageRun ? [
+                                    new TableCell({
+                                        shading: { fill: "1D4ED8", type: ShadingType.CLEAR },
+                                        margins: { top: 150, bottom: 150, left: 200, right: 100 },
+                                        width: { size: 15, type: WidthType.PERCENTAGE },
+                                        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [logoImageRun] })]
+                                    })
+                                ] : []),
                                 new TableCell({
                                     shading: { fill: "1D4ED8", type: ShadingType.CLEAR },
-                                    margins: { top: 200, bottom: 200, left: 200, right: 200 },
+                                    margins: { top: 180, bottom: 180, left: 150, right: 200 },
+                                    width: { size: logoImageRun ? 85 : 100, type: WidthType.PERCENTAGE },
                                     children: [
                                         new Paragraph({
                                             alignment: AlignmentType.CENTER,
@@ -693,11 +761,11 @@ export const generateRaporDOCX = async (santriData, attendanceData, hafalanData,
                                         }),
                                         new Paragraph({
                                             alignment: AlignmentType.CENTER,
-                                            children: [new TextRun({ text: "LPQ AL-FATH MAULANA (METODE QIROATI)", size: 20, color: "E0E7FF", font: "Arial" })]
+                                            children: [new TextRun({ text: "LPQ AL-FATH MAULANA (METODE QIROATI)", bold: true, size: 22, color: "FDE047", font: "Arial" })]
                                         }),
                                         new Paragraph({
                                             alignment: AlignmentType.CENTER,
-                                            children: [new TextRun({ text: `PERIODE EVALUASI: ${periodText.toUpperCase()}`, bold: true, size: 18, color: "FEF08A", font: "Arial" })]
+                                            children: [new TextRun({ text: `PERIODE EVALUASI: ${periodText.toUpperCase()}`, italic: true, size: 18, color: "DBEAFE", font: "Arial" })]
                                         })
                                     ]
                                 })
@@ -948,7 +1016,7 @@ export const generateRaporDOCX = async (santriData, attendanceData, hafalanData,
                             return new TableRow({
                                 children: [
                                     createCell(item.jilid || '-', { align: AlignmentType.CENTER, bold: true, color: "7E22CE" }),
-                                    createCell(item.item_name || item.display_name || '-', { bold: true }),
+                                    createCell(item.item_name || item.display_name || item.nama_item || item.title || '-', { bold: true }),
                                     createCell(item.category || '-'),
                                     createCell(item.score ? `${item.score} / 4` : '-', { align: AlignmentType.CENTER, bold: true }),
                                     createCell(item.is_completed ? "Lulus / Dihafal" : "Dalam Proses", { align: AlignmentType.CENTER, bold: true, color: item.is_completed ? "10B981" : "F59E0B" }),

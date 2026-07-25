@@ -274,11 +274,10 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
                                 )}
                                 <Button
                                     size="sm"
-                                    variant="outline"
                                     onClick={() => setIsAttendanceRecapOpen(true)}
-                                    className="h-8 border-blue-200 hover:bg-blue-50 text-blue-700 font-semibold"
+                                    className="h-8 bg-gradient-to-r from-teal-500/15 via-cyan-500/20 to-blue-500/15 hover:from-teal-500/25 hover:to-blue-500/25 text-cyan-800 dark:text-cyan-200 border border-cyan-400/40 dark:border-cyan-700/50 backdrop-blur-md shadow-xs font-bold rounded-xl transition-all duration-200 px-3.5"
                                 >
-                                    <History className="w-4 h-4 mr-1.5 text-blue-600" /> Rekap Absensi Lengkap
+                                    <History className="w-4 h-4 mr-1.5 text-cyan-600 dark:text-cyan-400" /> Absensi
                                 </Button>
                             </div>
                             {jilidDuration !== null && (
@@ -725,7 +724,7 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
                                                         {item.jilid || '-'}
                                                     </td>
                                                     <td className="py-2.5 px-4 font-bold text-slate-900 dark:text-slate-100">
-                                                        {item.item_name}
+                                                        {item.item_name || item.display_name || item.nama_item || item.title || '-'}
                                                     </td>
                                                     <td className="py-2.5 px-4 text-muted-foreground">
                                                         {item.category || (isPtpt ? 'Tahfizh PTPT' : 'Surat Pendek')}
@@ -823,8 +822,10 @@ const AttendanceMatrixPanel = ({ santriId }) => {
         izin:       { bg: 'bg-blue-400',    text: 'text-white', label: 'I', title: 'Izin' },
         sakit:      { bg: 'bg-purple-400',  text: 'text-white', label: 'S', title: 'Sakit' },
     };
-    // Tidak Hadir (no record on weekday)
-    const TH_CONFIG = { bg: 'bg-rose-100 dark:bg-rose-950/40', text: 'text-rose-700 dark:text-rose-400', label: 'TH', title: 'Tidak Hadir' };
+    // Past weekday without record = Tidak Hadir
+    const TH_CONFIG = { bg: 'bg-rose-100 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800', text: 'text-rose-700 dark:text-rose-400', label: 'TH', title: 'Tidak Hadir' };
+    // Today/future weekday without record = Belum Absen
+    const UNASSESSED_CONFIG = { bg: 'bg-slate-100 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700', text: 'text-slate-400 dark:text-slate-500', label: '-', title: 'Belum Absen' };
 
     React.useEffect(() => {
         if (!santriId) return;
@@ -846,6 +847,8 @@ const AttendanceMatrixPanel = ({ santriId }) => {
 
     const recordMap = Object.fromEntries((records || []).map(r => [r.attendance_date, r.status?.toLowerCase()]));
     const daysInMonth = new Date(year, month, 0).getDate();
+    const todayStr = new Date().toISOString().split('T')[0];
+
     // Only weekdays (Mon=1 to Fri=5)
     const weekdays = Array.from({ length: daysInMonth }, (_, i) => i + 1).filter(day => {
         const dow = new Date(year, month - 1, day).getDay();
@@ -855,10 +858,10 @@ const AttendanceMatrixPanel = ({ santriId }) => {
     const totalHadir = records.filter(r => ['hadir','present'].includes(r.status?.toLowerCase())).length;
     const totalTerlambat = records.filter(r => ['terlambat','late'].includes(r.status?.toLowerCase())).length;
     const totalAlpha = records.filter(r => ['alpha','absent'].includes(r.status?.toLowerCase())).length;
-    // TH = weekdays with no record
+    // TH = ONLY past weekdays with no record
     const totalTH = weekdays.filter(d => {
         const dateStr = `${year}-${String(month).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-        return !recordMap[dateStr];
+        return dateStr < todayStr && !recordMap[dateStr];
     }).length;
     const currentYear = new Date().getFullYear();
 
@@ -875,17 +878,17 @@ const AttendanceMatrixPanel = ({ santriId }) => {
                     {Array.from({length:5},(_,i) => currentYear - i).map(y => <option key={y} value={y}>{y}</option>)}
                 </select>
                 <div className="flex flex-wrap gap-2 text-xs ml-auto">
-                    <span className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800">
+                    <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 font-semibold">
                         <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"/> Hadir ({totalHadir})
                     </span>
-                    <span className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
+                    <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300 font-semibold">
                         <span className="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block"/> Terlambat ({totalTerlambat})
                     </span>
-                    <span className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800">
+                    <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-300 font-semibold">
                         <span className="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block"/> Alpha ({totalAlpha})
                     </span>
-                    <span className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-rose-50 dark:bg-rose-950/30 border border-rose-100 dark:border-rose-900">
-                        <span className="w-2.5 h-2.5 rounded-full bg-rose-200 dark:bg-rose-800 inline-block"/> Tidak Hadir ({totalTH})
+                    <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900 text-rose-700 dark:text-rose-400 font-semibold">
+                        <span className="w-2.5 h-2.5 rounded-full bg-rose-300 dark:bg-rose-700 inline-block"/> Tidak Hadir ({totalTH})
                     </span>
                 </div>
             </div>
@@ -915,12 +918,22 @@ const AttendanceMatrixPanel = ({ santriId }) => {
                         {weekdays.map(day => {
                             const dateStr = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
                             const status = recordMap[dateStr];
-                            const cfg = status ? (STATUS_CONFIG[status] || { bg: 'bg-slate-400', text: 'text-white', label: status.charAt(0).toUpperCase(), title: status }) : TH_CONFIG;
-                            const isToday = dateStr === new Date().toISOString().split('T')[0];
+                            const isPast = dateStr < todayStr;
+                            const isToday = dateStr === todayStr;
+
+                            let cfg;
+                            if (status) {
+                                cfg = STATUS_CONFIG[status] || { bg: 'bg-slate-400', text: 'text-white', label: status.charAt(0).toUpperCase(), title: status };
+                            } else if (isPast) {
+                                cfg = TH_CONFIG;
+                            } else {
+                                cfg = { ...UNASSESSED_CONFIG, title: isToday ? 'Belum Absen (Hari Ini)' : 'Belum Absen' };
+                            }
+
                             return (
                                 <div key={day}
                                     title={`${day} — ${cfg.title}`}
-                                    className={`flex flex-col items-center justify-center rounded-xl p-1.5 min-h-[56px] text-center transition-all cursor-default border ${cfg.bg} ${cfg.text} ${isToday ? 'ring-2 ring-offset-1 ring-blue-500' : 'border-transparent'}`}>
+                                    className={`flex flex-col items-center justify-center rounded-xl p-1.5 min-h-[56px] text-center transition-all cursor-default border ${cfg.bg} ${cfg.text} ${isToday ? 'ring-2 ring-offset-1 ring-cyan-500' : ''}`}>
                                     <span className="text-[9px] font-bold opacity-75">{day}</span>
                                     <span className="text-[13px] font-black leading-tight mt-0.5">{cfg.label}</span>
                                 </div>
