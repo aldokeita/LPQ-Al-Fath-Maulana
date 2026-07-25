@@ -277,8 +277,8 @@ const GuruDashboard = () => {
   const openTransferModal = (santri) => setTransferSantri(santri);
   const openHafalanModal = (santri, category) => {
       const programScope = getHafalanProgramScope(santri);
-      const filteredItems = hafalanItems.filter((item) => (
-        item.category === category && item.program_scope === programScope
+      const filteredItems = (hafalanItems || []).filter((item) => (
+        item && item.category === category && (item.program_scope === programScope || (!item.program_scope && programScope === 'TPQ'))
       ));
       setSelectedSantri(santri);
       setSelectedHafalan({ category, programScope, items: filteredItems });
@@ -416,15 +416,18 @@ const GuruDashboard = () => {
   const itemsByJilid = Object.fromEntries(hafalanTargets.map((target, index) => [
       target,
       (selectedHafalan.items || []).filter((item) => {
-          const itemTarget = String(item.jilid || '');
-          return itemTarget === String(target) || (index === 0 && !itemTarget);
+          if (!item) return false;
+          const itemTarget = String(item.jilid || '').replace(/^jilid\s*/i, '').trim();
+          const targetStr = String(target || '').replace(/^jilid\s*/i, '').trim();
+          return itemTarget === targetStr || itemTarget.startsWith(targetStr) || (index === 0 && !item.jilid);
       })
   ]));
 
   const getProgressData = () => {
       if (!selectedSantri || !selectedHafalan.category) return {};
       const data = {};
-      selectedHafalan.items.forEach(item => {
+      (selectedHafalan.items || []).forEach(item => {
+          if (!item) return;
           const key = item.id ? `${selectedSantri.id}-${item.id}` : `${selectedSantri.id}-${selectedHafalan.category}-${item.item_name}`;
           data[item.item_name] = hafalanProgress[key] || null;
       });

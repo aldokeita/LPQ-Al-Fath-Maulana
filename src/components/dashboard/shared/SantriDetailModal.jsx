@@ -339,7 +339,7 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
                                                 <p className="text-[10px] text-muted-foreground">{new Date(note.created_at).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })}</p>
                                             </div>
                                         </div>
-                                        {note.guru_id === user.id && (
+                                        {note.guru_id === user?.id && (
                                             <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                                 <Button size="icon" variant="ghost" className="h-8 w-8 hover:bg-blue-50 hover:text-blue-600" onClick={() => { setEditingNote(note); setNewNote(note.note); }}>
                                                     <Edit className="w-4 h-4" />
