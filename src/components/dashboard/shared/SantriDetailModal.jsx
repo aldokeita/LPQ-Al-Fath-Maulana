@@ -21,11 +21,13 @@ import {
   getPointsData,
   fetchSantriCharacterReportData,
   calculateProgressAverageScores,
-  generateRaporPDF
+  generateRaporPDF,
+  generateRaporDOCX
 } from '@/utils/reportUtils';
 import { getSessionName } from '@/utils/sessionMapping';
 import { fetchSantriNotes, getAcademicErrorMessage, saveSantriNote } from '@/lib/academicAdapters';
 import SantriDevelopmentProfile from '@/components/dashboard/shared/SantriDevelopmentProfile';
+import { SantriRecapDetailModal } from '@/components/dashboard/admin/AttendanceRecap';
 
 const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }) => {
     const { user, role } = useAuth();
@@ -38,6 +40,7 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
     // Rapor & Report State
     const [isReportViewOpen, setIsReportViewOpen] = useState(false);
     const [isGeneratingRapor, setIsGeneratingRapor] = useState(false);
+    const [isAttendanceRecapOpen, setIsAttendanceRecapOpen] = useState(false);
     const [isLoadingReportData, setIsLoadingReportData] = useState(false);
 
     // Period Selection: '1bulan' | '6bulan' | '1tahun'
@@ -240,8 +243,8 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
                                 {(onPromote || onDemote) && (
                                     <>
                                         {onPromote && (
-                                            <Button onClick={onPromote} size="sm" variant="outline" className="h-8 flex-1 border-green-200 hover:bg-green-50 text-green-700" title="Naik Jilid">
-                                                <ChevronUp className="w-4 h-4 mr-1" /> Naik
+                                            <Button onClick={onPromote} size="sm" className="h-8 flex-1 bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-bold" title="Naik Jilid">
+                                                <ChevronUp className="w-4 h-4 mr-1" /> Naik Jilid
                                             </Button>
                                         )}
                                         {onDemote && (
@@ -251,6 +254,14 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
                                         )}
                                     </>
                                 )}
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => setIsAttendanceRecapOpen(true)}
+                                    className="h-8 border-blue-200 hover:bg-blue-50 text-blue-700 font-semibold"
+                                >
+                                    <History className="w-4 h-4 mr-1.5 text-blue-600" /> Rekap Absensi Lengkap
+                                </Button>
                             </div>
                             {jilidDuration !== null && (
                                 <div className={`px-3 py-1 rounded-full text-xs font-bold border ${jilidDuration > 90 ? 'bg-rose-100 text-rose-700 border-rose-200' : 'bg-blue-100 text-blue-700 border-blue-200'} flex items-center gap-1 mt-1`}>
@@ -284,8 +295,8 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
                                 <p className="font-bold text-slate-800 dark:text-slate-200">{santri.className || santri.class?.nama_kelas || '-'}</p>
                             </div>
                             <div>
-                                <p className="text-muted-foreground text-xs uppercase tracking-wider font-semibold">Wali Santri</p>
-                                <p className="font-bold text-slate-800 dark:text-slate-200">{santri.nama_wali || santri.nama_ayah || santri.nama_ibu || '-'}</p>
+                                <p className="text-muted-foreground text-xs uppercase tracking-wider font-semibold">Wali Santri (Ibu)</p>
+                                <p className="font-bold text-slate-800 dark:text-slate-200">{santri.nama_ibu || santri.nama_ayah || santri.nama_wali || '-'}</p>
                             </div>
                         </div>
                     </div>
@@ -451,7 +462,7 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
                                 <Printer className="w-4 h-4 mr-1.5 text-purple-600" /> Cetak
                             </Button>
 
-                            <Button
+                             <Button
                                 size="sm"
                                 onClick={handleDownloadRaporPDF}
                                 disabled={isGeneratingRapor}
@@ -459,6 +470,22 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
                             >
                                 {isGeneratingRapor ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Download className="w-4 h-4 mr-1.5" />}
                                 Download PDF
+                            </Button>
+
+                            <Button
+                                size="sm"
+                                onClick={() => {
+                                    if (attendanceSummary && hafalanData) {
+                                        generateRaporDOCX(santri, attendanceSummary, hafalanData, dateRange.periodText, characterData, scoresSummary);
+                                        toast({ title: 'Rapor DOCX Berhasil Diunduh', description: 'File Word telah siap.' });
+                                    } else {
+                                        toast({ title: 'Menyiapkan Data Rapor', description: 'Mohon tunggu sejenak...' });
+                                    }
+                                }}
+                                variant="outline"
+                                className="bg-blue-50 dark:bg-blue-950/40 border-blue-200 text-blue-700 dark:text-blue-300 font-bold hover:bg-blue-100"
+                            >
+                                <FileText className="w-4 h-4 mr-1.5 text-blue-600" /> Download DOCX
                             </Button>
                         </div>
                     </div>
@@ -494,7 +521,7 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
                             <div>
                                 <p className="text-[11px] text-muted-foreground uppercase font-bold tracking-wider">Nama Santri</p>
                                 <p className="font-extrabold text-base text-slate-900 dark:text-slate-100">{santri.nama_lengkap}</p>
-                                <p className="text-xs text-muted-foreground font-mono">NI: {santri.nomor_induk_qiroati || '-'}</p>
+                                <p className="text-xs text-muted-foreground font-mono">NIQ: {santri.nomor_induk_qiroati || '-'}</p>
                             </div>
                             <div>
                                 <p className="text-[11px] text-muted-foreground uppercase font-bold tracking-wider">Kelas & Sesi</p>
@@ -507,8 +534,8 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
                                 <p className="text-xs text-muted-foreground">Kategori: {santri.kategori || 'Anak'}</p>
                             </div>
                             <div>
-                                <p className="text-[11px] text-muted-foreground uppercase font-bold tracking-wider">Wali Santri</p>
-                                <p className="font-bold text-slate-800 dark:text-slate-200">{santri.nama_wali || santri.nama_ayah || santri.nama_ibu || '-'}</p>
+                                <p className="text-[11px] text-muted-foreground uppercase font-bold tracking-wider">Wali Santri (Ibu)</p>
+                                <p className="font-bold text-slate-800 dark:text-slate-200">{santri.nama_ibu || santri.nama_ayah || santri.nama_wali || '-'}</p>
                                 <p className="text-xs text-muted-foreground">HP: {santri.no_hp_ortu || '-'}</p>
                             </div>
                             <div className="sm:col-span-2 md:col-span-4 pt-2 border-t border-slate-200/60 dark:border-slate-800 flex flex-wrap items-center gap-2">
@@ -735,6 +762,15 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
                     </div>
                 </DialogContent>
             </Dialog>
+
+            {/* Rekap Absensi Detail Modal */}
+            {isAttendanceRecapOpen && (
+                <SantriRecapDetailModal
+                    santri={{ id: santri.id, name: santri.nama_lengkap }}
+                    isOpen={isAttendanceRecapOpen}
+                    onClose={() => setIsAttendanceRecapOpen(false)}
+                />
+            )}
         </>
     );
 };

@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -24,7 +24,7 @@ const PAGE_SIZE = 10;
 
 const sessionTimes = DEFAULT_SESSION_TIMES;
 
-const SantriRecapDetailModal = ({ santri, isOpen, onClose }) => {
+export const SantriRecapDetailModal = ({ santri, isOpen, onClose }) => {
     const [year, setYear] = useState(new Date().getFullYear());
     const [attendance, setAttendance] = useState([]);
     const [availableYears, setAvailableYears] = useState([]);

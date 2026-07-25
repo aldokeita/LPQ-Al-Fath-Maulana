@@ -231,12 +231,15 @@ const SantriDevelopmentProfile = ({ santriId, userId, editable = false, showBeha
       </DashboardDisclosure>
 
       {showBehavior && editable && (
-        <Card className="border-orange-200/70 shadow-sm dark:border-orange-900">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg"><ShieldCheck className="h-5 w-5 text-orange-500" />Catatan Pelanggaran</CardTitle>
-            <p className="text-sm text-muted-foreground">Catatan internal untuk pembinaan yang terarah dan dapat ditindaklanjuti.</p>
-          </CardHeader>
-          <CardContent className="space-y-5">
+        <DashboardDisclosure
+          title="Catatan Pelanggaran"
+          description="Catatan internal untuk pembinaan yang terarah dan dapat ditindaklanjuti."
+          icon={ShieldCheck}
+          tone="amber"
+          collapsible={collapsible}
+          summary={<span className="rounded-full bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-700 dark:bg-amber-950/40 dark:text-amber-200">{behaviorRecords.length} catatan</span>}
+        >
+          <div className="space-y-5 pt-2">
             <div className="grid gap-4 rounded-lg border bg-muted/20 p-4 md:grid-cols-2">
               <div className="space-y-2">
                 <label className="text-sm font-medium" htmlFor="behavior-date">Tanggal kejadian</label>
@@ -285,8 +288,8 @@ const SantriDevelopmentProfile = ({ santriId, userId, editable = false, showBeha
               ))}
               {!behaviorRecords.length && <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground"><ClipboardList className="mx-auto mb-2 h-6 w-6" />Belum ada catatan pelanggaran.</div>}
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </DashboardDisclosure>
       )}
     </div>
   );

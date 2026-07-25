@@ -316,10 +316,10 @@ export const generateRaporPDF = async (santriData, attendanceData, hafalanData, 
         doc.text(`: ${santriData.nama_lengkap}`, 48, 58);
         doc.setFont('helvetica', 'normal');
 
-        doc.text("Nomor Induk", 15, 64);
+        doc.text("Nomor Induk (NIQ)", 15, 64);
         doc.text(`: ${santriData.nomor_induk_qiroati || '-'}`, 48, 64);
 
-        doc.text("Jilid / Tingkat", 15, 70);
+        doc.text("Tingkat Jilid", 15, 70);
         doc.setFont('helvetica', 'bold');
         doc.setTextColor(126, 34, 206);
         doc.text(`: ${santriData.jilid || '-'} (${santriData.kategori || 'Anak'})`, 48, 70);
@@ -338,7 +338,7 @@ export const generateRaporPDF = async (santriData, attendanceData, hafalanData, 
         doc.text(`: ${santriData.class?.nama_kelas || santriData.className || '-'} (${sessionName})`, 150, 58);
 
         doc.text("Wali Santri", 115, 64);
-        doc.text(`: ${santriData.nama_ayah || santriData.nama_ibu || '-'}`, 150, 64);
+        doc.text(`: ${santriData.nama_ibu || santriData.nama_ayah || santriData.nama_wali || '-'}`, 150, 64);
 
         doc.text("Predikat Akhir", 115, 70);
         doc.setFont('helvetica', 'bold');
@@ -524,4 +524,211 @@ export const generateRaporPDF = async (santriData, attendanceData, hafalanData, 
 
         resolve(doc);
     });
+};
+
+export const generateRaporDOCX = (santriData, attendanceData, hafalanData, periodText, characterData, scoresSummary) => {
+    const sessionName = getSessionName(santriData.sesi_mengaji || santriData.sesi || santriData.class?.sesi) || 'Sesi Regular';
+    const strengthsList = (characterData?.strengths || ['Disiplin Tepat Waktu', 'Sopan & Beradab']).join(', ');
+    const teacherName = santriData.class?.guru?.nama || santriData.guru?.nama || santriData.nama_guru || '....................................';
+    const scores = scoresSummary || { attendanceScore: 90, hafalanScore: 85, characterScore: 92, overallAverage: 89, predicate: 'Sangat Baik (Mumtaz)' };
+
+    const hafalanRowsHtml = (hafalanData?.allItems || []).map(item => {
+        const scoreDisplay = item.score ? `${item.score} / 4` : '-';
+        const dateDisplay = item.evaluated_at 
+            ? new Date(item.evaluated_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
+            : 'Belum Evaluasi';
+        const isLulus = item.is_completed;
+        return `
+            <tr>
+                <td style="border:1px solid #cbd5e1;padding:6px;text-align:center;font-weight:bold;color:#7e22ce;">${item.jilid || '-'}</td>
+                <td style="border:1px solid #cbd5e1;padding:6px;font-weight:bold;color:#0f172a;">${item.item_name || '-'}</td>
+                <td style="border:1px solid #cbd5e1;padding:6px;color:#64748b;">${item.category || '-'}</td>
+                <td style="border:1px solid #cbd5e1;padding:6px;text-align:center;font-weight:bold;">${scoreDisplay}</td>
+                <td style="border:1px solid #cbd5e1;padding:6px;text-align:center;font-weight:bold;color:${isLulus ? '#10b981' : '#f59e0b'};">${isLulus ? 'Lulus / Dihafal' : 'Dalam Proses'}</td>
+                <td style="border:1px solid #cbd5e1;padding:6px;text-align:right;font-family:monospace;">${dateDisplay}</td>
+            </tr>
+        `;
+    }).join('');
+
+    const htmlContent = `
+        <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+        <head>
+            <meta charset='utf-8'>
+            <title>Rapor Akademik Santri</title>
+            <style>
+                body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 10.5pt; color: #1e293b; margin: 20px; }
+                .header-banner { background-color: #1e40af; color: white; padding: 16px; text-align: center; border-radius: 6px; margin-bottom: 20px; }
+                .header-title { font-size: 16pt; font-weight: bold; margin: 0; }
+                .header-sub { font-size: 11pt; margin-top: 4px; opacity: 0.9; }
+                .header-period { font-size: 9.5pt; margin-top: 6px; font-weight: bold; color: #dbeafe; }
+                .section-title { font-size: 11.5pt; font-weight: bold; color: #1e3a8a; border-bottom: 2px solid #cbd5e1; padding-bottom: 3px; margin-top: 22px; margin-bottom: 10px; }
+                table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
+                th { background-color: #1e40af; color: white; padding: 8px; font-size: 9.5pt; font-weight: bold; border: 1px solid #1e40af; }
+                td { padding: 7px; font-size: 9.5pt; border: 1px solid #cbd5e1; }
+                .signature-table td { border: none; text-align: center; padding-top: 40px; }
+            </style>
+        </head>
+        <body>
+            <div class="header-banner">
+                <div class="header-title">RAPOR AKADEMIK & KARAKTER SANTRI</div>
+                <div class="header-sub">LPQ AL-FATH MAULANA (METODE QIROATI)</div>
+                <div class="header-period">PERIODE EVALUASI: ${periodText.toUpperCase()}</div>
+            </div>
+
+            <div class="section-title">I. BIODATA SANTRI</div>
+            <table>
+                <tr>
+                    <td width="20%" style="font-weight:bold;background:#f8fafc;">Nama Santri</td>
+                    <td width="30%">: <b>${santriData.nama_lengkap}</b></td>
+                    <td width="20%" style="font-weight:bold;background:#f8fafc;">Kelas & Sesi</td>
+                    <td width="30%">: ${santriData.class?.nama_kelas || santriData.className || '-'} (${sessionName})</td>
+                </tr>
+                <tr>
+                    <td style="font-weight:bold;background:#f8fafc;">Nomor Induk (NIQ)</td>
+                    <td>: <b>${santriData.nomor_induk_qiroati || '-'}</b></td>
+                    <td style="font-weight:bold;background:#f8fafc;">Wali Santri</td>
+                    <td>: ${santriData.nama_ibu || santriData.nama_ayah || santriData.nama_wali || '-'}</td>
+                </tr>
+                <tr>
+                    <td style="font-weight:bold;background:#f8fafc;">Jilid / Tingkat</td>
+                    <td>: <span style="color:#7e22ce;font-weight:bold;">${santriData.jilid || '-'} (${santriData.kategori || 'Anak'})</span></td>
+                    <td style="font-weight:bold;background:#f8fafc;">Predikat Akhir</td>
+                    <td>: <span style="color:#10b981;font-weight:bold;">${scoresSummary?.predicate || 'Sangat Baik'} (${scoresSummary?.grade || 'A'})</span></td>
+                </tr>
+                <tr>
+                    <td style="font-weight:bold;background:#f8fafc;">Karakter Unggulan</td>
+                    <td colSpan="3">: <span style="color:#7e22ce;font-weight:bold;">⭐ ${strengthsList || 'Disiplin & Beradab'}</span></td>
+                </tr>
+            </table>
+
+            <div class="section-title">II. REKAPITULASI NILAI RATA-RATA PROGRESS</div>
+            <table>
+                <thead>
+                    <tr>
+                        <th style="text-align:left;">Aspek Evaluasi Progress</th>
+                        <th>Skor Capaian</th>
+                        <th>Bobot Evaluasi</th>
+                        <th>Predikat Progress</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Kehadiran & Keaktifan Mengaji</td>
+                        <td style="text-align:center;">${scores.attendanceScore}%</td>
+                        <td style="text-align:center;">34%</td>
+                        <td style="text-align:center;font-weight:bold;color:#10b981;">${scores.attendanceScore >= 85 ? 'Sangat Baik' : 'Baik'}</td>
+                    </tr>
+                    <tr>
+                        <td>Ketuntasan Hafalan Doa / Surat</td>
+                        <td style="text-align:center;">${scores.hafalanScore}%</td>
+                        <td style="text-align:center;">33%</td>
+                        <td style="text-align:center;font-weight:bold;color:#10b981;">${scores.hafalanScore >= 85 ? 'Sangat Baik' : 'Baik'}</td>
+                    </tr>
+                    <tr>
+                        <td>Perkembangan Karakter & Adab</td>
+                        <td style="text-align:center;">${scores.characterScore}%</td>
+                        <td style="text-align:center;">33%</td>
+                        <td style="text-align:center;font-weight:bold;color:#10b981;">${scores.characterScore >= 85 ? 'Sangat Baik' : 'Baik'}</td>
+                    </tr>
+                    <tr style="background:#f1f5f9;font-weight:bold;">
+                        <td style="text-align:right;">NILAI AKHIR RATA-RATA KESELURUHAN</td>
+                        <td style="text-align:center;color:#1e40af;">${scores.overallAverage} / 100</td>
+                        <td colSpan="2" style="text-align:center;color:#10b981;">${scores.predicate}</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="section-title">III. REKAPITULASI KEHADIRAN</div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Total Hari Efektif</th>
+                        <th>Hadir</th>
+                        <th>Terlambat</th>
+                        <th>Alpha</th>
+                        <th>Persentase Kehadiran</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="text-align:center;">${attendanceData.totalDays} Hari</td>
+                        <td style="text-align:center;color:#10b981;font-weight:bold;">${attendanceData.totalPresent} Hari</td>
+                        <td style="text-align:center;color:#f59e0b;">${attendanceData.totalLate || 0} Hari</td>
+                        <td style="text-align:center;color:#ef4444;">${attendanceData.totalAbsent} Hari</td>
+                        <td style="text-align:center;font-weight:bold;color:#7e22ce;">${attendanceData.attendancePercentage}%</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="section-title">IV. REKAPITULASI PROGRES HAFALAN</div>
+            <table>
+                <thead>
+                    <tr>
+                        <th style="text-align:left;">Kategori Hafalan</th>
+                        <th>Total Target Item</th>
+                        <th>Telah Dikuasai / Lulus</th>
+                        <th>Progres Ketuntasan</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${hafalanData.programScope === 'PTPT'
+                        ? `<tr><td>Tahfizh PTPT</td><td style="text-align:center;">${hafalanData.tahfizh.total}</td><td style="text-align:center;">${hafalanData.tahfizh.completed}</td><td style="text-align:center;font-weight:bold;">${Math.round((hafalanData.tahfizh.completed / (hafalanData.tahfizh.total || 1)) * 100)}%</td></tr>`
+                        : `
+                            <tr><td>Doa Harian</td><td style="text-align:center;">${hafalanData.doa.total}</td><td style="text-align:center;">${hafalanData.doa.completed}</td><td style="text-align:center;font-weight:bold;">${Math.round((hafalanData.doa.completed / (hafalanData.doa.total || 1)) * 100)}%</td></tr>
+                            <tr><td>Bacaan Sholat</td><td style="text-align:center;">${hafalanData.sholat.total}</td><td style="text-align:center;">${hafalanData.sholat.completed}</td><td style="text-align:center;font-weight:bold;">${Math.round((hafalanData.sholat.completed / (hafalanData.sholat.total || 1)) * 100)}%</td></tr>
+                            <tr><td>Surat Pendek / Juz Amma</td><td style="text-align:center;">${hafalanData.surat.total}</td><td style="text-align:center;">${hafalanData.surat.completed}</td><td style="text-align:center;font-weight:bold;">${Math.round((hafalanData.surat.completed / (hafalanData.surat.total || 1)) * 100)}%</td></tr>
+                        `
+                    }
+                </tbody>
+            </table>
+
+            <div class="section-title">V. DAFTAR SEMUA HAFALAN SANTRI</div>
+            <table>
+                <thead>
+                    <tr>
+                        <th width="10%">Jilid</th>
+                        <th width="35%" style="text-align:left;">Nama Item / Surat</th>
+                        <th width="18%" style="text-align:left;">Kategori</th>
+                        <th width="10%">Skor</th>
+                        <th width="15%">Status Capaian</th>
+                        <th width="12%" style="text-align:right;">Tanggal Evaluasi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${hafalanRowsHtml || '<tr><td colSpan="6" style="text-align:center;color:#64748b;">Belum ada rincian hafalan.</td></tr>'}
+                </tbody>
+            </table>
+
+            <table class="signature-table" style="margin-top:40px;">
+                <tr>
+                    <td width="33%">
+                        Mengetahui,<br><b>Orang Tua / Wali Santri</b><br><br><br><br>
+                        ( .................................... )
+                    </td>
+                    <td width="34%">
+                        Guru Pengampu Kelas,<br><b>Ustadz / Ustadzah</b><br><br><br><br>
+                        ( <b>${teacherName}</b> )
+                    </td>
+                    <td width="33%">
+                        Disahkan oleh,<br><b>Pentashih LPQ Al-Fath Maulana</b><br><br><br><br>
+                        ( .................................... )
+                    </td>
+                </tr>
+            </table>
+        </body>
+        </html>
+    `;
+
+    const blob = new Blob(['\ufeff', htmlContent], {
+        type: 'application/msword'
+    });
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Rapor_${(santriData.nama_lengkap || 'Santri').replace(/\s+/g, '_')}.docx`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
 };
