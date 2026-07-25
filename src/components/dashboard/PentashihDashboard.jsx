@@ -64,7 +64,7 @@ const PentashihDashboard = () => {
   }, [fetchDashboardStats]);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 sm:pt-28 pb-12 bg-slate-50 dark:bg-slate-950 min-h-screen space-y-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-28 sm:pt-32 pb-16 bg-slate-50 dark:bg-slate-950 min-h-screen space-y-8">
       {/* Header Banner */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b pb-6">
         <div>
