@@ -287,7 +287,7 @@ const DraggableSantri = ({ santri, index, moveSantri, hasAttended, onViewDetails
         <div className="relative cursor-pointer" onClick={() => onViewDetails(santri)}>
             <Avatar className="w-9 h-9">
                 <AvatarImage src={santri.foto_url} />
-                <AvatarFallback>{santri.nama_lengkap.charAt(0)}</AvatarFallback>
+                <AvatarFallback>{santri?.nama_lengkap?.charAt(0) || 'S'}</AvatarFallback>
             </Avatar>
             {hasAttended && (
                 <div className="absolute -bottom-1 -right-1 z-10 drop-shadow-md">

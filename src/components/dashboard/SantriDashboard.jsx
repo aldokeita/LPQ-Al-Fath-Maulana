@@ -251,7 +251,7 @@ const ClassmatesList = ({ classmates, todayAttendance }) => {
                             <div key={friend.id} className={cn("flex items-center gap-3 p-3 rounded-lg border transition-all hover:shadow-sm", isPresent ? "bg-green-50 dark:bg-slate-900/75 border-green-200 dark:border-emerald-400/30" : "bg-gray-50 dark:bg-slate-900/60 border-gray-100 dark:border-white/10")}>
                                 <Avatar className="w-10 h-10 border-2 border-white shadow-sm">
                                     <AvatarImage src={friend.foto_url} />
-                                    <AvatarFallback>{friend.nama_lengkap.charAt(0)}</AvatarFallback>
+                                    <AvatarFallback>{friend?.nama_lengkap?.charAt(0) || 'S'}</AvatarFallback>
                                 </Avatar>
                                 <div className="flex-1 min-w-0">
                                     <p className="font-semibold text-sm truncate text-gray-800 dark:text-gray-200">{friend.nama_lengkap}</p>
@@ -498,8 +498,8 @@ const SantriDashboard = ({ isAdult = false }) => {
               <div className="rounded-full bg-slate-100 p-2 shadow-[inset_5px_5px_12px_rgba(15,23,42,0.12),inset_-5px_-5px_12px_rgba(255,255,255,0.9)] dark:bg-slate-900 dark:shadow-[inset_5px_5px_12px_rgba(0,0,0,0.45),inset_-5px_-5px_12px_rgba(51,65,85,0.28)]">
                 <button type="button" onClick={() => setIsAvatarPreviewOpen(true)} className="block rounded-full transition-transform hover:scale-[1.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2" aria-label="Lihat foto profil santri">
                   <Avatar className="h-28 w-28 border-4 border-white bg-slate-100 shadow-xl dark:border-slate-700 sm:h-32 sm:w-32">
-                    <AvatarImage src={santriData.foto_url} className="object-cover" />
-                    <AvatarFallback className="bg-slate-200 text-3xl font-black text-slate-700 dark:bg-slate-800 dark:text-white">{santriData.nama_lengkap.charAt(0)}</AvatarFallback>
+                    <AvatarImage src={santriData?.foto_url} className="object-cover" />
+                    <AvatarFallback className="bg-slate-200 text-3xl font-black text-slate-700 dark:bg-slate-800 dark:text-white">{santriData?.nama_lengkap?.charAt(0) || 'S'}</AvatarFallback>
                   </Avatar>
                 </button>
               </div>

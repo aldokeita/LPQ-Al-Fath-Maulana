@@ -528,7 +528,7 @@ const GuruDashboard = () => {
                                                     >
                                                         <Avatar className="w-9 h-9 border border-border shadow-sm transition-transform hover:scale-105">
                                                             <AvatarImage src={santri.foto_url} className="object-cover" />
-                                                            <AvatarFallback>{santri.nama_lengkap.charAt(0)}</AvatarFallback>
+                                                            <AvatarFallback>{santri?.nama_lengkap?.charAt(0) || 'S'}</AvatarFallback>
                                                         </Avatar>
                                                     </button>
                                                     <span className="font-medium text-foreground">{santri.nama_lengkap}</span>
