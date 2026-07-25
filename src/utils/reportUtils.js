@@ -415,11 +415,76 @@ export const generateRaporPDF = async (santriData, attendanceData, hafalanData, 
             styles: { fontSize: 8.5, cellPadding: 3 }
         });
 
-        // --- Page 2: Detail Hafalan & Character Strengths ---
+        // --- Page 2: Karakter & Hafalan Detail ---
         doc.addPage();
-        currentY = 20;
+        currentY = 15;
 
-        doc.setFontSize(12);
+        // --- IV. Perkembangan Karakter ---
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(...secondaryColor);
+        doc.text("IV. PERKEMBANGAN KARAKTER & ADAB", 15, currentY);
+
+        const assessedItems = characterData?.assessedItems || [];
+        const strengths = characterData?.strengths || [];
+
+        if (strengths.length > 0) {
+            doc.setFontSize(9);
+            doc.setFont('helvetica', 'italic');
+            doc.setTextColor(...purpleColor);
+            const strengthText = "Karakter Unggulan: ⭐ " + strengths.join(', ⭐ ');
+            const wrappedStrengths = doc.splitTextToSize(strengthText, 180);
+            doc.text(wrappedStrengths, 15, currentY + 6);
+            currentY += 6 + (wrappedStrengths.length * 5);
+        } else {
+            currentY += 4;
+        }
+
+        if (assessedItems.length > 0) {
+            const charRows = assessedItems.map(item => {
+                const scoreLabel = item.score === 4 ? 'Sangat Baik (SB)' : item.score === 3 ? 'Berkembang Sesuai Harapan (BSH)' : item.score === 2 ? 'Mulai Berkembang (MB)' : 'Belum Berkembang (BB)';
+                return [
+                    item.order_index ? String(item.order_index) : '-',
+                    item.item_name || item.title || '-',
+                    item.score ? String(item.score) : '-',
+                    scoreLabel
+                ];
+            });
+
+            doc.autoTable({
+                startY: currentY + 3,
+                head: [['No', 'Aspek Karakter', 'Skor', 'Predikat']],
+                body: charRows,
+                theme: 'grid',
+                headStyles: { fillColor: purpleColor, textColor: 255, fontStyle: 'bold', halign: 'center' },
+                bodyStyles: { textColor: 51 },
+                columnStyles: {
+                    0: { halign: 'center', cellWidth: 12 },
+                    1: { halign: 'left' },
+                    2: { halign: 'center', cellWidth: 14, fontStyle: 'bold' },
+                    3: { halign: 'left' }
+                },
+                didParseCell: function(data) {
+                    if (data.section === 'body' && data.column.index === 2) {
+                        const score = Number(data.cell.raw);
+                        if (score === 4) data.cell.styles.textColor = successColor;
+                        else if (score === 3) data.cell.styles.textColor = primaryColor;
+                        else if (score <= 2) data.cell.styles.textColor = warningColor;
+                    }
+                },
+                styles: { fontSize: 8.5, cellPadding: 2.5 }
+            });
+            currentY = doc.lastAutoTable.finalY + 8;
+        } else {
+            doc.setFontSize(9);
+            doc.setFont('helvetica', 'italic');
+            doc.setTextColor(100, 100, 100);
+            doc.text("Belum ada data penilaian karakter untuk santri ini.", 15, currentY + 6);
+            currentY += 14;
+        }
+
+        // --- V. Daftar Semua Hafalan ---
+        doc.setFontSize(11);
         doc.setFont('helvetica', 'bold');
         doc.setTextColor(...secondaryColor);
         doc.text("V. DAFTAR SEMUA HAFALAN SANTRI", 15, currentY);
@@ -526,207 +591,195 @@ export const generateRaporPDF = async (santriData, attendanceData, hafalanData, 
     });
 };
 
+// Helper: escape special RTF chars
+const rtfEscape = (str) => {
+    if (!str) return '';
+    return String(str)
+        .replace(/\\/g, '\\\\')
+        .replace(/{/g, '\\{')
+        .replace(/}/g, '\\}')
+        .replace(/[^\x00-\x7F]/g, (c) => {
+            const code = c.charCodeAt(0);
+            return `\\u${code}?`;
+        });
+};
+
+// Helper: build a simple RTF table row
+const rtfRow = (cells, bold = false, shaded = false) => {
+    const CELL_W = 2268; // twips per column ~4cm
+    const cols = cells.length;
+    let rowDef = '\\trowd\\trqc\\trleft0';
+    for (let i = 1; i <= cols; i++) rowDef += `\\cellx${CELL_W * i}`;
+    const cellContent = cells.map(c => {
+        const shade = shaded ? '\\cbpat8' : '';
+        const b = bold ? '\\b ' : '';
+        return `\\pard\\intbl${shade}${b}${rtfEscape(c || '-')}\\cell`;
+    }).join('');
+    return `${rowDef}${cellContent}\\row\n`;
+};
+
 export const generateRaporDOCX = (santriData, attendanceData, hafalanData, periodText, characterData, scoresSummary) => {
     const sessionName = getSessionName(santriData.sesi_mengaji || santriData.sesi || santriData.class?.sesi) || 'Sesi Regular';
-    const strengthsList = (characterData?.strengths || ['Disiplin Tepat Waktu', 'Sopan & Beradab']).join(', ');
+    const strengthsList = (characterData?.strengths || []).join(', ') || '-';
     const teacherName = santriData.class?.guru?.nama || santriData.guru?.nama || santriData.nama_guru || '....................................';
-    const scores = scoresSummary || { attendanceScore: 90, hafalanScore: 85, characterScore: 92, overallAverage: 89, predicate: 'Sangat Baik (Mumtaz)' };
+    const scores = scoresSummary || { attendanceScore: 0, hafalanScore: 0, characterScore: 0, overallAverage: 0, predicate: 'Baik' };
+    const guardianName = santriData.nama_ibu || santriData.nama_ayah || santriData.nama_wali || '-';
+    const CELL4 = [1800, 3600, 5400, 7200]; // 4-col widths in twips
+    const CELL2 = [4500, 9000]; // 2-col widths
 
-    const hafalanRowsHtml = (hafalanData?.allItems || []).map(item => {
-        const scoreDisplay = item.score ? `${item.score} / 4` : '-';
-        const dateDisplay = item.evaluated_at 
-            ? new Date(item.evaluated_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
-            : 'Belum Evaluasi';
-        const isLulus = item.is_completed;
-        return `
-            <tr>
-                <td style="border:1px solid #cbd5e1;padding:6px;text-align:center;font-weight:bold;color:#7e22ce;">${item.jilid || '-'}</td>
-                <td style="border:1px solid #cbd5e1;padding:6px;font-weight:bold;color:#0f172a;">${item.item_name || '-'}</td>
-                <td style="border:1px solid #cbd5e1;padding:6px;color:#64748b;">${item.category || '-'}</td>
-                <td style="border:1px solid #cbd5e1;padding:6px;text-align:center;font-weight:bold;">${scoreDisplay}</td>
-                <td style="border:1px solid #cbd5e1;padding:6px;text-align:center;font-weight:bold;color:${isLulus ? '#10b981' : '#f59e0b'};">${isLulus ? 'Lulus / Dihafal' : 'Dalam Proses'}</td>
-                <td style="border:1px solid #cbd5e1;padding:6px;text-align:right;font-family:monospace;">${dateDisplay}</td>
-            </tr>
-        `;
-    }).join('');
+    // RTF header
+    let rtf = '{\\rtf1\\ansi\\ansicpg1252\\deff0\\deflang1057\n';
+    rtf += '{\\fonttbl{\\f0\\froman\\fprq2\\fcharset0 Times New Roman;}{\\f1\\fswiss\\fprq2\\fcharset0 Arial;}{\\f2\\fmodern\\fprq1\\fcharset0 Courier New;}}\n';
+    rtf += '{\\colortbl;\\red30\\green58\\blue138;\\red16\\green185\\blue129;\\red126\\green34\\blue206;\\red241\\green245\\blue249;\\red255\\green255\\blue255;}\n';
+    rtf += '\\widowctrl\\hyphauto\n';
+    rtf += '\\paperw12240\\paperh15840\\margl1440\\margr1440\\margt1440\\margb1440\n'; // US Letter, 1 inch margins
 
-    const htmlContent = `
-        <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
-        <head>
-            <meta charset='utf-8'>
-            <title>Rapor Akademik Santri</title>
-            <style>
-                body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 10.5pt; color: #1e293b; margin: 20px; }
-                .header-banner { background-color: #1e40af; color: white; padding: 16px; text-align: center; border-radius: 6px; margin-bottom: 20px; }
-                .header-title { font-size: 16pt; font-weight: bold; margin: 0; }
-                .header-sub { font-size: 11pt; margin-top: 4px; opacity: 0.9; }
-                .header-period { font-size: 9.5pt; margin-top: 6px; font-weight: bold; color: #dbeafe; }
-                .section-title { font-size: 11.5pt; font-weight: bold; color: #1e3a8a; border-bottom: 2px solid #cbd5e1; padding-bottom: 3px; margin-top: 22px; margin-bottom: 10px; }
-                table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
-                th { background-color: #1e40af; color: white; padding: 8px; font-size: 9.5pt; font-weight: bold; border: 1px solid #1e40af; }
-                td { padding: 7px; font-size: 9.5pt; border: 1px solid #cbd5e1; }
-                .signature-table td { border: none; text-align: center; padding-top: 40px; }
-            </style>
-        </head>
-        <body>
-            <div class="header-banner">
-                <div class="header-title">RAPOR AKADEMIK & KARAKTER SANTRI</div>
-                <div class="header-sub">LPQ AL-FATH MAULANA (METODE QIROATI)</div>
-                <div class="header-period">PERIODE EVALUASI: ${periodText.toUpperCase()}</div>
-            </div>
+    // Title block
+    rtf += `\\pard\\sb200\\sa120\\qc{\\f1\\fs32\\b\\cf1 RAPOR AKADEMIK & KARAKTER SANTRI}\\par\n`;
+    rtf += `\\pard\\sb0\\sa60\\qc{\\f1\\fs22 LPQ AL-FATH MAULANA (METODE QIROATI)}\\par\n`;
+    rtf += `\\pard\\sb0\\sa200\\qc{\\f1\\fs18\\i Periode Evaluasi: ${rtfEscape(periodText.toUpperCase())}}\\par\n`;
+    rtf += `\\pard\\sb60\\sa60\\qc{\\f1\\fs18 \\line}\\par\n`;
 
-            <div class="section-title">I. BIODATA SANTRI</div>
-            <table>
-                <tr>
-                    <td width="20%" style="font-weight:bold;background:#f8fafc;">Nama Santri</td>
-                    <td width="30%">: <b>${santriData.nama_lengkap}</b></td>
-                    <td width="20%" style="font-weight:bold;background:#f8fafc;">Kelas & Sesi</td>
-                    <td width="30%">: ${santriData.class?.nama_kelas || santriData.className || '-'} (${sessionName})</td>
-                </tr>
-                <tr>
-                    <td style="font-weight:bold;background:#f8fafc;">Nomor Induk (NIQ)</td>
-                    <td>: <b>${santriData.nomor_induk_qiroati || '-'}</b></td>
-                    <td style="font-weight:bold;background:#f8fafc;">Wali Santri</td>
-                    <td>: ${santriData.nama_ibu || santriData.nama_ayah || santriData.nama_wali || '-'}</td>
-                </tr>
-                <tr>
-                    <td style="font-weight:bold;background:#f8fafc;">Jilid / Tingkat</td>
-                    <td>: <span style="color:#7e22ce;font-weight:bold;">${santriData.jilid || '-'} (${santriData.kategori || 'Anak'})</span></td>
-                    <td style="font-weight:bold;background:#f8fafc;">Predikat Akhir</td>
-                    <td>: <span style="color:#10b981;font-weight:bold;">${scoresSummary?.predicate || 'Sangat Baik'} (${scoresSummary?.grade || 'A'})</span></td>
-                </tr>
-                <tr>
-                    <td style="font-weight:bold;background:#f8fafc;">Karakter Unggulan</td>
-                    <td colSpan="3">: <span style="color:#7e22ce;font-weight:bold;">⭐ ${strengthsList || 'Disiplin & Beradab'}</span></td>
-                </tr>
-            </table>
+    // Section helper
+    const secTitle = (title) => `\\pard\\sb240\\sa80{\\f1\\fs22\\b\\cf1 ${rtfEscape(title)}}\\par\n`;
 
-            <div class="section-title">II. REKAPITULASI NILAI RATA-RATA PROGRESS</div>
-            <table>
-                <thead>
-                    <tr>
-                        <th style="text-align:left;">Aspek Evaluasi Progress</th>
-                        <th>Skor Capaian</th>
-                        <th>Bobot Evaluasi</th>
-                        <th>Predikat Progress</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>Kehadiran & Keaktifan Mengaji</td>
-                        <td style="text-align:center;">${scores.attendanceScore}%</td>
-                        <td style="text-align:center;">34%</td>
-                        <td style="text-align:center;font-weight:bold;color:#10b981;">${scores.attendanceScore >= 85 ? 'Sangat Baik' : 'Baik'}</td>
-                    </tr>
-                    <tr>
-                        <td>Ketuntasan Hafalan Doa / Surat</td>
-                        <td style="text-align:center;">${scores.hafalanScore}%</td>
-                        <td style="text-align:center;">33%</td>
-                        <td style="text-align:center;font-weight:bold;color:#10b981;">${scores.hafalanScore >= 85 ? 'Sangat Baik' : 'Baik'}</td>
-                    </tr>
-                    <tr>
-                        <td>Perkembangan Karakter & Adab</td>
-                        <td style="text-align:center;">${scores.characterScore}%</td>
-                        <td style="text-align:center;">33%</td>
-                        <td style="text-align:center;font-weight:bold;color:#10b981;">${scores.characterScore >= 85 ? 'Sangat Baik' : 'Baik'}</td>
-                    </tr>
-                    <tr style="background:#f1f5f9;font-weight:bold;">
-                        <td style="text-align:right;">NILAI AKHIR RATA-RATA KESELURUHAN</td>
-                        <td style="text-align:center;color:#1e40af;">${scores.overallAverage} / 100</td>
-                        <td colSpan="2" style="text-align:center;color:#10b981;">${scores.predicate}</td>
-                    </tr>
-                </tbody>
-            </table>
+    // I. BIODATA
+    rtf += secTitle('I. BIODATA SANTRI');
+    const bioRows = [
+        ['Nama Santri', santriData.nama_lengkap, 'Kelas & Sesi', `${santriData.class?.nama_kelas || santriData.className || '-'} (${sessionName})`],
+        ['NIQ (Nomor Induk Qiroati)', santriData.nomor_induk_qiroati || '-', 'Wali Santri (Ibu)', guardianName],
+        ['Jilid / Tingkat', `${santriData.jilid || '-'} (${santriData.kategori || 'Anak'})`, 'Predikat Akhir', `${scores.predicate} (${scoresSummary?.grade || 'A'})`],
+        ['Karakter Unggulan', strengthsList, '', ''],
+    ];
+    for (const [l1, v1, l2, v2] of bioRows) {
+        const cells = l2
+            ? [l1, v1, l2, v2]
+            : [l1, { content: v1, colspan: 3 }];
+        if (l2) {
+            rtf += `\\trowd\\trleft0\\cellx2000\\cellx4500\\cellx6500\\cellx9000\\trkeep\n`;
+            rtf += `\\pard\\intbl\\b ${rtfEscape(l1)}\\b0\\cell `;
+            rtf += `\\pard\\intbl ${rtfEscape(v1)}\\cell `;
+            rtf += `\\pard\\intbl\\b ${rtfEscape(l2)}\\b0\\cell `;
+            rtf += `\\pard\\intbl ${rtfEscape(v2)}\\cell \\row\n`;
+        } else {
+            rtf += `\\trowd\\trleft0\\cellx2000\\cellx9000\\trkeep\n`;
+            rtf += `\\pard\\intbl\\b ${rtfEscape(l1)}\\b0\\cell `;
+            rtf += `\\pard\\intbl ${rtfEscape(v1)}\\cell \\row\n`;
+        }
+    }
+    rtf += `\\pard\\sb60\\sa60\\par\n`;
 
-            <div class="section-title">III. REKAPITULASI KEHADIRAN</div>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Total Hari Efektif</th>
-                        <th>Hadir</th>
-                        <th>Terlambat</th>
-                        <th>Alpha</th>
-                        <th>Persentase Kehadiran</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td style="text-align:center;">${attendanceData.totalDays} Hari</td>
-                        <td style="text-align:center;color:#10b981;font-weight:bold;">${attendanceData.totalPresent} Hari</td>
-                        <td style="text-align:center;color:#f59e0b;">${attendanceData.totalLate || 0} Hari</td>
-                        <td style="text-align:center;color:#ef4444;">${attendanceData.totalAbsent} Hari</td>
-                        <td style="text-align:center;font-weight:bold;color:#7e22ce;">${attendanceData.attendancePercentage}%</td>
-                    </tr>
-                </tbody>
-            </table>
+    // II. REKAPITULASI NILAI
+    rtf += secTitle('II. REKAPITULASI NILAI RATA-RATA PROGRESS');
+    rtf += `\\trowd\\trleft0\\cellx3500\\cellx5500\\cellx7000\\cellx9000\\trkeep\n`;
+    rtf += `\\pard\\intbl\\b Aspek Evaluasi Progress\\b0\\cell `;
+    rtf += `\\pard\\intbl\\b Skor Capaian\\b0\\cell `;
+    rtf += `\\pard\\intbl\\b Bobot\\b0\\cell `;
+    rtf += `\\pard\\intbl\\b Predikat\\b0\\cell \\row\n`;
+    const valRows = [
+        ['Kehadiran & Keaktifan Mengaji', `${scores.attendanceScore}%`, '34%', scores.attendanceScore >= 85 ? 'Sangat Baik' : 'Baik'],
+        ['Ketuntasan Hafalan Doa / Surat', `${scores.hafalanScore}%`, '33%', scores.hafalanScore >= 85 ? 'Sangat Baik' : 'Baik'],
+        ['Perkembangan Karakter & Adab', `${scores.characterScore}%`, '33%', scores.characterScore >= 85 ? 'Sangat Baik' : 'Baik'],
+        ['NILAI AKHIR RATA-RATA', `${scores.overallAverage}/100`, '', scores.predicate],
+    ];
+    for (const [a, b, c, d] of valRows) {
+        rtf += `\\trowd\\trleft0\\cellx3500\\cellx5500\\cellx7000\\cellx9000\\trkeep\n`;
+        rtf += `\\pard\\intbl ${rtfEscape(a)}\\cell `;
+        rtf += `\\pard\\intbl\\qc ${rtfEscape(b)}\\cell `;
+        rtf += `\\pard\\intbl\\qc ${rtfEscape(c)}\\cell `;
+        rtf += `\\pard\\intbl\\qc ${rtfEscape(d)}\\cell \\row\n`;
+    }
+    rtf += `\\pard\\sb60\\sa60\\par\n`;
 
-            <div class="section-title">IV. REKAPITULASI PROGRES HAFALAN</div>
-            <table>
-                <thead>
-                    <tr>
-                        <th style="text-align:left;">Kategori Hafalan</th>
-                        <th>Total Target Item</th>
-                        <th>Telah Dikuasai / Lulus</th>
-                        <th>Progres Ketuntasan</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${hafalanData.programScope === 'PTPT'
-                        ? `<tr><td>Tahfizh PTPT</td><td style="text-align:center;">${hafalanData.tahfizh.total}</td><td style="text-align:center;">${hafalanData.tahfizh.completed}</td><td style="text-align:center;font-weight:bold;">${Math.round((hafalanData.tahfizh.completed / (hafalanData.tahfizh.total || 1)) * 100)}%</td></tr>`
-                        : `
-                            <tr><td>Doa Harian</td><td style="text-align:center;">${hafalanData.doa.total}</td><td style="text-align:center;">${hafalanData.doa.completed}</td><td style="text-align:center;font-weight:bold;">${Math.round((hafalanData.doa.completed / (hafalanData.doa.total || 1)) * 100)}%</td></tr>
-                            <tr><td>Bacaan Sholat</td><td style="text-align:center;">${hafalanData.sholat.total}</td><td style="text-align:center;">${hafalanData.sholat.completed}</td><td style="text-align:center;font-weight:bold;">${Math.round((hafalanData.sholat.completed / (hafalanData.sholat.total || 1)) * 100)}%</td></tr>
-                            <tr><td>Surat Pendek / Juz Amma</td><td style="text-align:center;">${hafalanData.surat.total}</td><td style="text-align:center;">${hafalanData.surat.completed}</td><td style="text-align:center;font-weight:bold;">${Math.round((hafalanData.surat.completed / (hafalanData.surat.total || 1)) * 100)}%</td></tr>
-                        `
-                    }
-                </tbody>
-            </table>
+    // III. KEHADIRAN
+    rtf += secTitle('III. REKAPITULASI KEHADIRAN');
+    rtf += `\\trowd\\trleft0\\cellx1800\\cellx3600\\cellx5400\\cellx7200\\cellx9000\\trkeep\n`;
+    rtf += `\\pard\\intbl\\b Total Hari Efektif\\b0\\cell \\pard\\intbl\\b Hadir\\b0\\cell \\pard\\intbl\\b Terlambat\\b0\\cell \\pard\\intbl\\b Alpha\\b0\\cell \\pard\\intbl\\b Persentase\\b0\\cell \\row\n`;
+    rtf += `\\trowd\\trleft0\\cellx1800\\cellx3600\\cellx5400\\cellx7200\\cellx9000\\trkeep\n`;
+    rtf += `\\pard\\intbl\\qc ${attendanceData.totalDays} Hari\\cell `;
+    rtf += `\\pard\\intbl\\qc ${attendanceData.totalPresent} Hari\\cell `;
+    rtf += `\\pard\\intbl\\qc ${attendanceData.totalLate || 0} Hari\\cell `;
+    rtf += `\\pard\\intbl\\qc ${attendanceData.totalAbsent} Hari\\cell `;
+    rtf += `\\pard\\intbl\\qc\\b ${attendanceData.attendancePercentage}%\\b0\\cell \\row\n`;
+    rtf += `\\pard\\sb60\\sa60\\par\n`;
 
-            <div class="section-title">V. DAFTAR SEMUA HAFALAN SANTRI</div>
-            <table>
-                <thead>
-                    <tr>
-                        <th width="10%">Jilid</th>
-                        <th width="35%" style="text-align:left;">Nama Item / Surat</th>
-                        <th width="18%" style="text-align:left;">Kategori</th>
-                        <th width="10%">Skor</th>
-                        <th width="15%">Status Capaian</th>
-                        <th width="12%" style="text-align:right;">Tanggal Evaluasi</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${hafalanRowsHtml || '<tr><td colSpan="6" style="text-align:center;color:#64748b;">Belum ada rincian hafalan.</td></tr>'}
-                </tbody>
-            </table>
+    // IV. PROGRES HAFALAN
+    rtf += secTitle('IV. REKAPITULASI PROGRES HAFALAN');
+    rtf += `\\trowd\\trleft0\\cellx3000\\cellx5000\\cellx7000\\cellx9000\\trkeep\n`;
+    rtf += `\\pard\\intbl\\b Kategori\\b0\\cell \\pard\\intbl\\b\\qc Total Target\\b0\\cell \\pard\\intbl\\b\\qc Lulus\\b0\\cell \\pard\\intbl\\b\\qc Progres\\b0\\cell \\row\n`;
+    const hafalanCats = hafalanData.programScope === 'PTPT'
+        ? [['Tahfizh PTPT', hafalanData.tahfizh?.total, hafalanData.tahfizh?.completed]]
+        : [
+            ['Doa Harian', hafalanData.doa?.total, hafalanData.doa?.completed],
+            ['Bacaan Sholat', hafalanData.sholat?.total, hafalanData.sholat?.completed],
+            ['Surat Pendek / Juz Amma', hafalanData.surat?.total, hafalanData.surat?.completed],
+        ];
+    for (const [cat, total, done] of hafalanCats) {
+        const pct = `${Math.round(((done || 0) / (total || 1)) * 100)}%`;
+        rtf += `\\trowd\\trleft0\\cellx3000\\cellx5000\\cellx7000\\cellx9000\\trkeep\n`;
+        rtf += `\\pard\\intbl ${rtfEscape(cat)}\\cell `;
+        rtf += `\\pard\\intbl\\qc ${total || 0}\\cell `;
+        rtf += `\\pard\\intbl\\qc ${done || 0}\\cell `;
+        rtf += `\\pard\\intbl\\qc\\b ${pct}\\b0\\cell \\row\n`;
+    }
+    rtf += `\\pard\\sb60\\sa60\\par\n`;
 
-            <table class="signature-table" style="margin-top:40px;">
-                <tr>
-                    <td width="33%">
-                        Mengetahui,<br><b>Orang Tua / Wali Santri</b><br><br><br><br>
-                        ( .................................... )
-                    </td>
-                    <td width="34%">
-                        Guru Pengampu Kelas,<br><b>Ustadz / Ustadzah</b><br><br><br><br>
-                        ( <b>${teacherName}</b> )
-                    </td>
-                    <td width="33%">
-                        Disahkan oleh,<br><b>Pentashih LPQ Al-Fath Maulana</b><br><br><br><br>
-                        ( .................................... )
-                    </td>
-                </tr>
-            </table>
-        </body>
-        </html>
-    `;
+    // V. PERKEMBANGAN KARAKTER
+    rtf += secTitle('V. PERKEMBANGAN KARAKTER & ADAB');
+    const charItems = characterData?.assessedItems || [];
+    if (charItems.length > 0) {
+        rtf += `\\trowd\\trleft0\\cellx500\\cellx5000\\cellx6500\\cellx9000\\trkeep\n`;
+        rtf += `\\pard\\intbl\\b No\\b0\\cell \\pard\\intbl\\b Aspek Karakter\\b0\\cell \\pard\\intbl\\b\\qc Skor\\b0\\cell \\pard\\intbl\\b Predikat\\b0\\cell \\row\n`;
+        charItems.forEach((item, i) => {
+            const lbl = item.score === 4 ? 'Sangat Baik (SB)' : item.score === 3 ? 'Berkembang Sesuai Harapan (BSH)' : item.score === 2 ? 'Mulai Berkembang (MB)' : 'Belum Berkembang (BB)';
+            rtf += `\\trowd\\trleft0\\cellx500\\cellx5000\\cellx6500\\cellx9000\\trkeep\n`;
+            rtf += `\\pard\\intbl\\qc ${i + 1}\\cell `;
+            rtf += `\\pard\\intbl ${rtfEscape(item.item_name || item.title || '-')}\\cell `;
+            rtf += `\\pard\\intbl\\qc\\b ${item.score || '-'}\\b0\\cell `;
+            rtf += `\\pard\\intbl ${rtfEscape(lbl)}\\cell \\row\n`;
+        });
+    } else {
+        rtf += `\\pard\\sb60\\sa60\\i Belum ada data penilaian karakter.\\i0\\par\n`;
+    }
+    rtf += `\\pard\\sb60\\sa60\\par\n`;
 
-    const blob = new Blob(['\ufeff', htmlContent], {
-        type: 'application/msword'
-    });
+    // VI. DAFTAR SEMUA HAFALAN
+    rtf += secTitle('VI. DAFTAR SEMUA HAFALAN SANTRI');
+    const allItems = hafalanData?.allItems || [];
+    if (allItems.length > 0) {
+        rtf += `\\trowd\\trleft0\\cellx1200\\cellx4500\\cellx6300\\cellx7200\\cellx8400\\cellx9000\\trkeep\n`;
+        rtf += `\\pard\\intbl\\b Jilid\\b0\\cell \\pard\\intbl\\b Nama Item\\b0\\cell \\pard\\intbl\\b Kategori\\b0\\cell \\pard\\intbl\\b\\qc Skor\\b0\\cell \\pard\\intbl\\b\\qc Status\\b0\\cell \\pard\\intbl\\b\\qc Tanggal\\b0\\cell \\row\n`;
+        for (const item of allItems) {
+            const dateStr = item.evaluated_at
+                ? new Date(item.evaluated_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
+                : '-';
+            rtf += `\\trowd\\trleft0\\cellx1200\\cellx4500\\cellx6300\\cellx7200\\cellx8400\\cellx9000\\trkeep\n`;
+            rtf += `\\pard\\intbl\\qc ${rtfEscape(item.jilid || '-')}\\cell `;
+            rtf += `\\pard\\intbl ${rtfEscape(item.item_name || item.display_name || '-')}\\cell `;
+            rtf += `\\pard\\intbl ${rtfEscape(item.category || '-')}\\cell `;
+            rtf += `\\pard\\intbl\\qc ${item.score ? `${item.score}/4` : '-'}\\cell `;
+            rtf += `\\pard\\intbl\\qc ${item.is_completed ? 'Lulus' : 'Proses'}\\cell `;
+            rtf += `\\pard\\intbl\\qc ${rtfEscape(dateStr)}\\cell \\row\n`;
+        }
+    } else {
+        rtf += `\\pard\\sb60\\sa60\\i Belum ada rincian hafalan.\\i0\\par\n`;
+    }
 
+    // Signatures
+    rtf += `\\pard\\sb480\\sa60\\par\n`;
+    rtf += `\\trowd\\trleft0\\cellx3000\\cellx6000\\cellx9000\\trkeep\n`;
+    rtf += `\\pard\\intbl\\qc Mengetahui,\\line {\\b Orang Tua / Wali Santri}\\line\\line\\line\\line\\line ( ........................ )\\cell `;
+    rtf += `\\pard\\intbl\\qc Guru Pengampu Kelas,\\line {\\b Ustadz / Ustadzah}\\line\\line\\line\\line\\line ( {\\b ${rtfEscape(teacherName)}} )\\cell `;
+    rtf += `\\pard\\intbl\\qc Disahkan oleh,\\line {\\b Pentashih LPQ Al-Fath Maulana}\\line\\line\\line\\line\\line ( ........................ )\\cell \\row\n`;
+
+    // Close RTF
+    rtf += '}\n';
+
+    const blob = new Blob([rtf], { type: 'application/rtf' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `Rapor_${(santriData.nama_lengkap || 'Santri').replace(/\s+/g, '_')}.docx`;
+    a.download = `Rapor_${(santriData.nama_lengkap || 'Santri').replace(/\s+/g, '_')}.rtf`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

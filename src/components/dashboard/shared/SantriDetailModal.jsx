@@ -27,7 +27,6 @@ import {
 import { getSessionName } from '@/utils/sessionMapping';
 import { fetchSantriNotes, getAcademicErrorMessage, saveSantriNote } from '@/lib/academicAdapters';
 import SantriDevelopmentProfile from '@/components/dashboard/shared/SantriDevelopmentProfile';
-import { SantriRecapDetailModal } from '@/components/dashboard/admin/AttendanceRecap';
 
 const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }) => {
     const { user, role } = useAuth();
@@ -41,6 +40,8 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
     const [isReportViewOpen, setIsReportViewOpen] = useState(false);
     const [isGeneratingRapor, setIsGeneratingRapor] = useState(false);
     const [isAttendanceRecapOpen, setIsAttendanceRecapOpen] = useState(false);
+    const [attendanceMatrix, setAttendanceMatrix] = useState(null);
+    const [isLoadingMatrix, setIsLoadingMatrix] = useState(false);
     const [isLoadingReportData, setIsLoadingReportData] = useState(false);
 
     // Period Selection: '1bulan' | '6bulan' | '1tahun'
@@ -66,6 +67,21 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
             toast({ title: "Gagal memuat catatan", description: getAcademicErrorMessage(error), variant: 'destructive' });
         }
     }, [santri?.id]);
+
+    // Fetch full santri data (including nama_ibu which may not be passed via props)
+    const [santriFullData, setSantriFullData] = useState(null);
+    const fetchSantriFullData = useCallback(async () => {
+        if (!santri?.id) return;
+        const { data } = await supabase
+            .from('santri')
+            .select('id, nama_ibu, nama_ayah, nama_wali, no_hp_ortu')
+            .eq('id', santri.id)
+            .maybeSingle();
+        if (data) setSantriFullData(data);
+    }, [santri?.id]);
+
+    const guardianName = santriFullData?.nama_ibu || santriFullData?.nama_ayah || santriFullData?.nama_wali
+        || santri?.nama_ibu || santri?.nama_ayah || santri?.nama_wali || '-';
 
     const fetchJilidHistory = useCallback(async () => {
         if (!santri?.id) return;
@@ -93,8 +109,9 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
         if (isOpen && santri?.id) {
             fetchNotes();
             fetchJilidHistory();
+            fetchSantriFullData();
         }
-    }, [isOpen, santri?.id, fetchNotes, fetchJilidHistory]);
+    }, [isOpen, santri?.id, fetchNotes, fetchJilidHistory, fetchSantriFullData]);
 
     // Calculate Date Range based on Period Selection
     const dateRange = useMemo(() => {
@@ -296,7 +313,7 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
                             </div>
                             <div>
                                 <p className="text-muted-foreground text-xs uppercase tracking-wider font-semibold">Wali Santri (Ibu)</p>
-                                <p className="font-bold text-slate-800 dark:text-slate-200">{santri.nama_ibu || santri.nama_ayah || santri.nama_wali || '-'}</p>
+                                <p className="font-bold text-slate-800 dark:text-slate-200">{guardianName}</p>
                             </div>
                         </div>
                     </div>
@@ -477,7 +494,7 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
                                 onClick={() => {
                                     if (attendanceSummary && hafalanData) {
                                         generateRaporDOCX(santri, attendanceSummary, hafalanData, dateRange.periodText, characterData, scoresSummary);
-                                        toast({ title: 'Rapor DOCX Berhasil Diunduh', description: 'File Word telah siap.' });
+                                        toast({ title: 'Rapor RTF Berhasil Diunduh', description: 'File dapat dibuka dengan Microsoft Word / LibreOffice.' });
                                     } else {
                                         toast({ title: 'Menyiapkan Data Rapor', description: 'Mohon tunggu sejenak...' });
                                     }
@@ -485,7 +502,7 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
                                 variant="outline"
                                 className="bg-blue-50 dark:bg-blue-950/40 border-blue-200 text-blue-700 dark:text-blue-300 font-bold hover:bg-blue-100"
                             >
-                                <FileText className="w-4 h-4 mr-1.5 text-blue-600" /> Download DOCX
+                                <FileText className="w-4 h-4 mr-1.5 text-blue-600" /> Download RTF (Word)
                             </Button>
                         </div>
                     </div>
@@ -535,8 +552,8 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
                             </div>
                             <div>
                                 <p className="text-[11px] text-muted-foreground uppercase font-bold tracking-wider">Wali Santri (Ibu)</p>
-                                <p className="font-bold text-slate-800 dark:text-slate-200">{santri.nama_ibu || santri.nama_ayah || santri.nama_wali || '-'}</p>
-                                <p className="text-xs text-muted-foreground">HP: {santri.no_hp_ortu || '-'}</p>
+                                <p className="font-bold text-slate-800 dark:text-slate-200">{guardianName}</p>
+                                <p className="text-xs text-muted-foreground">HP: {santriFullData?.no_hp_ortu || santri.no_hp_ortu || '-'}</p>
                             </div>
                             <div className="sm:col-span-2 md:col-span-4 pt-2 border-t border-slate-200/60 dark:border-slate-800 flex flex-wrap items-center gap-2">
                                 <span className="text-[11px] text-muted-foreground uppercase font-bold tracking-wider flex items-center gap-1">
@@ -646,32 +663,37 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
                                     <Star className="w-4 h-4 text-amber-500 fill-amber-500" /> Karakter Unggulan Santri:
                                 </p>
                                 <div className="flex flex-wrap gap-2 pt-1">
-                                    {(characterData?.strengths || ['Disiplin Tepat Waktu', 'Sopan & Beradab', 'Konsisten Hafalan']).map((strength, idx) => (
-                                        <Badge key={idx} className="bg-gradient-to-r from-amber-500 to-amber-600 text-white font-bold text-xs px-3 py-1 flex items-center gap-1 shadow-xs">
-                                            ⭐ {strength}
-                                        </Badge>
-                                    ))}
+                                    {(characterData?.strengths && characterData.strengths.length > 0)
+                                        ? characterData.strengths.map((strength, idx) => (
+                                            <Badge key={idx} className="bg-gradient-to-r from-amber-500 to-amber-600 text-white font-bold text-xs px-3 py-1 flex items-center gap-1 shadow-xs">
+                                                ⭐ {strength}
+                                            </Badge>
+                                        ))
+                                        : <p className="text-xs text-muted-foreground italic">Belum ditetapkan oleh guru pengampu.</p>
+                                    }
                                 </div>
                             </div>
 
-                            {/* Aspek Evaluasi Karakter */}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-xs">
-                                {(characterData?.assessedItems || [
-                                    { title: 'Kedisiplinan & Ketepatan Waktu', score: 4 },
-                                    { title: 'Adab Terhadap Al-Qur\'an & Ustaz', score: 4 },
-                                    { title: 'Tanggung Jawab & Kerapihan', score: 3 },
-                                    { title: 'Keaktifan & Semangat Belajar', score: 4 },
-                                    { title: 'Kemandirian Mengaji', score: 3 },
-                                    { title: 'Kerjasama & Sikap Sosial', score: 4 },
-                                ]).map((item, idx) => (
-                                    <div key={idx} className="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200/60 dark:border-slate-800 flex justify-between items-center">
-                                        <span className="font-semibold text-slate-800 dark:text-slate-200">{item.title}</span>
-                                        <Badge variant="outline" className="font-bold border-purple-300 bg-purple-50 text-purple-700 dark:bg-purple-950/50 dark:text-purple-300">
-                                            {item.score === 4 ? 'SB (Sangat Baik)' : item.score === 3 ? 'BSH (Baik)' : 'MB'}
-                                        </Badge>
-                                    </div>
-                                ))}
-                            </div>
+                            {/* Aspek Evaluasi Karakter - 15 Items */}
+                            {(characterData?.assessedItems && characterData.assessedItems.length > 0) ? (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 text-xs">
+                                    {characterData.assessedItems.map((item, idx) => (
+                                        <div key={item.id || idx} className="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200/60 dark:border-slate-800 flex justify-between items-center gap-2">
+                                            <span className="font-semibold text-slate-800 dark:text-slate-200 leading-tight">{item.item_name || item.title}</span>
+                                            <Badge variant="outline" className={`font-bold shrink-0 ${
+                                                item.score === 4 ? 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300' :
+                                                item.score === 3 ? 'border-blue-300 bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300' :
+                                                item.score === 2 ? 'border-amber-300 bg-amber-50 text-amber-700' :
+                                                'border-rose-300 bg-rose-50 text-rose-700'
+                                            }`}>
+                                                {item.score}/4 {item.score === 4 ? '(SB)' : item.score === 3 ? '(BSH)' : item.score === 2 ? '(MB)' : '(BB)'}
+                                            </Badge>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p className="text-sm text-muted-foreground italic text-center py-4">Belum ada data penilaian karakter untuk santri ini.</p>
+                            )}
                         </div>
 
                         {/* REKAPITULASI SEMUA HAFALAN SANTRI */}
@@ -763,15 +785,114 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
                 </DialogContent>
             </Dialog>
 
-            {/* Rekap Absensi Detail Modal */}
-            {isAttendanceRecapOpen && (
-                <SantriRecapDetailModal
-                    santri={{ id: santri.id, name: santri.nama_lengkap }}
-                    isOpen={isAttendanceRecapOpen}
-                    onClose={() => setIsAttendanceRecapOpen(false)}
-                />
-            )}
+            {/* Rekap Absensi Matriks Modal */}
+            <Dialog open={isAttendanceRecapOpen} onOpenChange={setIsAttendanceRecapOpen}>
+                <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <History className="w-5 h-5 text-blue-600" />
+                            Rekap Absensi: {santri?.nama_lengkap}
+                        </DialogTitle>
+                        <DialogDescription>Matriks kehadiran santri per bulan.</DialogDescription>
+                    </DialogHeader>
+                    <AttendanceMatrixPanel santriId={santri?.id} />
+                </DialogContent>
+            </Dialog>
         </>
+    );
+};
+
+// Komponen Matriks Kehadiran
+const AttendanceMatrixPanel = ({ santriId }) => {
+    const [year, setYear] = React.useState(new Date().getFullYear());
+    const [month, setMonth] = React.useState(new Date().getMonth() + 1);
+    const [records, setRecords] = React.useState([]);
+    const [loading, setLoading] = React.useState(false);
+
+    const MONTHS = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+    const STATUS_COLORS = {
+        hadir: 'bg-emerald-500',
+        present: 'bg-emerald-500',
+        terlambat: 'bg-amber-400',
+        late: 'bg-amber-400',
+        alpha: 'bg-rose-500',
+        absent: 'bg-rose-500',
+        izin: 'bg-blue-400',
+        sakit: 'bg-purple-400',
+    };
+    const STATUS_LABELS = { hadir: 'H', present: 'H', terlambat: 'T', late: 'T', alpha: 'A', absent: 'A', izin: 'I', sakit: 'S' };
+
+    React.useEffect(() => {
+        if (!santriId) return;
+        setLoading(true);
+        const startDate = `${year}-${String(month).padStart(2,'0')}-01`;
+        const endDay = new Date(year, month, 0).getDate();
+        const endDate = `${year}-${String(month).padStart(2,'0')}-${String(endDay).padStart(2,'0')}`;
+        supabase.from('attendance')
+            .select('attendance_date, status')
+            .eq('user_id', santriId)
+            .gte('attendance_date', startDate)
+            .lte('attendance_date', endDate)
+            .order('attendance_date')
+            .then(({ data }) => {
+                setRecords(data || []);
+                setLoading(false);
+            });
+    }, [santriId, year, month]);
+
+    const recordMap = Object.fromEntries((records || []).map(r => [r.attendance_date, r.status?.toLowerCase()]));
+    const daysInMonth = new Date(year, month, 0).getDate();
+    const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+
+    const totalHadir = records.filter(r => ['hadir','present'].includes(r.status?.toLowerCase())).length;
+    const totalTerlambat = records.filter(r => ['terlambat','late'].includes(r.status?.toLowerCase())).length;
+    const totalAlpha = records.filter(r => ['alpha','absent'].includes(r.status?.toLowerCase())).length;
+    const currentYear = new Date().getFullYear();
+
+    return (
+        <div className="space-y-4">
+            <div className="flex gap-3 flex-wrap items-center">
+                <select value={month} onChange={e => setMonth(Number(e.target.value))}
+                    className="h-9 px-3 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-medium">
+                    {MONTHS.map((m, i) => <option key={i+1} value={i+1}>{m}</option>)}
+                </select>
+                <select value={year} onChange={e => setYear(Number(e.target.value))}
+                    className="h-9 px-3 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-medium">
+                    {Array.from({length:5},(_,i) => currentYear - i).map(y => <option key={y} value={y}>{y}</option>)}
+                </select>
+                <div className="flex gap-2 text-xs ml-auto">
+                    <span className="flex items-center gap-1"><span className="w-4 h-4 rounded bg-emerald-500 inline-block"/> Hadir ({totalHadir})</span>
+                    <span className="flex items-center gap-1"><span className="w-4 h-4 rounded bg-amber-400 inline-block"/> Terlambat ({totalTerlambat})</span>
+                    <span className="flex items-center gap-1"><span className="w-4 h-4 rounded bg-rose-500 inline-block"/> Alpha ({totalAlpha})</span>
+                </div>
+            </div>
+
+            {loading ? (
+                <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-blue-500" /></div>
+            ) : (
+                <div className="overflow-x-auto">
+                    <div className="grid gap-1.5" style={{gridTemplateColumns: `repeat(${Math.min(daysInMonth, 16)}, minmax(0, 1fr))`}}>
+                        {days.map(day => {
+                            const dateStr = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+                            const status = recordMap[dateStr];
+                            const dow = new Date(dateStr).getDay();
+                            const isWeekend = dow === 0 || dow === 6;
+                            return (
+                                <div key={day} title={status ? `${day}: ${status}` : `${day}: Tidak ada data`}
+                                    className={`flex flex-col items-center justify-center rounded-lg p-1.5 min-h-[52px] text-center transition-all ${
+                                        isWeekend ? 'bg-slate-100 dark:bg-slate-800 opacity-40' :
+                                        status ? (STATUS_COLORS[status] || 'bg-slate-400') + ' text-white shadow-sm' :
+                                        'bg-slate-100 dark:bg-slate-800 text-muted-foreground'
+                                    }`}>
+                                    <span className="text-[10px] font-bold">{day}</span>
+                                    <span className="text-[11px] font-black mt-0.5">{status ? (STATUS_LABELS[status] || status.charAt(0).toUpperCase()) : (isWeekend ? '—' : '')}</span>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+        </div>
     );
 };
 
