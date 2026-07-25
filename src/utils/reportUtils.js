@@ -1,6 +1,7 @@
 import { supabase } from '../lib/customSupabaseClient';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
+import { getSessionName } from './sessionMapping';
 
 export const calculateAttendanceData = async (santriId, startDate, endDate) => {
     try {
@@ -111,6 +112,7 @@ export const getHafalanProgressData = async (santriId) => {
         let allItems = (scopedItems.length > 0 ? scopedItems : rawItems).map(item => {
             const progress = progressByItemId.get(item.id) || progressByName.get(`${item.category}-${item.item_name}`);
             const isLulus = progress?.status === 'lulus' || Number(progress?.score) === 4;
+            const evaluatedDate = (progress?.assessed_at || progress?.updated_at) ? (progress?.assessed_at || progress?.updated_at) : null;
             return {
                 ...item,
                 ...progress,
@@ -118,11 +120,12 @@ export const getHafalanProgressData = async (santriId) => {
                 item_id: item.id,
                 category: item.category,
                 item_name: item.item_name,
+                jilid: item.jilid || '-',
                 is_completed: isLulus,
                 hafal: isLulus,
                 score: progress?.score ? Number(progress.score) : (isLulus ? 4 : null),
                 display_name: item.item_name,
-                created_at: progress?.updated_at || progress?.created_at || item.created_at
+                evaluated_at: evaluatedDate
             };
         });
 
@@ -285,56 +288,66 @@ export const generateRaporPDF = async (santriData, attendanceData, hafalanData, 
         doc.text(`PERIODE EVALUASI: ${periodText.toUpperCase()}`, 105, 34, { align: "center" });
 
         // --- Student Info Box ---
+        const sessionName = getSessionName(santriData.sesi_mengaji || santriData.sesi || santriData.class?.sesi) || 'Sesi Regular';
+        const strengthsList = (characterData?.strengths || ['Disiplin Tepat Waktu', 'Sopan & Beradab']).join(', ');
+
         doc.setTextColor(...secondaryColor);
-        doc.setFontSize(12);
+        doc.setFontSize(11);
         doc.setFont('helvetica', 'bold');
-        doc.text("I. BIODATA SANTRI", 15, 52);
+        doc.text("I. BIODATA SANTRI", 15, 50);
 
         doc.setDrawColor(226, 232, 240);
         doc.setLineWidth(0.5);
-        doc.line(15, 54, 195, 54);
+        doc.line(15, 52, 195, 52);
 
-        doc.setFontSize(10);
+        doc.setFontSize(9.5);
         doc.setFont('helvetica', 'normal');
         doc.setTextColor(51, 65, 85);
 
         // Left Col
-        doc.text("Nama Santri", 15, 62);
+        doc.text("Nama Santri", 15, 58);
         doc.setFont('helvetica', 'bold');
-        doc.text(`: ${santriData.nama_lengkap}`, 50, 62);
+        doc.text(`: ${santriData.nama_lengkap}`, 48, 58);
         doc.setFont('helvetica', 'normal');
 
-        doc.text("Nomor Induk", 15, 68);
-        doc.text(`: ${santriData.nomor_induk_qiroati || '-'}`, 50, 68);
+        doc.text("Nomor Induk", 15, 64);
+        doc.text(`: ${santriData.nomor_induk_qiroati || '-'}`, 48, 64);
 
-        doc.text("Jilid / Tingkat", 15, 74);
+        doc.text("Jilid / Tingkat", 15, 70);
         doc.setFont('helvetica', 'bold');
         doc.setTextColor(126, 34, 206);
-        doc.text(`: ${santriData.jilid || '-'} (${santriData.kategori || 'Anak'})`, 50, 74);
+        doc.text(`: ${santriData.jilid || '-'} (${santriData.kategori || 'Anak'})`, 48, 70);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(51, 65, 85);
+
+        doc.text("Karakter Unggulan", 15, 76);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(126, 34, 206);
+        doc.text(`: ${strengthsList || 'Disiplin & Beradab'}`, 48, 76);
         doc.setFont('helvetica', 'normal');
         doc.setTextColor(51, 65, 85);
 
         // Right Col
-        doc.text("Kelas & Sesi", 115, 62);
-        doc.text(`: ${santriData.class?.nama_kelas || '-'} (${santriData.sesi_mengaji || 'Sesi Regular'})`, 150, 62);
+        doc.text("Kelas & Sesi", 115, 58);
+        doc.text(`: ${santriData.class?.nama_kelas || santriData.className || '-'} (${sessionName})`, 150, 58);
 
-        doc.text("Wali Santri", 115, 68);
-        doc.text(`: ${santriData.nama_ayah || santriData.nama_ibu || '-'}`, 150, 68);
+        doc.text("Wali Santri", 115, 64);
+        doc.text(`: ${santriData.nama_ayah || santriData.nama_ibu || '-'}`, 150, 64);
 
-        doc.text("Predikat Akhir", 115, 74);
+        doc.text("Predikat Akhir", 115, 70);
         doc.setFont('helvetica', 'bold');
         doc.setTextColor(16, 185, 129);
-        doc.text(`: ${scoresSummary?.predicate || 'Sangat Baik'} (${scoresSummary?.grade || 'A'})`, 150, 74);
+        doc.text(`: ${scoresSummary?.predicate || 'Sangat Baik'} (${scoresSummary?.grade || 'A'})`, 150, 70);
 
         // --- Score Summary Box ---
         const scores = scoresSummary || { attendanceScore: 90, hafalanScore: 85, characterScore: 92, overallAverage: 89, predicate: 'Sangat Baik (Mumtaz)' };
         doc.setFontSize(11);
         doc.setFont('helvetica', 'bold');
         doc.setTextColor(...secondaryColor);
-        doc.text("II. REKAPITULASI NILAI RATA-RATA PROGRESS", 15, 84);
+        doc.text("II. REKAPITULASI NILAI RATA-RATA PROGRESS", 15, 85);
 
         doc.autoTable({
-            startY: 87,
+            startY: 88,
             head: [['Aspek Evaluasi Progress', 'Skor Capaian', 'Bobot Evaluasi', 'Predikat Progress']],
             body: [
                 ['Kehadiran & Keaktifan Mengaji', `${scores.attendanceScore} / 100`, '34%', scores.attendanceScore >= 85 ? 'Sangat Baik' : 'Baik'],
@@ -407,31 +420,36 @@ export const generateRaporPDF = async (santriData, attendanceData, hafalanData, 
 
         const hafalanRows = (hafalanData.allItems || []).map(item => {
             const scoreDisplay = item.score ? `${item.score} / 4` : '-';
+            const dateDisplay = item.evaluated_at 
+                ? new Date(item.evaluated_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
+                : 'Belum Evaluasi';
             return [
+                item.jilid || '-',
                 item.display_name || '-',
                 item.category || '-',
                 scoreDisplay,
                 item.is_completed ? 'Lulus / Dihafal' : 'Dalam Proses',
-                new Date(item.created_at).toLocaleDateString('id-ID')
+                dateDisplay
             ];
         });
 
         if (hafalanRows.length > 0) {
             doc.autoTable({
                 startY: currentY + 4,
-                head: [['Nama Item / Surat', 'Kategori', 'Skor', 'Status Capaian', 'Tanggal Evaluasi']],
+                head: [['Jilid', 'Nama Item / Surat', 'Kategori', 'Skor', 'Status Capaian', 'Tanggal Evaluasi']],
                 body: hafalanRows,
                 theme: 'striped',
                 headStyles: { fillColor: primaryColor, textColor: 255, fontStyle: 'bold', halign: 'center' },
                 bodyStyles: { textColor: 51 },
                 columnStyles: { 
-                    0: { halign: 'left' }, 
-                    2: { halign: 'center', fontStyle: 'bold' },
-                    3: { halign: 'center' },
-                    4: { halign: 'right' }
+                    0: { halign: 'center', fontStyle: 'bold' },
+                    1: { halign: 'left' }, 
+                    3: { halign: 'center', fontStyle: 'bold' },
+                    4: { halign: 'center' },
+                    5: { halign: 'right' }
                 },
                 didParseCell: function (data) {
-                    if (data.section === 'body' && data.column.index === 3) {
+                    if (data.section === 'body' && data.column.index === 4) {
                         if (data.cell.raw === 'Lulus / Dihafal') {
                             data.cell.styles.textColor = successColor;
                             data.cell.styles.fontStyle = 'bold';
@@ -439,7 +457,7 @@ export const generateRaporPDF = async (santriData, attendanceData, hafalanData, 
                             data.cell.styles.textColor = warningColor;
                         }
                     }
-                    if (data.section === 'body' && data.column.index === 2) {
+                    if (data.section === 'body' && data.column.index === 3) {
                         if (data.cell.raw === '4 / 4') {
                             data.cell.styles.textColor = successColor;
                         }
@@ -447,34 +465,22 @@ export const generateRaporPDF = async (santriData, attendanceData, hafalanData, 
                 },
                 styles: { fontSize: 8.5, cellPadding: 3 }
             });
-            currentY = doc.lastAutoTable.finalY + 8;
+            currentY = doc.lastAutoTable.finalY + 12;
         } else {
             doc.setFontSize(9);
             doc.setFont('helvetica', 'italic');
             doc.setTextColor(100, 100, 100);
             doc.text("Belum ada rincian hafalan yang tercatat.", 15, currentY + 8);
-            currentY += 14;
+            currentY += 16;
         }
-
-        // --- Character Strengths & Strengths ---
-        if (currentY > 220) {
-            doc.addPage();
-            currentY = 20;
-        }
-
-        doc.setFontSize(12);
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(...secondaryColor);
-        doc.text("VI. PERKEMBANGAN KARAKTER & KARAKTER UNGGULAN ⭐", 15, currentY);
-
-        const strengthsText = (characterData?.strengths || ['Disiplin Tepat Waktu', 'Sopan & Beradab']).map(s => `[⭐ ${s}]`).join('   ');
-        doc.setFontSize(9.5);
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(126, 34, 206);
-        doc.text(`Karakter Unggulan Santri: ${strengthsText || 'Disiplin & Beradab'}`, 15, currentY + 6);
 
         // Signatures Section
-        const signY = 240;
+        let signY = currentY + 10;
+        if (signY > 240) {
+            doc.addPage();
+            signY = 30;
+        }
+
         doc.setFontSize(9.5);
         doc.setFont('helvetica', 'normal');
         doc.setTextColor(51, 65, 85);
@@ -488,7 +494,7 @@ export const generateRaporPDF = async (santriData, attendanceData, hafalanData, 
         doc.text(`( ${santriData.class?.guru?.nama || '....................................'} )`, 105, signY + 28, { align: 'center' });
 
         doc.text("Disahkan oleh,", 180, signY, { align: 'right' });
-        doc.text("Pentashih Official LPQ", 180, signY + 5, { align: 'right' });
+        doc.text("Pentashih LPQ Al-Fath Maulana", 180, signY + 5, { align: 'right' });
         doc.text("( .................................... )", 180, signY + 28, { align: 'right' });
 
         // --- Footer Page Numbers ---

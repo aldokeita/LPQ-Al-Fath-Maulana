@@ -510,6 +510,16 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
                                 <p className="font-bold text-slate-800 dark:text-slate-200">{santri.nama_ayah || santri.nama_ibu || '-'}</p>
                                 <p className="text-xs text-muted-foreground">HP: {santri.no_hp_ortu || '-'}</p>
                             </div>
+                            <div className="sm:col-span-2 md:col-span-4 pt-2 border-t border-slate-200/60 dark:border-slate-800 flex flex-wrap items-center gap-2">
+                                <span className="text-[11px] text-muted-foreground uppercase font-bold tracking-wider flex items-center gap-1">
+                                    <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" /> Karakter Unggulan:
+                                </span>
+                                {(characterData?.strengths || ['Disiplin Tepat Waktu', 'Sopan & Beradab']).map((strength, idx) => (
+                                    <Badge key={idx} className="bg-gradient-to-r from-amber-500 to-amber-600 text-white font-bold text-[10px] px-2.5 py-0.5 shadow-xs">
+                                        ⭐ {strength}
+                                    </Badge>
+                                ))}
+                            </div>
                         </div>
 
                         {/* SCORE HIGHLIGHT & OVERALL AVERAGE SKOR */}
@@ -647,6 +657,7 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
                                 <table className="w-full text-xs text-left">
                                     <thead className="sticky top-0 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold border-b z-10">
                                         <tr>
+                                            <th className="py-2.5 px-4 text-center">Jilid</th>
                                             <th className="py-2.5 px-4">Nama Item / Surat</th>
                                             <th className="py-2.5 px-4">Kategori</th>
                                             <th className="py-2.5 px-4 text-center">Skor (1-4)</th>
@@ -658,6 +669,9 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
                                         {hafalanData?.allItems?.length > 0 ? (
                                             hafalanData.allItems.map((item, idx) => (
                                                 <tr key={item.id || idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                                                    <td className="py-2.5 px-4 text-center font-bold text-purple-700 dark:text-purple-400">
+                                                        {item.jilid || '-'}
+                                                    </td>
                                                     <td className="py-2.5 px-4 font-bold text-slate-900 dark:text-slate-100">
                                                         {item.item_name}
                                                     </td>
@@ -679,13 +693,13 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
                                                         )}
                                                     </td>
                                                     <td className="py-2.5 px-4 text-right text-muted-foreground font-mono text-[11px]">
-                                                        {item.created_at ? new Date(item.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : '-'}
+                                                        {item.evaluated_at ? new Date(item.evaluated_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Belum Evaluasi'}
                                                     </td>
                                                 </tr>
                                             ))
                                         ) : (
                                             <tr>
-                                                <td colSpan={4} className="py-8 text-center text-muted-foreground italic">
+                                                <td colSpan={6} className="py-8 text-center text-muted-foreground italic">
                                                     Belum ada rincian item hafalan yang tercatat untuk santri ini.
                                                 </td>
                                             </tr>
@@ -710,9 +724,9 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
                                 </p>
                             </div>
                             <div className="space-y-12">
-                                <p className="font-semibold text-slate-700 dark:text-slate-300">Pentashih Official LPQ</p>
+                                <p className="font-semibold text-slate-700 dark:text-slate-300">Disahkan oleh,</p>
                                 <p className="font-bold text-slate-900 dark:text-slate-100 border-b border-slate-300 dark:border-slate-700 pb-1 w-3/4 mx-auto">
-                                    ( .................................... )
+                                    Pentashih LPQ Al-Fath Maulana
                                 </p>
                             </div>
                         </div>
