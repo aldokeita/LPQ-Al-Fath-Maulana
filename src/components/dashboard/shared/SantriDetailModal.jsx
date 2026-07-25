@@ -218,20 +218,13 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
                             </div>
                             <div className="flex flex-wrap gap-2">
                                 <Button
-                                    variant="outline"
-                                    onClick={handleOpenReportView}
-                                    disabled={isLoadingReportData}
-                                    className="bg-purple-50 hover:bg-purple-100 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300 border-purple-200 dark:border-purple-800 font-semibold"
-                                >
-                                    {isLoadingReportData ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <BookOpen className="w-4 h-4 mr-2" />}
-                                    Preview Rapor
-                                </Button>
-                                <Button
                                     variant="default"
                                     onClick={handleOpenReportView}
+                                    disabled={isLoadingReportData}
                                     className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold shadow-md"
                                 >
-                                    <FileText className="w-4 h-4 mr-2" /> Rapor Proper
+                                    {isLoadingReportData ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Printer className="w-4 h-4 mr-2" />}
+                                    Cetak Rapor
                                 </Button>
                             </div>
                         </div>
@@ -358,7 +351,7 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
             {/* LPQ AURORA NEO GLASS - COMPREHENSIVE INTERACTIVE RAPOR PREVIEW & PRINT MODAL               */}
             {/* ========================================================================================= */}
             <Dialog open={isReportViewOpen} onOpenChange={setIsReportViewOpen}>
-                <DialogContent className="max-w-5xl max-h-[96vh] overflow-y-auto p-0 bg-slate-100 dark:bg-slate-950 print:p-0 print:bg-white print:max-w-none print:max-h-none print:overflow-visible">
+                <DialogContent className="max-w-7xl w-[95vw] max-h-[96vh] overflow-y-auto p-0 bg-slate-100 dark:bg-slate-950 print:p-0 print:bg-white print:max-w-none print:max-h-none print:overflow-visible print:w-full">
                     {/* Floating Header Controls */}
                     <div className="sticky top-0 z-30 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800 px-6 py-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-sm print:hidden">
                         <div>
@@ -673,6 +666,7 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
                                         <tr>
                                             <th className="py-2.5 px-4">Nama Item / Surat</th>
                                             <th className="py-2.5 px-4">Kategori</th>
+                                            <th className="py-2.5 px-4 text-center">Skor (1-4)</th>
                                             <th className="py-2.5 px-4 text-center">Status Penyelesaian</th>
                                             <th className="py-2.5 px-4 text-right">Tanggal Evaluasi</th>
                                         </tr>
@@ -686,6 +680,9 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
                                                     </td>
                                                     <td className="py-2.5 px-4 text-muted-foreground">
                                                         {item.category || (isPtpt ? 'Tahfizh PTPT' : 'Surat Pendek')}
+                                                    </td>
+                                                    <td className="py-2.5 px-4 text-center font-bold text-slate-700 dark:text-slate-200">
+                                                        {item.score ? `${item.score} / 4` : '-'}
                                                     </td>
                                                     <td className="py-2.5 px-4 text-center">
                                                         {item.is_completed ? (

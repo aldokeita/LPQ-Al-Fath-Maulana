@@ -43,11 +43,24 @@ export const getHafalanProgressData = async (santriId) => {
     try {
         const { data: santri, error: santriError } = await supabase
             .from('santri')
-            .select('kategori')
+            .select('kategori, jilid')
             .eq('id', santriId)
             .single();
         if (santriError) throw santriError;
         const programScope = String(santri?.kategori || '').toUpperCase() === 'PTPT' ? 'PTPT' : 'TPQ';
+
+        const parseJilidToNumber = (jilidStr) => {
+            if (!jilidStr) return 0;
+            const str = jilidStr.toLowerCase();
+            if (str.includes('pra tk')) return 0.5;
+            const match = str.match(/jilid\s*(\d+)/i);
+            if (match) return parseInt(match[1]);
+            if (str.includes('al-qur\'an') || str.includes('al-quran') || str.includes('alquran')) return 7;
+            if (str.includes('ghorib')) return 8;
+            if (str.includes('finishing')) return 9;
+            return 10;
+        };
+        const santriJilidNum = parseJilidToNumber(santri?.jilid);
 
         const [itemsRes, progressRes] = await Promise.all([
             supabase.from('hafalan_items').select('id,program_scope,category,jilid,item_name,item_order,is_active,created_at').eq('program_scope', programScope).eq('is_active', true).order('item_order'),
@@ -59,7 +72,7 @@ export const getHafalanProgressData = async (santriId) => {
 
         const progressByItemId = new Map((progressRes.data || []).filter(item => item.item_id).map(item => [item.item_id, item]));
         const progressByName = new Map((progressRes.data || []).map(item => [`${item.category}-${item.item_name}`, item]));
-        const allItems = (itemsRes.data || []).map(item => {
+        let allItems = (itemsRes.data || []).map(item => {
             const progress = progressByItemId.get(item.id) || progressByName.get(`${item.category}-${item.item_name}`);
             return {
                 ...item,
@@ -70,10 +83,19 @@ export const getHafalanProgressData = async (santriId) => {
                 item_name: item.item_name,
                 is_completed: progress?.status === 'lulus',
                 hafal: progress?.status === 'lulus',
+                score: progress?.score || null,
                 display_name: item.item_name,
                 created_at: progress?.updated_at || progress?.created_at || item.created_at
             };
         });
+
+        // Filter based on santri current jilid
+        if (programScope === 'TPQ' && santriJilidNum > 0) {
+            allItems = allItems.filter(item => {
+                if (!item.jilid) return true;
+                return parseJilidToNumber(item.jilid) <= santriJilidNum;
+            });
+        }
 
         const doa = allItems.filter(d => d.category === 'Doa');
         const sholat = allItems.filter(d => d.category === 'Sholat');
@@ -81,6 +103,15 @@ export const getHafalanProgressData = async (santriId) => {
         const tahfizh = allItems.filter(d => d.category === 'Tahfizh');
 
         const getCompleted = (arr) => arr.filter(d => d.is_completed).length;
+
+        const sortedAllItems = allItems.sort((a, b) => {
+            if (programScope === 'TPQ') {
+                const jilidA = parseJilidToNumber(a.jilid);
+                const jilidB = parseJilidToNumber(b.jilid);
+                if (jilidA !== jilidB) return jilidA - jilidB;
+            }
+            return (a.item_order || 0) - (b.item_order || 0);
+        });
 
         return {
             doa: { total: doa.length, completed: getCompleted(doa), items: doa },
@@ -90,7 +121,7 @@ export const getHafalanProgressData = async (santriId) => {
             programScope,
             totalCompleted: getCompleted(allItems),
             overallProgress: allItems.length > 0 ? Math.round((getCompleted(allItems) / allItems.length) * 100) : 0,
-            allItems: allItems.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+            allItems: sortedAllItems
         };
     } catch (error) {
         console.error("Error fetching hafalan progress:", error);
@@ -337,26 +368,43 @@ export const generateRaporPDF = async (santriData, attendanceData, hafalanData, 
         doc.setTextColor(...secondaryColor);
         doc.text("V. DAFTAR SEMUA HAFALAN SANTRI", 15, currentY);
 
-        const hafalanRows = (hafalanData.allItems || []).map(item => [
-            item.display_name || '-',
-            item.category || '-',
-            item.is_completed ? 'Lulus / Dihafal' : 'Dalam Proses',
-            new Date(item.created_at).toLocaleDateString('id-ID')
-        ]);
+        const hafalanRows = (hafalanData.allItems || []).map(item => {
+            const scoreDisplay = item.score ? `${item.score} / 4` : '-';
+            return [
+                item.display_name || '-',
+                item.category || '-',
+                scoreDisplay,
+                item.is_completed ? 'Lulus / Dihafal' : 'Dalam Proses',
+                new Date(item.created_at).toLocaleDateString('id-ID')
+            ];
+        });
 
         if (hafalanRows.length > 0) {
             doc.autoTable({
                 startY: currentY + 4,
-                head: [['Nama Item / Surat', 'Kategori', 'Status Capaian', 'Tanggal Evaluasi']],
+                head: [['Nama Item / Surat', 'Kategori', 'Skor', 'Status Capaian', 'Tanggal Evaluasi']],
                 body: hafalanRows,
                 theme: 'striped',
-                headStyles: { fillColor: [51, 65, 85], textColor: 255, fontStyle: 'bold' },
+                headStyles: { fillColor: primaryColor, textColor: 255, fontStyle: 'bold', halign: 'center' },
                 bodyStyles: { textColor: 51 },
+                columnStyles: { 
+                    0: { halign: 'left' }, 
+                    2: { halign: 'center', fontStyle: 'bold' },
+                    3: { halign: 'center' },
+                    4: { halign: 'right' }
+                },
                 didParseCell: function (data) {
-                    if (data.section === 'body' && data.column.index === 2) {
+                    if (data.section === 'body' && data.column.index === 3) {
                         if (data.cell.raw === 'Lulus / Dihafal') {
                             data.cell.styles.textColor = successColor;
                             data.cell.styles.fontStyle = 'bold';
+                        } else {
+                            data.cell.styles.textColor = warningColor;
+                        }
+                    }
+                    if (data.section === 'body' && data.column.index === 2) {
+                        if (data.cell.raw === '4 / 4') {
+                            data.cell.styles.textColor = successColor;
                         }
                     }
                 },
