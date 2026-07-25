@@ -7,7 +7,7 @@ export const calculateAttendanceData = async (santriId, startDate, endDate) => {
         const [attRes, calRes] = await Promise.all([
             supabase.from('attendance')
                 .select('status, attendance_date, check_in_timestamp, class_id')
-                .or(`user_id.eq.${santriId},santri_id.eq.${santriId}`)
+                .eq('user_id', santriId)
                 .gte('attendance_date', startDate)
                 .lte('attendance_date', endDate),
             supabase.from('academic_calendar')
@@ -92,7 +92,7 @@ export const getHafalanProgressData = async (santriId) => {
                 .order('item_order'),
             supabase.from('hafalan_progress')
                 .select('id,santri_id,item_id,category,item_name,status,score,created_at,updated_at')
-                .or(`santri_id.eq.${santriId},santri_id.eq.${santriId}`)
+                .eq('santri_id', santriId)
         ]);
 
         if (itemsRes.error) throw itemsRes.error;
