@@ -8,7 +8,7 @@ import {
   Award, Edit, Clock, CalendarDays, History, ChevronUp, ChevronDown,
   ChevronLeft, ChevronRight, Check, X, FileText, Download, Loader2,
   BookOpen, Printer, Sparkles, Star, ShieldCheck, CheckCircle2,
-  TrendingUp, BarChart2, HeartHandshake, UserCheck
+  TrendingUp, BarChart2, HeartHandshake, UserCheck, GraduationCap
 } from 'lucide-react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
