@@ -266,7 +266,7 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
                             </div>
                             <div>
                                 <p className="text-muted-foreground text-xs uppercase tracking-wider font-semibold">Nama Panggilan</p>
-                                <p className="font-bold text-base text-slate-800 dark:text-slate-200">{santri.nama_panggilan || '-'}</p>
+                                <p className="font-bold text-base text-slate-800 dark:text-slate-200">{santri.nama_panggilan || santri.nama_lengkap?.trim().split(' ')[0] || '-'}</p>
                             </div>
                             <div>
                                 <p className="text-muted-foreground text-xs uppercase tracking-wider font-semibold">Jilid Saat Ini</p>
@@ -285,7 +285,7 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
                             </div>
                             <div>
                                 <p className="text-muted-foreground text-xs uppercase tracking-wider font-semibold">Wali Santri</p>
-                                <p className="font-bold text-slate-800 dark:text-slate-200">{santri.nama_ayah || santri.nama_ibu || '-'}</p>
+                                <p className="font-bold text-slate-800 dark:text-slate-200">{santri.nama_wali || santri.nama_ayah || santri.nama_ibu || '-'}</p>
                             </div>
                         </div>
                     </div>
@@ -296,6 +296,7 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
                             userId={user?.id}
                             editable={role === 'guru'}
                             showBehavior={role === 'guru'}
+                            collapsible={true}
                         />
                     </div>
 
@@ -471,7 +472,7 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
                                 <div>
                                     <div className="flex items-center gap-2 mb-1">
                                         <ShieldCheck className="w-6 h-6 text-purple-200 print:hidden" />
-                                        <h2 className="text-2xl md:text-3xl font-black font-serif uppercase tracking-wider print:text-black">
+                                        <h2 className="text-2xl md:text-3xl font-black font-sans tracking-tight uppercase print:text-black">
                                             RAPOR AKADEMIK & KARAKTER SANTRI
                                         </h2>
                                     </div>
@@ -507,7 +508,7 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
                             </div>
                             <div>
                                 <p className="text-[11px] text-muted-foreground uppercase font-bold tracking-wider">Wali Santri</p>
-                                <p className="font-bold text-slate-800 dark:text-slate-200">{santri.nama_ayah || santri.nama_ibu || '-'}</p>
+                                <p className="font-bold text-slate-800 dark:text-slate-200">{santri.nama_wali || santri.nama_ayah || santri.nama_ibu || '-'}</p>
                                 <p className="text-xs text-muted-foreground">HP: {santri.no_hp_ortu || '-'}</p>
                             </div>
                             <div className="sm:col-span-2 md:col-span-4 pt-2 border-t border-slate-200/60 dark:border-slate-800 flex flex-wrap items-center gap-2">
@@ -710,21 +711,21 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
                         </div>
 
                         {/* Signatures Box */}
-                        <div className="grid grid-cols-3 gap-6 pt-8 border-t border-slate-200 dark:border-slate-800 text-center text-xs">
-                            <div className="space-y-12">
-                                <p className="font-semibold text-slate-700 dark:text-slate-300">Orang Tua / Wali Santri</p>
+                        <div className="grid grid-cols-3 gap-6 pt-12 pb-6 border-t border-slate-200 dark:border-slate-800 text-center text-xs">
+                            <div className="space-y-16">
+                                <p className="font-semibold text-slate-700 dark:text-slate-300">Mengetahui,<br/>Orang Tua / Wali Santri</p>
                                 <p className="font-bold text-slate-900 dark:text-slate-100 border-b border-slate-300 dark:border-slate-700 pb-1 w-3/4 mx-auto">
                                     ( .................................... )
                                 </p>
                             </div>
-                            <div className="space-y-12">
-                                <p className="font-semibold text-slate-700 dark:text-slate-300">Guru Pengampu Kelas</p>
+                            <div className="space-y-16">
+                                <p className="font-semibold text-slate-700 dark:text-slate-300">Guru Pengampu Kelas,<br/>Ustadz / Ustadzah</p>
                                 <p className="font-bold text-slate-900 dark:text-slate-100 border-b border-slate-300 dark:border-slate-700 pb-1 w-3/4 mx-auto">
-                                    ( {santri.className || santri.class?.nama_kelas || '..................'} )
+                                    ( {santri.class?.guru?.nama || santri.guru?.nama || santri.nama_guru || '....................................'} )
                                 </p>
                             </div>
-                            <div className="space-y-12">
-                                <p className="font-semibold text-slate-700 dark:text-slate-300">Disahkan oleh,</p>
+                            <div className="space-y-16">
+                                <p className="font-semibold text-slate-700 dark:text-slate-300">Disahkan oleh,<br/>Pentashih Official LPQ</p>
                                 <p className="font-bold text-slate-900 dark:text-slate-100 border-b border-slate-300 dark:border-slate-700 pb-1 w-3/4 mx-auto">
                                     Pentashih LPQ Al-Fath Maulana
                                 </p>

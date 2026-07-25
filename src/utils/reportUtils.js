@@ -148,7 +148,13 @@ export const getHafalanProgressData = async (santriId) => {
 
         const getCompleted = (arr) => arr.filter(d => d.is_completed).length;
 
+        const CATEGORY_ORDER = { 'Doa': 1, 'Sholat': 2, 'Surat': 3, 'Tahfizh': 4 };
+
         const sortedAllItems = allItems.sort((a, b) => {
+            const catA = CATEGORY_ORDER[a.category] || 99;
+            const catB = CATEGORY_ORDER[b.category] || 99;
+            if (catA !== catB) return catA - catB;
+
             if (programScope === 'TPQ') {
                 const jilidA = parseJilidToNumber(a.jilid);
                 const jilidB = parseJilidToNumber(b.jilid);
@@ -475,11 +481,13 @@ export const generateRaporPDF = async (santriData, attendanceData, hafalanData, 
         }
 
         // Signatures Section
-        let signY = currentY + 10;
-        if (signY > 240) {
+        let signY = currentY + 14;
+        if (signY > 230) {
             doc.addPage();
             signY = 30;
         }
+
+        const teacherName = santriData.class?.guru?.nama || santriData.guru?.nama || santriData.nama_guru || '....................................';
 
         doc.setFontSize(9.5);
         doc.setFont('helvetica', 'normal');
@@ -487,15 +495,15 @@ export const generateRaporPDF = async (santriData, attendanceData, hafalanData, 
 
         doc.text("Mengetahui,", 20, signY);
         doc.text("Orang Tua / Wali Santri", 20, signY + 5);
-        doc.text("( .................................... )", 20, signY + 28);
+        doc.text("( .................................... )", 20, signY + 36);
 
         doc.text("Guru Pengampu Kelas,", 105, signY, { align: 'center' });
         doc.text("Ustadz / Ustadzah", 105, signY + 5, { align: 'center' });
-        doc.text(`( ${santriData.class?.guru?.nama || '....................................'} )`, 105, signY + 28, { align: 'center' });
+        doc.text(`( ${teacherName} )`, 105, signY + 36, { align: 'center' });
 
         doc.text("Disahkan oleh,", 180, signY, { align: 'right' });
         doc.text("Pentashih LPQ Al-Fath Maulana", 180, signY + 5, { align: 'right' });
-        doc.text("( .................................... )", 180, signY + 28, { align: 'right' });
+        doc.text("( .................................... )", 180, signY + 36, { align: 'right' });
 
         // --- Footer Page Numbers ---
         const pageCount = doc.internal.getNumberOfPages();
