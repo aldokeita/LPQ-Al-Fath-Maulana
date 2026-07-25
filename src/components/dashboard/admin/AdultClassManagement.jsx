@@ -390,6 +390,8 @@ const AdultClassManagement = () => {
     });
     setSantriList(mappedSantri);
     setDailyAttendance(attendanceData || []);
+    const classSessionNames = (classData || []).map(c => getSessionName(c.sesi)).filter(Boolean);
+
     if (configData?.content) {
          let parsed = configData.content;
          let times = {};
@@ -403,9 +405,12 @@ const AdultClassManagement = () => {
              times = parsed;
              filters = Object.keys(parsed);
          }
+         const combinedFilters = Array.from(new Set([...filters, ...classSessionNames]));
          setSessionTimes(times);
-         setSessionFilters(filters);
-         setFormData(prev => ({...prev, sesi: filters[0] || ''}));
+         setSessionFilters(combinedFilters);
+         setFormData(prev => ({...prev, sesi: combinedFilters[0] || ''}));
+    } else if (classSessionNames.length > 0) {
+         setSessionFilters(Array.from(new Set(['Pagi', 'Siang', 'Malam', ...classSessionNames])));
     }
   }, []);
 

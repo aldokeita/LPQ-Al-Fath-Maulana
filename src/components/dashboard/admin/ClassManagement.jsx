@@ -461,6 +461,8 @@ const GenericClassManagement = ({ userRole, kategori = 'Anak', configKey = 'anak
 
         setDailyAttendance(attendanceData || []);
 
+        const classSessionNames = filteredClasses.map(c => getSessionName(c.sesi)).filter(Boolean);
+
         if (configData?.content) {
             let parsed = configData.content;
             let times = {};
@@ -474,13 +476,15 @@ const GenericClassManagement = ({ userRole, kategori = 'Anak', configKey = 'anak
                 times = parsed;
                 filters = Object.keys(parsed);
             }
+            const combinedFilters = Array.from(new Set([...filters, ...classSessionNames]));
             setSessionTimes(times);
-            setSessionFilters(filters);
-            setFormData(prev => ({...prev, sesi: filters[0] || ''}));
+            setSessionFilters(combinedFilters);
+            setFormData(prev => ({...prev, sesi: combinedFilters[0] || ''}));
         } else {
             const mappedSessions = getAllSessions().map(s => s.name);
-            setSessionFilters(mappedSessions);
-            setFormData(prev => ({...prev, sesi: mappedSessions[0] || ''}));
+            const combinedFilters = Array.from(new Set([...mappedSessions, ...classSessionNames]));
+            setSessionFilters(combinedFilters);
+            setFormData(prev => ({...prev, sesi: combinedFilters[0] || ''}));
         }
     } catch (err) {
         console.error("Error in fetchAllData:", err);
@@ -721,28 +725,40 @@ const GenericClassManagement = ({ userRole, kategori = 'Anak', configKey = 'anak
 
   const toggleSessionFilter = (session) => { setSessionFilters(prev => prev.includes(session) ? prev.filter(s => s !== session) : [...prev, session]); };
 
+  const allSessionKeys = useMemo(() => {
+    const defaultKeys = Object.keys(sessionTimes || {});
+    const classSessionKeys = classes.map(c => getSessionName(c.sesi)).filter(Boolean);
+    const combined = Array.from(new Set([...defaultKeys, ...classSessionKeys]));
+    return combined.length > 0 ? combined : ['Sesi 1'];
+  }, [sessionTimes, classes]);
+
   const classesBySession = useMemo(() => {
     const grouped = {};
-    Object.keys(sessionTimes).forEach(key => grouped[key] = []);
+    allSessionKeys.forEach(key => { grouped[key] = []; });
     classes.forEach(c => {
-        const sessionName = getSessionName(c.sesi);
+        const sessionName = getSessionName(c.sesi) || 'Lainnya';
         if (!grouped[sessionName]) grouped[sessionName] = [];
         grouped[sessionName].push(c);
     });
     Object.keys(grouped).forEach(key => grouped[key].sort((a,b) => (a.order || 0) - (b.order || 0)));
     return grouped;
-  }, [classes, sessionTimes]);
+  }, [classes, allSessionKeys]);
 
   const santriByClass = useMemo(() => {
     const grouped = classes.reduce((acc, cls) => ({ ...acc, [cls.id]: [] }), {});
     const sortedSantri = [...santriList].sort((a, b) => (a.order_in_class || 999) - (b.order_in_class || 999));
     const lowercasedSearch = santriSearch.toLowerCase();
-    sortedSantri.forEach(s => { if (s.id_kelas && grouped[s.id_kelas] && (!lowercasedSearch || s.nama_lengkap.toLowerCase().includes(lowercasedSearch))) { grouped[s.id_kelas].push(s); } });
+    sortedSantri.forEach(s => {
+      const classId = s.current_class_id || s.id_kelas;
+      if (classId && grouped[classId] && (!lowercasedSearch || s.nama_lengkap.toLowerCase().includes(lowercasedSearch))) {
+        grouped[classId].push(s);
+      }
+    });
     return grouped;
   }, [classes, santriList, santriSearch]);
 
   const attendanceById = useMemo(() => new Set(dailyAttendance.map(a => a.user_id)), [dailyAttendance]);
-  const filteredUnassignedSantri = useMemo(() => santriList.filter(s => !s.id_kelas && (unassignedFilterJilid === 'all' || s.jilid === unassignedFilterJilid) && (!santriSearch || s.nama_lengkap.toLowerCase().includes(santriSearch.toLowerCase()))), [santriList, santriSearch, unassignedFilterJilid]);
+  const filteredUnassignedSantri = useMemo(() => santriList.filter(s => !(s.current_class_id || s.id_kelas) && (unassignedFilterJilid === 'all' || s.jilid === unassignedFilterJilid) && (!santriSearch || s.nama_lengkap.toLowerCase().includes(santriSearch.toLowerCase()))), [santriList, santriSearch, unassignedFilterJilid]);
   const handleExportToExcel = () => {
     try {
         const data = [];
@@ -850,13 +866,13 @@ const GenericClassManagement = ({ userRole, kategori = 'Anak', configKey = 'anak
                 />
             </div>
             <div className="flex items-center gap-2 flex-wrap">
-                {Object.keys(sessionTimes).map(session => (
+                {allSessionKeys.map(session => (
                     <button
                         key={session}
                         onClick={() => toggleSessionFilter(session)}
                         className={sessionFilters.includes(session) ? "admin-segmented-control-item active" : "admin-segmented-control-item"}
                     >
-                        {session} <span className="ml-1 opacity-70 text-[10px]">({sessionTimes[session]})</span>
+                        {session} {sessionTimes[session] ? <span className="ml-1 opacity-70 text-[10px]">({sessionTimes[session]})</span> : null}
                     </button>
                 ))}
             </div>
@@ -870,11 +886,11 @@ const GenericClassManagement = ({ userRole, kategori = 'Anak', configKey = 'anak
           </DroppableColumn>
         </div>
 
-        {Object.keys(sessionTimes).map(session => sessionFilters.includes(session) && classesBySession[session] && (
+        {allSessionKeys.map(session => sessionFilters.includes(session) && classesBySession[session] && (
           <div key={session} className="space-y-4">
             <div className="flex items-center gap-2 border-b-2 border-primary/10 pb-2 mb-4">
                  <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800 text-lg px-3 py-1">{session}</Badge>
-                 <span className="text-muted-foreground font-medium flex items-center gap-1"><Clock className="w-4 h-4"/> {sessionTimes[session]}</span>
+                 {sessionTimes[session] && <span className="text-muted-foreground font-medium flex items-center gap-1"><Clock className="w-4 h-4"/> {sessionTimes[session]}</span>}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
