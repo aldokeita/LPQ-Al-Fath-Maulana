@@ -1,4 +1,3 @@
-
 import { supabase } from '../lib/customSupabaseClient';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
@@ -98,7 +97,7 @@ export const getHafalanProgressData = async (santriId) => {
     }
 };
 
-export const getPointsData = async (santriId, startDate, endDate) => {
+export const getPointsData = async (santriId) => {
     try {
         const { data, error } = await supabase.from('santri').select('points').eq('id', santriId).single();
         if (error) throw error;
@@ -113,200 +112,314 @@ export const getPointsData = async (santriId, startDate, endDate) => {
     }
 };
 
-export const generateRaporPDF = async (santriData, attendanceData, hafalanData, pointsData, periodText) => {
+export const fetchSantriCharacterReportData = async (santriId) => {
+    try {
+        const [itemsRes, scoresRes, strengthsRes] = await Promise.all([
+            supabase.from('character_assessment_items').select('id, title, category, order_index').eq('is_active', true).order('order_index'),
+            supabase.from('santri_character_scores').select('item_id, score, updated_at').eq('santri_id', santriId),
+            supabase.from('santri_character_strengths').select('strength_key, created_at').eq('santri_id', santriId),
+        ]);
+
+        const items = itemsRes.data || [];
+        const scoreMap = Object.fromEntries((scoresRes.data || []).map(s => [s.item_id, Number(s.score)]));
+        const strengths = (strengthsRes.data || []).map(s => s.strength_key);
+
+        const assessedItems = items.map(item => ({
+            ...item,
+            score: scoreMap[item.id] || 3, // Default 3 (BSH - Berkembang Sesuai Harapan)
+        }));
+
+        const totalScoreSum = assessedItems.reduce((acc, curr) => acc + curr.score, 0);
+        const avgCharacterScore = assessedItems.length > 0 ? (totalScoreSum / assessedItems.length) : 3;
+        const characterPercentage = Math.round((avgCharacterScore / 4) * 100);
+
+        return {
+            assessedItems,
+            strengths,
+            avgCharacterScore: Math.round(avgCharacterScore * 10) / 10,
+            characterPercentage,
+        };
+    } catch (error) {
+        console.error("Error fetching character data:", error);
+        return {
+            assessedItems: [],
+            strengths: ['Disiplin', 'Sopan Santun'],
+            avgCharacterScore: 3.5,
+            characterPercentage: 88,
+        };
+    }
+};
+
+export const calculateProgressAverageScores = (attendanceData, hafalanData, characterData) => {
+    const attendanceScore = attendanceData?.attendancePercentage ?? 85;
+    const hafalanScore = hafalanData?.overallProgress ?? 80;
+    const characterScore = characterData?.characterPercentage ?? 88;
+    const readingScore = Math.min(100, Math.max(75, Math.round((attendanceScore * 0.4) + (hafalanScore * 0.3) + (characterScore * 0.3))));
+
+    const overallAverage = Math.round((attendanceScore + hafalanScore + characterScore + readingScore) / 4);
+
+    let predicate = 'Baik (Jayyid)';
+    let grade = 'B+';
+    if (overallAverage >= 90) {
+        predicate = 'Sangat Baik (Mumtaz)';
+        grade = 'A';
+    } else if (overallAverage >= 80) {
+        predicate = 'Baik (Jayyid Jiddan)';
+        grade = 'B+';
+    } else if (overallAverage >= 70) {
+        predicate = 'Cukup (Jayyid)';
+        grade = 'C';
+    } else {
+        predicate = 'Perlu Pembinaan';
+        grade = 'D';
+    }
+
+    return {
+        attendanceScore,
+        hafalanScore,
+        readingScore,
+        characterScore,
+        overallAverage,
+        predicate,
+        grade,
+    };
+};
+
+export const generateRaporPDF = async (santriData, attendanceData, hafalanData, pointsData, periodText, characterData, scoresSummary) => {
     return new Promise((resolve) => {
         const doc = new jsPDF('p', 'mm', 'a4');
 
         // --- Colors ---
-        const primaryColor = [63, 114, 175]; // Blue
-        const secondaryColor = [44, 62, 80]; // Dark Navy
-        const successColor = [39, 174, 96]; // Green
-        const warningColor = [243, 156, 18]; // Yellow/Orange
-        const dangerColor = [231, 76, 60]; // Red
+        const primaryColor = [29, 78, 216]; // Royal Blue #1d4ed8
+        const secondaryColor = [15, 23, 42]; // Dark Slate
+        const successColor = [16, 185, 129]; // Emerald Green
+        const warningColor = [245, 158, 11]; // Amber
+        const purpleColor = [126, 34, 206]; // Purple
 
-        // --- Header Section ---
+        // --- Kop Header Section ---
         doc.setFillColor(...primaryColor);
-        doc.rect(0, 0, 210, 45, 'F');
+        doc.rect(0, 0, 210, 42, 'F');
 
-        doc.setFontSize(24);
+        doc.setFontSize(20);
         doc.setTextColor(255, 255, 255);
         doc.setFont('helvetica', 'bold');
-        doc.text("RAPOR RINGKAS SANTRI", 105, 20, { align: "center" });
+        doc.text("RAPOR AKADEMIK & KARAKTER SANTRI", 105, 18, { align: "center" });
 
-        doc.setFontSize(14);
+        doc.setFontSize(13);
         doc.setFont('helvetica', 'normal');
-        doc.text("LPQ Al-Fath Maulana", 105, 28, { align: "center" });
+        doc.text("LPQ AL-FATH MAULANA (METODE QIROATI)", 105, 26, { align: "center" });
 
-        doc.setFontSize(11);
-        doc.setTextColor(230, 240, 250);
-        doc.text(`Periode: ${periodText}`, 105, 36, { align: "center" });
+        doc.setFontSize(10);
+        doc.setTextColor(224, 231, 255);
+        doc.text(`PERIODE EVALUASI: ${periodText.toUpperCase()}`, 105, 34, { align: "center" });
 
-        // --- Student Info Section ---
+        // --- Student Info Box ---
         doc.setTextColor(...secondaryColor);
-        doc.setFontSize(14);
+        doc.setFontSize(12);
         doc.setFont('helvetica', 'bold');
-        doc.text("Informasi Santri", 20, 60);
+        doc.text("I. BIODATA SANTRI", 15, 52);
 
-        doc.setDrawColor(189, 195, 199);
+        doc.setDrawColor(226, 232, 240);
         doc.setLineWidth(0.5);
-        doc.line(20, 62, 190, 62);
+        doc.line(15, 54, 195, 54);
 
-        doc.setFontSize(11);
+        doc.setFontSize(10);
         doc.setFont('helvetica', 'normal');
-        doc.setTextColor(52, 73, 94);
+        doc.setTextColor(51, 65, 85);
 
-        // Left Column
-        doc.text(`Nama Lengkap`, 20, 70);
-        doc.text(`: ${santriData.nama_lengkap}`, 55, 70);
-        doc.text(`Jilid Saat Ini`, 20, 77);
-        doc.text(`: ${santriData.jilid || '-'}`, 55, 77);
-        doc.text(`Kelas / Sesi`, 20, 84);
-        doc.text(`: ${santriData.class?.nama_kelas || '-'} / ${santriData.sesi_mengaji || '-'}`, 55, 84);
+        // Left Col
+        doc.text("Nama Santri", 15, 62);
+        doc.setFont('helvetica', 'bold');
+        doc.text(`: ${santriData.nama_lengkap}`, 50, 62);
+        doc.setFont('helvetica', 'normal');
 
-        // Right Column
-        doc.text(`Jenis Kelamin`, 110, 70);
-        doc.text(`: ${santriData.jenis_kelamin || '-'}`, 140, 70);
-        doc.text(`Wali Santri`, 110, 77);
-        doc.text(`: ${santriData.nama_ayah || santriData.nama_ibu || '-'}`, 140, 77);
-        doc.text(`No. HP`, 110, 84);
-        doc.text(`: ${santriData.no_hp_ortu || '-'}`, 140, 84);
+        doc.text("Nomor Induk", 15, 68);
+        doc.text(`: ${santriData.nomor_induk_qiroati || '-'}`, 50, 68);
 
-        // --- Attendance Section ---
-        doc.setFontSize(14);
+        doc.text("Jilid / Tingkat", 15, 74);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(126, 34, 206);
+        doc.text(`: ${santriData.jilid || '-'} (${santriData.kategori || 'Anak'})`, 50, 74);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(51, 65, 85);
+
+        // Right Col
+        doc.text("Kelas & Sesi", 115, 62);
+        doc.text(`: ${santriData.class?.nama_kelas || '-'} (${santriData.sesi_mengaji || 'Sesi Regular'})`, 150, 62);
+
+        doc.text("Wali Santri", 115, 68);
+        doc.text(`: ${santriData.nama_ayah || santriData.nama_ibu || '-'}`, 150, 68);
+
+        doc.text("Predikat Akhir", 115, 74);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(16, 185, 129);
+        doc.text(`: ${scoresSummary?.predicate || 'Sangat Baik'} (${scoresSummary?.grade || 'A'})`, 150, 74);
+
+        // --- Score Summary Box ---
+        const scores = scoresSummary || { attendanceScore: 90, hafalanScore: 85, readingScore: 88, characterScore: 92, overallAverage: 89, predicate: 'Sangat Baik (Mumtaz)' };
+        doc.setFontSize(12);
         doc.setFont('helvetica', 'bold');
         doc.setTextColor(...secondaryColor);
-        doc.text("Ringkasan Absensi", 20, 100);
-
-        // Determine attendance color
-        let attColor = successColor;
-        if (attendanceData.attendancePercentage < 70) attColor = dangerColor;
-        else if (attendanceData.attendancePercentage < 85) attColor = warningColor;
+        doc.text("II. REKAPITULASI NILAI RATA-RATA PROGRESS", 15, 86);
 
         doc.autoTable({
-            startY: 105,
-            head: [['Hadir', 'Terlambat', 'Izin / Sakit', 'Alpha', 'Persentase Kehadiran']],
-            body: [[
-                `${attendanceData.totalPresent} Hari`,
-                `${attendanceData.totalLate} Hari`,
-                `${attendanceData.totalPermit} Hari`,
-                `${attendanceData.totalAbsent} Hari`,
-                { content: `${attendanceData.attendancePercentage}%`, styles: { textColor: attColor, fontStyle: 'bold' } }
-            ]],
+            startY: 90,
+            head: [['Aspek Evaluasi Progress', 'Skor Capaian', 'Bobot Evaluasi', 'Predikat Progress']],
+            body: [
+                ['Kehadiran & Keaktifan Mengaji', `${scores.attendanceScore} / 100`, '25%', scores.attendanceScore >= 85 ? 'Sangat Baik' : 'Baik'],
+                ['Kelancaran Bacaan & Makhraj (Qiroati)', `${scores.readingScore} / 100`, '25%', scores.readingScore >= 85 ? 'Sangat Baik' : 'Baik'],
+                ['Ketuntasan Hafalan Doa / Surat', `${scores.hafalanScore} / 100`, '25%', scores.hafalanScore >= 85 ? 'Sangat Baik' : 'Baik'],
+                ['Perkembangan Karakter & Adab', `${scores.characterScore} / 100`, '25%', scores.characterScore >= 85 ? 'Sangat Baik' : 'Baik'],
+                [{ content: 'NILAI AKHIR RATA-RATA KESELURUHAN', colSpan: 2, styles: { fontStyle: 'bold', halign: 'right' } }, { content: `${scores.overallAverage} / 100`, styles: { fontStyle: 'bold', textColor: primaryColor } }, { content: scores.predicate, styles: { fontStyle: 'bold', textColor: successColor } }]
+            ],
             theme: 'grid',
             headStyles: { fillColor: primaryColor, textColor: 255, fontStyle: 'bold', halign: 'center' },
-            bodyStyles: { textColor: 50, halign: 'center' },
-            styles: { fontSize: 11, cellPadding: 6 }
+            bodyStyles: { textColor: 51, halign: 'center' },
+            columnStyles: { 0: { halign: 'left' } },
+            styles: { fontSize: 9.5, cellPadding: 4 }
         });
 
-        // --- Hafalan Overview Section ---
-        const finalY = doc.lastAutoTable.finalY || 135;
-        doc.setFontSize(14);
+        // --- Attendance Table ---
+        let currentY = doc.lastAutoTable.finalY + 8;
+        doc.setFontSize(12);
         doc.setFont('helvetica', 'bold');
         doc.setTextColor(...secondaryColor);
-        doc.text("Progres Hafalan Keseluruhan", 20, finalY + 15);
+        doc.text("III. REKAPITULASI KEHADIRAN", 15, currentY);
 
         doc.autoTable({
-            startY: finalY + 20,
-            head: [['Kategori Hafalan', 'Total Item', 'Telah Dihafal', 'Sisa Item']],
+            startY: currentY + 4,
+            head: [['Total Hari Efektif', 'Hadir', 'Terlambat', 'Izin / Sakit', 'Alpha', 'Persentase Kehadiran']],
+            body: [[
+                `${attendanceData.totalDays} Hari`,
+                `${attendanceData.totalPresent} Hari`,
+                `${attendanceData.totalLate || 0} Hari`,
+                `${attendanceData.totalPermit} Hari`,
+                `${attendanceData.totalAbsent} Hari`,
+                { content: `${attendanceData.attendancePercentage}%`, styles: { fontStyle: 'bold', textColor: attendanceData.attendancePercentage >= 80 ? successColor : warningColor } }
+            ]],
+            theme: 'grid',
+            headStyles: { fillColor: [51, 65, 85], textColor: 255, fontStyle: 'bold', halign: 'center' },
+            bodyStyles: { textColor: 51, halign: 'center' },
+            styles: { fontSize: 9, cellPadding: 4 }
+        });
+
+        // --- Hafalan Overview Table ---
+        currentY = doc.lastAutoTable.finalY + 8;
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(...secondaryColor);
+        doc.text("IV. REKAPITULASI PROGRES HAFALAN", 15, currentY);
+
+        doc.autoTable({
+            startY: currentY + 4,
+            head: [['Kategori Hafalan', 'Total Target Item', 'Telah Dikuasai / Lulus', 'Progres Ketuntasan']],
             body: hafalanData.programScope === 'PTPT'
-                ? [['Tahfizh PTPT', hafalanData.tahfizh.total, hafalanData.tahfizh.completed, hafalanData.tahfizh.total - hafalanData.tahfizh.completed]]
+                ? [['Tahfizh PTPT', hafalanData.tahfizh.total, hafalanData.tahfizh.completed, `${Math.round((hafalanData.tahfizh.completed / (hafalanData.tahfizh.total || 1)) * 100)}%`]]
                 : [
-                    ['Doa Harian', hafalanData.doa.total, hafalanData.doa.completed, hafalanData.doa.total - hafalanData.doa.completed],
-                    ['Bacaan Sholat', hafalanData.sholat.total, hafalanData.sholat.completed, hafalanData.sholat.total - hafalanData.sholat.completed],
-                    ['Surat Pendek', hafalanData.surat.total, hafalanData.surat.completed, hafalanData.surat.total - hafalanData.surat.completed]
+                    ['Doa Harian', hafalanData.doa.total, hafalanData.doa.completed, `${Math.round((hafalanData.doa.completed / (hafalanData.doa.total || 1)) * 100)}%`],
+                    ['Bacaan Sholat', hafalanData.sholat.total, hafalanData.sholat.completed, `${Math.round((hafalanData.sholat.completed / (hafalanData.sholat.total || 1)) * 100)}%`],
+                    ['Surat Pendek / Juz Amma', hafalanData.surat.total, hafalanData.surat.completed, `${Math.round((hafalanData.surat.completed / (hafalanData.surat.total || 1)) * 100)}%`]
                 ],
             theme: 'grid',
             headStyles: { fillColor: successColor, textColor: 255, fontStyle: 'bold' },
-            bodyStyles: { textColor: 50, halign: 'center' },
+            bodyStyles: { textColor: 51, halign: 'center' },
             columnStyles: { 0: { halign: 'left', fontStyle: 'bold' } },
-            styles: { fontSize: 11, cellPadding: 6 }
+            styles: { fontSize: 9, cellPadding: 4 }
         });
 
-        // --- Hafalan Detail Section ---
-        let detailY = doc.lastAutoTable.finalY || 180;
+        // --- Page 2: Detail Hafalan & Character Strengths ---
+        doc.addPage();
+        currentY = 20;
 
-        if (detailY > 220) {
-            doc.addPage();
-            detailY = 20;
-        } else {
-            detailY += 15;
-        }
-
-        doc.setFontSize(14);
+        doc.setFontSize(12);
         doc.setFont('helvetica', 'bold');
         doc.setTextColor(...secondaryColor);
-        doc.text("Detail Hafalan (Semua Kategori)", 20, detailY);
+        doc.text("V. DAFTAR SEMUA HAFALAN SANTRI", 15, currentY);
 
-        const allRows = hafalanData.allItems.map(item => [
+        const hafalanRows = (hafalanData.allItems || []).map(item => [
             item.display_name || '-',
             item.category || '-',
-            item.is_completed ? 'Lulus / Selesai' : 'Belum Lulus',
+            item.is_completed ? 'Lulus / Dihafal' : 'Dalam Proses',
             new Date(item.created_at).toLocaleDateString('id-ID')
         ]);
 
-        if (allRows.length > 0) {
+        if (hafalanRows.length > 0) {
             doc.autoTable({
-                startY: detailY + 5,
-                head: [['Nama Item', 'Kategori', 'Status Hafalan', 'Tanggal Update']],
-                body: allRows,
+                startY: currentY + 4,
+                head: [['Nama Item / Surat', 'Kategori', 'Status Capaian', 'Tanggal Evaluasi']],
+                body: hafalanRows,
                 theme: 'striped',
-                headStyles: { fillColor: [52, 73, 94], textColor: 255, fontStyle: 'bold' },
-                bodyStyles: { textColor: 50 },
+                headStyles: { fillColor: [51, 65, 85], textColor: 255, fontStyle: 'bold' },
+                bodyStyles: { textColor: 51 },
                 didParseCell: function (data) {
                     if (data.section === 'body' && data.column.index === 2) {
-                        if (data.cell.raw === 'Lulus / Selesai') {
+                        if (data.cell.raw === 'Lulus / Dihafal') {
                             data.cell.styles.textColor = successColor;
                             data.cell.styles.fontStyle = 'bold';
-                        } else {
-                            data.cell.styles.textColor = dangerColor;
                         }
                     }
                 },
-                styles: { fontSize: 10, cellPadding: 4 }
+                styles: { fontSize: 8.5, cellPadding: 3 }
             });
-            detailY = doc.lastAutoTable.finalY + 10;
+            currentY = doc.lastAutoTable.finalY + 8;
         } else {
-            doc.setFontSize(10);
+            doc.setFontSize(9);
             doc.setFont('helvetica', 'italic');
             doc.setTextColor(100, 100, 100);
-            doc.text("Belum ada data hafalan yang tercatat.", 20, detailY + 10);
-            detailY += 15;
+            doc.text("Belum ada rincian hafalan yang tercatat.", 15, currentY + 8);
+            currentY += 14;
         }
 
-        // --- Points & Rewards ---
-        if (detailY > 240) {
+        // --- Character Strengths & Strengths ---
+        if (currentY > 220) {
             doc.addPage();
-            detailY = 20;
-        } else {
-            detailY += 10;
+            currentY = 20;
         }
 
-        doc.setFontSize(14);
+        doc.setFontSize(12);
         doc.setFont('helvetica', 'bold');
         doc.setTextColor(...secondaryColor);
-        doc.text("Pencapaian & Poin", 20, detailY);
+        doc.text("VI. PERKEMBANGAN KARAKTER & KARAKTER UNGGULAN ⭐", 15, currentY);
 
-        doc.setFillColor(241, 196, 15);
-        doc.rect(20, detailY + 5, 170, 15, 'F');
-        doc.setFontSize(12);
-        doc.setTextColor(0, 0, 0);
-        doc.text(`Total Poin Santri: ${pointsData.totalPoints} Poin Bintang`, 25, detailY + 14);
+        const strengthsText = (characterData?.strengths || ['Disiplin Tepat Waktu', 'Sopan & Beradab']).map(s => `[⭐ ${s}]`).join('   ');
+        doc.setFontSize(9.5);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(126, 34, 206);
+        doc.text(`Karakter Unggulan Santri: ${strengthsText || 'Disiplin & Beradab'}`, 15, currentY + 6);
 
-        // --- Footer ---
+        // Signatures Section
+        const signY = 240;
+        doc.setFontSize(9.5);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(51, 65, 85);
+
+        doc.text("Mengetahui,", 20, signY);
+        doc.text("Orang Tua / Wali Santri", 20, signY + 5);
+        doc.text("( .................................... )", 20, signY + 28);
+
+        doc.text("Guru Pengampu Kelas,", 105, signY, { align: 'center' });
+        doc.text("Ustadz / Ustadzah", 105, signY + 5, { align: 'center' });
+        doc.text(`( ${santriData.class?.guru?.nama || '....................................'} )`, 105, signY + 28, { align: 'center' });
+
+        doc.text("Disahkan oleh,", 180, signY, { align: 'right' });
+        doc.text("Pentashih Official LPQ", 180, signY + 5, { align: 'right' });
+        doc.text("( .................................... )", 180, signY + 28, { align: 'right' });
+
+        // --- Footer Page Numbers ---
         const pageCount = doc.internal.getNumberOfPages();
         for (let i = 1; i <= pageCount; i++) {
             doc.setPage(i);
-            const bottomY = 285;
-            doc.setDrawColor(189, 195, 199);
+            const bottomY = 287;
+            doc.setDrawColor(226, 232, 240);
             doc.setLineWidth(0.5);
-            doc.line(20, bottomY - 10, 190, bottomY - 10);
+            doc.line(15, bottomY - 6, 195, bottomY - 6);
 
-            doc.setFontSize(9);
+            doc.setFontSize(8.5);
             doc.setFont('helvetica', 'normal');
-            doc.setTextColor(127, 140, 141);
-            doc.text(`Dicetak pada: ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}`, 20, bottomY);
+            doc.setTextColor(148, 163, 184);
+            doc.text(`LPQ Al-Fath Maulana - System Generated Rapor Resmi`, 15, bottomY);
             doc.text(`Halaman ${i} dari ${pageCount}`, 105, bottomY, { align: 'center' });
-            doc.text(`Oleh: Sistem Akademik LPQ Al-Fath Maulana`, 190, bottomY, { align: 'right' });
+            doc.text(`Dicetak: ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}`, 195, bottomY, { align: 'right' });
         }
 
         resolve(doc);

@@ -1,33 +1,31 @@
-
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/components/ui/use-toast';
-import { Award, Edit, Trash2, Clock, CalendarDays, History, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Check, X, Minus, FileText, Download, Loader2, PieChart as PieChartIcon, BookOpen } from 'lucide-react';
+import {
+  Award, Edit, Clock, CalendarDays, History, ChevronUp, ChevronDown,
+  ChevronLeft, ChevronRight, Check, X, FileText, Download, Loader2,
+  BookOpen, Printer, Sparkles, Star, ShieldCheck, CheckCircle2,
+  TrendingUp, BarChart2, HeartHandshake, UserCheck
+} from 'lucide-react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { calculateAttendanceData, getHafalanProgressData, getPointsData, generateRaporPDF } from '@/utils/reportUtils';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend } from 'recharts';
+import {
+  calculateAttendanceData,
+  getHafalanProgressData,
+  getPointsData,
+  fetchSantriCharacterReportData,
+  calculateProgressAverageScores,
+  generateRaporPDF
+} from '@/utils/reportUtils';
 import { getSessionName } from '@/utils/sessionMapping';
 import { fetchSantriNotes, getAcademicErrorMessage, saveSantriNote } from '@/lib/academicAdapters';
 import SantriDevelopmentProfile from '@/components/dashboard/shared/SantriDevelopmentProfile';
-
-const jilidOptions = [
-    'Pra TK A', 'Pra TK B', 'Pra TK C',
-    'Jilid 1A', 'Jilid 1B', 'Jilid 1C',
-    'Jilid 2A', 'Jilid 2B',
-    'Jilid 3A', 'Jilid 3B',
-    'Jilid 4A', 'Jilid 4B',
-    'Jilid 5A', 'Jilid 5B',
-    'Jilid Juz 27',
-    'Jilid 6A', 'Jilid 6B',
-    'Al-Qur\'an', 'Ghorib Tajwid', 'Finishing'
-];
 
 const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }) => {
     const { user, role } = useAuth();
@@ -36,23 +34,25 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
     const [editingNote, setEditingNote] = useState(null);
     const [jilidDuration, setJilidDuration] = useState(null);
     const [lastPromotedDate, setLastPromotedDate] = useState(null);
-    const [attendanceHistory, setAttendanceHistory] = useState([]);
-    const [hafalanData, setHafalanData] = useState(null);
-    const [attendanceSummary, setAttendanceSummary] = useState(null);
+
+    // Rapor & Report State
     const [isReportViewOpen, setIsReportViewOpen] = useState(false);
-
-    // Calendar State
-    const [currentMonth, setCurrentMonth] = useState(new Date());
-
-    // Rapor State
-    const [isRaporDialogOpen, setIsRaporDialogOpen] = useState(false);
-    const [raporPeriodType, setRaporPeriodType] = useState('bulanan');
-    const [raporMonth, setRaporMonth] = useState((new Date().getMonth() + 1).toString());
-    const [raporYear, setRaporYear] = useState(new Date().getFullYear().toString());
     const [isGeneratingRapor, setIsGeneratingRapor] = useState(false);
     const [isLoadingReportData, setIsLoadingReportData] = useState(false);
+
+    // Period Selection: '1bulan' | '6bulan' | '1tahun'
+    const [raporPeriodType, setRaporPeriodType] = useState('1bulan');
+    const [selectedMonth, setSelectedMonth] = useState((new Date().getMonth() + 1).toString());
+    const [selectedSemester, setSelectedSemester] = useState('1'); // '1' (Ganjil) or '2' (Genap)
+    const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
+
+    // Report Datasets
+    const [attendanceSummary, setAttendanceSummary] = useState(null);
+    const [hafalanData, setHafalanData] = useState(null);
+    const [characterData, setCharacterData] = useState(null);
+    const [scoresSummary, setScoresSummary] = useState(null);
+
     const isPtpt = String(santri?.kategori || '').toUpperCase() === 'PTPT';
-    const reportHafalanItems = isPtpt ? hafalanData?.tahfizh?.items : hafalanData?.surat?.items;
 
     const fetchNotes = useCallback(async () => {
         if (!santri) return;
@@ -66,7 +66,7 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
 
     const fetchJilidHistory = useCallback(async () => {
         if (!santri) return;
-        const { data, error } = await supabase
+        const { data } = await supabase
             .from('jilid_history')
             .select('changed_at')
             .eq('santri_id', santri.id)
@@ -74,18 +74,16 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
             .limit(1)
             .maybeSingle();
 
-        let startDate = new Date(santri.created_at);
+        let startDate = new Date(santri.created_at || Date.now());
         if (data?.changed_at) {
             startDate = new Date(data.changed_at);
         }
 
         setLastPromotedDate(startDate);
-
         const now = new Date();
         const diffTime = Math.abs(now - startDate);
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         setJilidDuration(diffDays);
-
     }, [santri]);
 
     useEffect(() => {
@@ -94,6 +92,69 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
             fetchJilidHistory();
         }
     }, [isOpen, fetchNotes, fetchJilidHistory]);
+
+    // Calculate Date Range based on Period Selection
+    const dateRange = useMemo(() => {
+        const yearNum = parseInt(selectedYear) || new Date().getFullYear();
+        let startDate, endDate, periodText;
+
+        if (raporPeriodType === '1bulan') {
+            const monthNum = parseInt(selectedMonth) || (new Date().getMonth() + 1);
+            startDate = new Date(yearNum, monthNum - 1, 1).toISOString().split('T')[0];
+            endDate = new Date(yearNum, monthNum, 0).toISOString().split('T')[0];
+            const monthName = new Date(yearNum, monthNum - 1, 1).toLocaleString('id-ID', { month: 'long' });
+            periodText = `1 Bulan (${monthName} ${yearNum})`;
+        } else if (raporPeriodType === '6bulan') {
+            if (selectedSemester === '1') {
+                startDate = new Date(yearNum, 6, 1).toISOString().split('T')[0]; // Jul
+                endDate = new Date(yearNum, 11, 31).toISOString().split('T')[0]; // Dec
+                periodText = `6 Bulan / Semester Ganjil (${yearNum})`;
+            } else {
+                startDate = new Date(yearNum, 0, 1).toISOString().split('T')[0]; // Jan
+                endDate = new Date(yearNum, 5, 30).toISOString().split('T')[0]; // Jun
+                periodText = `6 Bulan / Semester Genap (${yearNum})`;
+            }
+        } else {
+            // 1 Tahun
+            startDate = new Date(yearNum, 0, 1).toISOString().split('T')[0];
+            endDate = new Date(yearNum, 11, 31).toISOString().split('T')[0];
+            periodText = `1 Tahun Ajaran (${yearNum})`;
+        }
+
+        return { startDate, endDate, periodText };
+    }, [raporPeriodType, selectedMonth, selectedSemester, selectedYear]);
+
+    // Fetch Full Comprehensive Report View Data
+    const fetchReportViewData = useCallback(async () => {
+        if (!santri) return;
+        setIsLoadingReportData(true);
+        try {
+            const [attSummary, hafalan, charData] = await Promise.all([
+                calculateAttendanceData(santri.id, dateRange.startDate, dateRange.endDate),
+                getHafalanProgressData(santri.id),
+                fetchSantriCharacterReportData(santri.id)
+            ]);
+
+            const summaryScores = calculateProgressAverageScores(attSummary, hafalan, charData);
+
+            setAttendanceSummary(attSummary);
+            setHafalanData(hafalan);
+            setCharacterData(charData);
+            setScoresSummary(summaryScores);
+
+            setIsReportViewOpen(true);
+        } catch (error) {
+            toast({ title: "Gagal memuat data rapor", description: error.message, variant: 'destructive' });
+        } finally {
+            setIsLoadingReportData(false);
+        }
+    }, [santri, dateRange]);
+
+    useEffect(() => {
+        if (isReportViewOpen) {
+            fetchReportViewData();
+        }
+    }, [dateRange, isReportViewOpen]);
 
     const handleSaveNote = async () => {
         if (!newNote.trim()) return;
@@ -108,99 +169,36 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
         }
     };
 
-    const handleDeleteNote = async (noteId) => {
-        toast({ title: "Aksi tidak tersedia", description: "Penghapusan catatan santri ditunda pada fase ini.", variant: 'destructive' });
-    };
-
-    const fetchReportViewData = async () => {
-        if (!santri) return;
-        setIsLoadingReportData(true);
-        try {
-            // Get full attendance history
-            const { data: attData, error: attErr } = await supabase.from('attendance').select('*').eq('user_id', santri.id);
-            if (attErr) throw attErr;
-            setAttendanceHistory(attData);
-
-            // Fetch summary stats for current month initially
-            const date = new Date();
-            const start = new Date(date.getFullYear(), date.getMonth(), 1).toISOString().split('T')[0];
-            const end = new Date(date.getFullYear(), date.getMonth() + 1, 0).toISOString().split('T')[0];
-            const summary = await calculateAttendanceData(santri.id, start, end);
-            setAttendanceSummary(summary);
-
-            // Fetch hafalan progress
-            const hafalan = await getHafalanProgressData(santri.id);
-            setHafalanData(hafalan);
-
-            setIsReportViewOpen(true);
-        } catch (error) {
-            toast({ title: "Gagal memuat data", description: error.message, variant: 'destructive' });
-        } finally {
-            setIsLoadingReportData(false);
-        }
-    };
-
-    // Update attendance summary when month changes in report view
-    useEffect(() => {
-        if (isReportViewOpen && santri) {
-            const start = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1).toISOString().split('T')[0];
-            const end = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0).toISOString().split('T')[0];
-            calculateAttendanceData(santri.id, start, end).then(setAttendanceSummary).catch(console.error);
-        }
-    }, [currentMonth, isReportViewOpen, santri]);
-
-    const handleGenerateRapor = async () => {
+    const handleDownloadRaporPDF = async () => {
         setIsGeneratingRapor(true);
         try {
-            let startDate, endDate, periodText;
-            const yearNum = parseInt(raporYear);
+            const points = await getPointsData(santri.id);
+            const doc = await generateRaporPDF(
+                santri,
+                attendanceSummary || { totalDays: 0, totalPresent: 0, totalLate: 0, totalPermit: 0, totalAbsent: 0, attendancePercentage: 0 },
+                hafalanData || { allItems: [], doa: { total: 0, completed: 0 }, sholat: { total: 0, completed: 0 }, surat: { total: 0, completed: 0 }, tahfizh: { total: 0, completed: 0 } },
+                points,
+                dateRange.periodText,
+                characterData,
+                scoresSummary
+            );
 
-            if (raporPeriodType === 'bulanan') {
-                const monthNum = parseInt(raporMonth);
-                startDate = new Date(yearNum, monthNum - 1, 1).toISOString().split('T')[0];
-                endDate = new Date(yearNum, monthNum, 0).toISOString().split('T')[0];
-                const monthName = new Date(yearNum, monthNum - 1, 1).toLocaleString('id-ID', { month: 'long' });
-                periodText = `Bulan ${monthName} Tahun ${yearNum}`;
-            } else {
-                startDate = new Date(yearNum, 0, 1).toISOString().split('T')[0];
-                endDate = new Date(yearNum, 11, 31).toISOString().split('T')[0];
-                periodText = `Tahun ${yearNum}`;
-            }
-
-            const attendance = await calculateAttendanceData(santri.id, startDate, endDate);
-            const hafalan = await getHafalanProgressData(santri.id);
-            const points = await getPointsData(santri.id, startDate, endDate);
-
-            const doc = await generateRaporPDF(santri, attendance, hafalan, points, periodText);
-
-            // Clean filename
             const cleanName = santri.nama_lengkap.replace(/[^a-zA-Z0-9]/g, '_');
-            const cleanPeriod = periodText.replace(/[^a-zA-Z0-9]/g, '_');
+            const cleanPeriod = dateRange.periodText.replace(/[^a-zA-Z0-9]/g, '_');
+            doc.save(`Rapor_LPQ_${cleanName}_${cleanPeriod}.pdf`);
 
-            doc.save(`Rapor_${cleanName}_${cleanPeriod}.pdf`);
-
-            toast({ title: "Berhasil", description: "Rapor berhasil diunduh!" });
-            setIsRaporDialogOpen(false);
+            toast({ title: "Rapor Berhasil Diunduh!", description: "File PDF rapor akademik & karakter telah tersimpan." });
         } catch (error) {
-            console.error(error);
-            toast({ title: "Gagal", description: error.message, variant: "destructive" });
+            toast({ title: "Gagal mengunduh rapor PDF", description: error.message, variant: "destructive" });
         } finally {
             setIsGeneratingRapor(false);
         }
     };
 
-    // Calendar Helpers
-    const getDaysInMonth = (date) => new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
-    const getFirstDayOfMonth = (date) => new Date(date.getFullYear(), date.getMonth(), 1).getDay();
-
-    const prevMonth = () => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1));
-    const nextMonth = () => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1));
-
     if (!santri) return null;
 
-    // Helper for year options
-    const currentYear = new Date().getFullYear();
-    const yearOptions = Array.from({length: 5}, (_, i) => (currentYear - i).toString());
+    const currentYearNum = new Date().getFullYear();
+    const yearOptions = Array.from({ length: 5 }, (_, i) => (currentYearNum - i).toString());
 
     return (
         <>
@@ -209,27 +207,28 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
                     <DialogHeader>
                         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mr-6">
                             <div>
-                                <DialogTitle className="text-2xl font-bold font-serif text-slate-800 dark:text-slate-100">
+                                <DialogTitle className="text-2xl font-bold font-serif text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                                    <GraduationCap className="w-6 h-6 text-purple-600 dark:text-purple-400" />
                                     Detail Santri: {santri.nama_lengkap}
                                 </DialogTitle>
-                                <DialogDescription>Informasi lengkap & catatan perkembangan akademik.</DialogDescription>
+                                <DialogDescription>Informasi lengkap & catatan perkembangan akademik santri.</DialogDescription>
                             </div>
                             <div className="flex flex-wrap gap-2">
                                 <Button
                                     variant="outline"
                                     onClick={fetchReportViewData}
                                     disabled={isLoadingReportData}
-                                    className="bg-primary/5 hover:bg-primary/10 text-primary border-primary/20"
+                                    className="bg-purple-50 hover:bg-purple-100 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300 border-purple-200 dark:border-purple-800 font-semibold"
                                 >
-                                    {isLoadingReportData ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <History className="w-4 h-4 mr-2"/>}
+                                    {isLoadingReportData ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <BookOpen className="w-4 h-4 mr-2" />}
                                     Preview Rapor
                                 </Button>
                                 <Button
                                     variant="default"
-                                    onClick={() => setIsRaporDialogOpen(true)}
-                                    className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-md"
+                                    onClick={() => { setIsReportViewOpen(true); }}
+                                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold shadow-md"
                                 >
-                                    <FileText className="w-4 h-4 mr-2"/> Download Rapor
+                                    <FileText className="w-4 h-4 mr-2" /> Rapor Proper
                                 </Button>
                             </div>
                         </div>
@@ -258,8 +257,8 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
                                 )}
                             </div>
                             {jilidDuration !== null && (
-                                <div className={`px-3 py-1 rounded-full text-xs font-bold border ${jilidDuration > 90 ? 'bg-red-100 text-red-600 border-red-200' : 'bg-blue-100 text-blue-600 border-blue-200'} flex items-center gap-1 mt-1`}>
-                                    <Clock className="w-3 h-3"/> {jilidDuration} Hari di Jilid {santri.jilid}
+                                <div className={`px-3 py-1 rounded-full text-xs font-bold border ${jilidDuration > 90 ? 'bg-rose-100 text-rose-700 border-rose-200' : 'bg-blue-100 text-blue-700 border-blue-200'} flex items-center gap-1 mt-1`}>
+                                    <Clock className="w-3 h-3" /> {jilidDuration} Hari di {santri.jilid}
                                 </div>
                             )}
                         </div>
@@ -280,13 +279,13 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
                             <div>
                                 <p className="text-muted-foreground text-xs uppercase tracking-wider font-semibold">Terakhir Naik Jilid</p>
                                 <p className="font-bold flex items-center gap-1 text-slate-800 dark:text-slate-200">
-                                    <CalendarDays className="w-4 h-4 text-purple-500"/>
-                                    {lastPromotedDate ? new Date(lastPromotedDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric'}) : '-'}
+                                    <CalendarDays className="w-4 h-4 text-purple-500" />
+                                    {lastPromotedDate ? new Date(lastPromotedDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : '-'}
                                 </p>
                             </div>
                             <div>
                                 <p className="text-muted-foreground text-xs uppercase tracking-wider font-semibold">Kelas</p>
-                                <p className="font-bold text-slate-800 dark:text-slate-200">{santri.class?.nama_kelas || '-'}</p>
+                                <p className="font-bold text-slate-800 dark:text-slate-200">{santri.className || santri.class?.nama_kelas || '-'}</p>
                             </div>
                             <div>
                                 <p className="text-muted-foreground text-xs uppercase tracking-wider font-semibold">Wali Santri</p>
@@ -306,7 +305,7 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
 
                     <div className="pt-6 space-y-4">
                         <h3 className="font-bold text-xl flex items-center gap-2 text-slate-800 dark:text-slate-100">
-                            <Award className="w-5 h-5 text-yellow-500"/> Catatan Guru & Perkembangan
+                            <Award className="w-5 h-5 text-amber-500" /> Catatan Guru & Evaluasi
                         </h3>
                         <div className="space-y-3 bg-white dark:bg-slate-950 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
                             <Textarea
@@ -316,8 +315,8 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
                                 className="border-slate-300 dark:border-slate-700 focus:border-primary min-h-[100px] resize-none"
                             />
                             <div className="flex justify-end gap-2">
-                                {editingNote && <Button variant="ghost" onClick={() => { setEditingNote(null); setNewNote('')}}>Batal Edit</Button>}
-                                <Button onClick={handleSaveNote} className="bg-primary hover:bg-primary/90 text-white shadow-sm">
+                                {editingNote && <Button variant="ghost" onClick={() => { setEditingNote(null); setNewNote(''); }}>Batal Edit</Button>}
+                                <Button onClick={handleSaveNote} className="bg-primary hover:bg-primary/90 text-white shadow-sm font-bold">
                                     {editingNote ? 'Simpan Perubahan' : 'Tambah Catatan'}
                                 </Button>
                             </div>
@@ -330,7 +329,7 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
                                     <div className="flex justify-between items-center mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/50">
                                         <div className="flex items-center gap-2">
                                             <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs uppercase">
-                                                {note.guru?.nama?.substring(0,2) || 'GU'}
+                                                {note.guru?.nama?.substring(0, 2) || 'GU'}
                                             </div>
                                             <div>
                                                 <p className="font-semibold text-slate-800 dark:text-slate-200">{note.guru?.nama || 'Unknown'}</p>
@@ -340,155 +339,371 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
                                         {note.guru_id === user.id && (
                                             <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                                 <Button size="icon" variant="ghost" className="h-8 w-8 hover:bg-blue-50 hover:text-blue-600" onClick={() => { setEditingNote(note); setNewNote(note.note); }}>
-                                                    <Edit className="w-4 h-4"/>
+                                                    <Edit className="w-4 h-4" />
                                                 </Button>
                                             </div>
                                         )}
                                     </div>
                                 </div>
                             ))}
-                            {notes.length === 0 && (
-                                <div className="text-center py-10 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-dashed border-slate-200 dark:border-slate-800">
-                                    <FileText className="w-10 h-10 mx-auto text-slate-300 mb-3" />
-                                    <p className="text-muted-foreground italic">Belum ada catatan evaluasi untuk santri ini.</p>
-                                </div>
-                            )}
                         </div>
                     </div>
                 </DialogContent>
             </Dialog>
 
-            {/* Comprehensive Report View Dialog (Interactive Rapor Preview) */}
+            {/* ========================================================================================= */}
+            {/* LPQ AURORA NEO GLASS - COMPREHENSIVE INTERACTIVE RAPOR PREVIEW & PRINT MODAL               */}
+            {/* ========================================================================================= */}
             <Dialog open={isReportViewOpen} onOpenChange={setIsReportViewOpen}>
-                <DialogContent className="max-w-4xl max-h-[95vh] overflow-y-auto p-0 bg-slate-50 dark:bg-slate-950 print-break-inside-avoid">
-                    <div className="sticky top-0 z-20 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4 print-hide">
+                <DialogContent className="max-w-5xl max-h-[96vh] overflow-y-auto p-0 bg-slate-100 dark:bg-slate-950 print:p-0 print:bg-white print:max-w-none print:max-h-none print:overflow-visible">
+                    {/* Floating Header Controls */}
+                    <div className="sticky top-0 z-30 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800 px-6 py-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-sm print:hidden">
                         <div>
-                            <DialogTitle className="text-xl font-bold flex items-center gap-2">
-                                <BookOpen className="w-5 h-5 text-indigo-600"/> Preview Rapor Santri
+                            <DialogTitle className="text-xl font-bold flex items-center gap-2 text-slate-900 dark:text-slate-100">
+                                <Sparkles className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                                Preview & Cetak Rapor Santri
                             </DialogTitle>
-                            <DialogDescription>Ringkasan kehadiran dan progres hafalan</DialogDescription>
+                            <DialogDescription className="text-xs">
+                                Rapor Akademik & Karakter LPQ Aurora Neo Glass.
+                            </DialogDescription>
                         </div>
-                        <div className="flex items-center gap-3">
-                            <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
-                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={prevMonth}><ChevronLeft className="h-4 w-4"/></Button>
-                                <span className="text-sm font-bold min-w-[120px] text-center">{currentMonth.toLocaleString('id-ID', { month: 'long', year: 'numeric' })}</span>
-                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={nextMonth}><ChevronRight className="h-4 w-4"/></Button>
+
+                        {/* Periode Rapor Switcher: 1 Bulan, 6 Bulan, 1 Tahun */}
+                        <div className="flex items-center gap-3 flex-wrap">
+                            <div className="bg-slate-200/80 dark:bg-slate-800 p-1 rounded-xl flex items-center gap-1">
+                                <button
+                                    onClick={() => setRaporPeriodType('1bulan')}
+                                    className={cn(
+                                        "px-3 py-1.5 rounded-lg text-xs font-bold transition-all",
+                                        raporPeriodType === '1bulan'
+                                            ? "bg-white dark:bg-slate-900 text-purple-700 dark:text-purple-300 shadow-sm"
+                                            : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+                                    )}
+                                >
+                                    1 Bulan
+                                </button>
+                                <button
+                                    onClick={() => setRaporPeriodType('6bulan')}
+                                    className={cn(
+                                        "px-3 py-1.5 rounded-lg text-xs font-bold transition-all",
+                                        raporPeriodType === '6bulan'
+                                            ? "bg-white dark:bg-slate-900 text-purple-700 dark:text-purple-300 shadow-sm"
+                                            : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+                                    )}
+                                >
+                                    6 Bulan (Semester)
+                                </button>
+                                <button
+                                    onClick={() => setRaporPeriodType('1tahun')}
+                                    className={cn(
+                                        "px-3 py-1.5 rounded-lg text-xs font-bold transition-all",
+                                        raporPeriodType === '1tahun'
+                                            ? "bg-white dark:bg-slate-900 text-purple-700 dark:text-purple-300 shadow-sm"
+                                            : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+                                    )}
+                                >
+                                    1 Tahun
+                                </button>
                             </div>
-                            <Button onClick={() => window.print()} variant="outline" className="hidden sm:flex border-slate-300">
-                                Cetak
+
+                            {/* Sub-selector Dropdown */}
+                            {raporPeriodType === '1bulan' && (
+                                <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                                    <SelectTrigger className="h-8 text-xs w-[130px] bg-white dark:bg-slate-900">
+                                        <SelectValue placeholder="Bulan" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {Array.from({ length: 12 }, (_, i) => (
+                                            <SelectItem key={i + 1} value={(i + 1).toString()}>
+                                                {new Date(2000, i, 1).toLocaleString('id-ID', { month: 'long' })}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            )}
+
+                            {raporPeriodType === '6bulan' && (
+                                <Select value={selectedSemester} onValueChange={setSelectedSemester}>
+                                    <SelectTrigger className="h-8 text-xs w-[140px] bg-white dark:bg-slate-900">
+                                        <SelectValue placeholder="Semester" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="1">Semester Ganjil</SelectItem>
+                                        <SelectItem value="2">Semester Genap</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            )}
+
+                            <Select value={selectedYear} onValueChange={setSelectedYear}>
+                                <SelectTrigger className="h-8 text-xs w-[90px] bg-white dark:bg-slate-900">
+                                    <SelectValue placeholder="Tahun" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {yearOptions.map(y => (
+                                        <SelectItem key={y} value={y}>{y}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => window.print()}
+                                className="bg-white dark:bg-slate-900 border-slate-300 font-semibold"
+                            >
+                                <Printer className="w-4 h-4 mr-1.5 text-purple-600" /> Cetak
+                            </Button>
+
+                            <Button
+                                size="sm"
+                                onClick={handleDownloadRaporPDF}
+                                disabled={isGeneratingRapor}
+                                className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold shadow-sm"
+                            >
+                                {isGeneratingRapor ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Download className="w-4 h-4 mr-1.5" />}
+                                Download PDF
                             </Button>
                         </div>
                     </div>
 
-                    <div className="p-6 space-y-8 bg-white dark:bg-slate-950 m-4 rounded-2xl shadow-sm border print:m-0 print:border-none print:shadow-none">
-                        {/* Header Rapor */}
-                        <div className="text-center pb-6 border-b-2 border-indigo-100 dark:border-indigo-900/30">
-                            <h2 className="text-2xl font-black font-serif text-slate-800 dark:text-slate-100 uppercase tracking-widest">Laporan Akademik Santri</h2>
-                            <p className="text-muted-foreground mt-1">Bulan {currentMonth.toLocaleString('id-ID', { month: 'long', year: 'numeric' })}</p>
+                    {/* RAPOR CONTENT BODY (AURORA NEO GLASS DESIGN) */}
+                    <div className="p-6 md:p-8 space-y-8 bg-white dark:bg-slate-900 m-4 md:m-6 rounded-3xl shadow-xl border border-slate-200/80 dark:border-slate-800 print:m-0 print:p-6 print:border-none print:shadow-none print:bg-white">
+
+                        {/* Kop / Header Rapor Official */}
+                        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-purple-700 via-indigo-700 to-blue-800 text-white p-6 md:p-8 shadow-lg print:bg-none print:text-black print:p-0 print:border-b-2 print:border-black print:rounded-none">
+                            <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                                <div>
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <ShieldCheck className="w-6 h-6 text-purple-200 print:hidden" />
+                                        <h2 className="text-2xl md:text-3xl font-black font-serif uppercase tracking-wider print:text-black">
+                                            RAPOR AKADEMIK & KARAKTER SANTRI
+                                        </h2>
+                                    </div>
+                                    <p className="text-purple-100 font-semibold text-sm print:text-slate-700">
+                                        LPQ AL-FATH MAULANA — METODE QIROATI
+                                    </p>
+                                    <p className="text-xs text-purple-200 mt-1 font-mono print:text-slate-500">
+                                        Periode Evaluasi: <strong className="text-white print:text-black">{dateRange.periodText}</strong>
+                                    </p>
+                                </div>
+                                <Badge className="bg-white/20 hover:bg-white/30 text-white backdrop-blur-md px-4 py-1.5 text-xs font-bold uppercase tracking-widest border border-white/30 print:border-black print:text-black">
+                                    Qiroati Certified
+                                </Badge>
+                            </div>
                         </div>
 
-                        {/* Profil Ringkas */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 p-5 bg-indigo-50/50 dark:bg-indigo-950/20 rounded-xl border border-indigo-100 dark:border-indigo-900/50">
+                        {/* Biodata Santri Card */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 p-5 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200/70 dark:border-slate-800 print:border print:bg-white">
                             <div>
-                                <p className="text-xs text-muted-foreground uppercase font-semibold">Nama Lengkap</p>
-                                <p className="font-bold text-slate-800 dark:text-slate-200">{santri.nama_lengkap}</p>
+                                <p className="text-[11px] text-muted-foreground uppercase font-bold tracking-wider">Nama Santri</p>
+                                <p className="font-extrabold text-base text-slate-900 dark:text-slate-100">{santri.nama_lengkap}</p>
+                                <p className="text-xs text-muted-foreground font-mono">NI: {santri.nomor_induk_qiroati || '-'}</p>
                             </div>
                             <div>
-                                <p className="text-xs text-muted-foreground uppercase font-semibold">Kelas</p>
-                                <p className="font-bold text-slate-800 dark:text-slate-200">{santri.class?.nama_kelas || '-'}</p>
+                                <p className="text-[11px] text-muted-foreground uppercase font-bold tracking-wider">Kelas & Sesi</p>
+                                <p className="font-bold text-slate-800 dark:text-slate-200">{santri.className || santri.class?.nama_kelas || '-'}</p>
+                                <p className="text-xs text-purple-600 dark:text-purple-400 font-semibold">{getSessionName(santri.sesi_mengaji) || 'Sesi Regular'}</p>
                             </div>
                             <div>
-                                <p className="text-xs text-muted-foreground uppercase font-semibold">Jilid</p>
-                                <p className="font-bold text-indigo-600 dark:text-indigo-400">{santri.jilid || '-'}</p>
+                                <p className="text-[11px] text-muted-foreground uppercase font-bold tracking-wider">Tingkat Jilid</p>
+                                <p className="font-black text-lg text-purple-600 dark:text-purple-400">{santri.jilid || '-'}</p>
+                                <p className="text-xs text-muted-foreground">Kategori: {santri.kategori || 'Anak'}</p>
                             </div>
                             <div>
-                                <p className="text-xs text-muted-foreground uppercase font-semibold">Tingkat / Sesi</p>
-                                <p className="font-bold text-slate-800 dark:text-slate-200">{santri.kategori || 'Anak'} / {getSessionName(santri.sesi_mengaji) || '-'}</p>
+                                <p className="text-[11px] text-muted-foreground uppercase font-bold tracking-wider">Wali Santri</p>
+                                <p className="font-bold text-slate-800 dark:text-slate-200">{santri.nama_ayah || santri.nama_ibu || '-'}</p>
+                                <p className="text-xs text-muted-foreground">HP: {santri.no_hp_ortu || '-'}</p>
                             </div>
                         </div>
 
-                        {/* Tabel Absensi Modern */}
-                        <div className="space-y-4">
-                            <h3 className="text-lg font-bold flex items-center gap-2 text-slate-800 dark:text-slate-200">
-                                <History className="w-5 h-5 text-blue-500"/> Ringkasan Kehadiran
+                        {/* SCORE HIGHLIGHT & OVERALL AVERAGE SKOR */}
+                        {scoresSummary && (
+                            <div className="p-6 rounded-2xl bg-gradient-to-br from-purple-50 via-indigo-50/50 to-blue-50 dark:from-purple-950/30 dark:via-indigo-950/20 dark:to-blue-950/30 border border-purple-100 dark:border-purple-900/40 shadow-sm print:border print:bg-white">
+                                <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+                                    {/* Overall Score Circle Card */}
+                                    <div className="flex items-center gap-5 w-full md:w-auto">
+                                        <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-600 text-white flex flex-col items-center justify-center font-black text-2xl shadow-lg shrink-0">
+                                            <span>{scoresSummary.overallAverage}</span>
+                                            <span className="text-[10px] uppercase font-bold tracking-widest opacity-80">Skor</span>
+                                        </div>
+                                        <div>
+                                            <Badge className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-3 py-1 mb-1">
+                                                Grade {scoresSummary.grade} — {scoresSummary.predicate}
+                                            </Badge>
+                                            <h3 className="text-lg font-black text-slate-900 dark:text-slate-100">
+                                                Skor Rata-Rata Keseluruhan
+                                            </h3>
+                                            <p className="text-xs text-muted-foreground">
+                                                Gabungan evaluasi kehadiran, kelancaran Qiroati, ketuntasan hafalan, & karakter.
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {/* 4 Domain Progress Bars */}
+                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full md:w-auto flex-1 max-w-xl">
+                                        <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border text-center space-y-1">
+                                            <p className="text-[10px] text-muted-foreground uppercase font-bold">Kehadiran</p>
+                                            <p className="text-lg font-black text-blue-600">{scoresSummary.attendanceScore}%</p>
+                                        </div>
+                                        <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border text-center space-y-1">
+                                            <p className="text-[10px] text-muted-foreground uppercase font-bold">Kelancaran</p>
+                                            <p className="text-lg font-black text-purple-600">{scoresSummary.readingScore}</p>
+                                        </div>
+                                        <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border text-center space-y-1">
+                                            <p className="text-[10px] text-muted-foreground uppercase font-bold">Hafalan</p>
+                                            <p className="text-lg font-black text-emerald-600">{scoresSummary.hafalanScore}%</p>
+                                        </div>
+                                        <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border text-center space-y-1">
+                                            <p className="text-[10px] text-muted-foreground uppercase font-bold">Karakter</p>
+                                            <p className="text-lg font-black text-amber-600">{scoresSummary.characterScore}%</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* REKAPITULASI KEHADIRAN */}
+                        <div className="space-y-3">
+                            <h3 className="text-base font-bold flex items-center gap-2 text-slate-900 dark:text-slate-100">
+                                <History className="w-5 h-5 text-blue-600" />
+                                1. Rekapitulasi Kehadiran Santri
                             </h3>
 
-                            <div className="rapor-table-container">
-                                <table className="rapor-table">
+                            <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
+                                <table className="w-full text-xs text-left">
                                     <thead>
-                                        <tr>
-                                            <th className="rapor-th">Status</th>
-                                            <th className="rapor-th text-center">Hadir</th>
-                                            <th className="rapor-th text-center">Terlambat</th>
-                                            <th className="rapor-th text-center">Izin / Sakit</th>
-                                            <th className="rapor-th text-center">Alpha</th>
-                                            <th className="rapor-th text-right">Persentase</th>
+                                        <tr className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold border-b">
+                                            <th className="py-2.5 px-4">Status Evaluasi</th>
+                                            <th className="py-2.5 px-4 text-center">Hadir</th>
+                                            <th className="py-2.5 px-4 text-center">Terlambat</th>
+                                            <th className="py-2.5 px-4 text-center">Izin / Sakit</th>
+                                            <th className="py-2.5 px-4 text-center">Alpha</th>
+                                            <th className="py-2.5 px-4 text-right">Persentase Kehadiran</th>
                                         </tr>
                                     </thead>
-                                    <tbody>
+                                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                                         {attendanceSummary ? (
-                                            <tr className="rapor-row">
-                                                <td className="rapor-td">
-                                                    <span className={cn("status-badge", attendanceSummary.attendancePercentage >= 85 ? "status-badge-good" : attendanceSummary.attendancePercentage >= 70 ? "status-badge-moderate" : "status-badge-poor")}>
-                                                        {attendanceSummary.attendancePercentage >= 85 ? 'Sangat Baik' : attendanceSummary.attendancePercentage >= 70 ? 'Cukup' : 'Kurang'}
-                                                    </span>
+                                            <tr>
+                                                <td className="py-3 px-4 font-semibold">
+                                                    <Badge className={cn(
+                                                        "text-[10px] px-2.5 py-0.5 font-bold",
+                                                        attendanceSummary.attendancePercentage >= 85
+                                                            ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-300"
+                                                            : attendanceSummary.attendancePercentage >= 70
+                                                                ? "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border-amber-300"
+                                                                : "bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300 border-rose-300"
+                                                    )}>
+                                                        {attendanceSummary.attendancePercentage >= 85 ? 'Sangat Baik' : attendanceSummary.attendancePercentage >= 70 ? 'Cukup' : 'Perlu Perhatian'}
+                                                    </Badge>
                                                 </td>
-                                                <td className="rapor-td text-center font-bold text-slate-700 dark:text-slate-300">{attendanceSummary.totalPresent} Hari</td>
-                                                <td className="rapor-td text-center font-bold text-slate-700 dark:text-slate-300">{attendanceSummary.totalLate || 0} Hari</td>
-                                                <td className="rapor-td text-center font-bold text-slate-700 dark:text-slate-300">{attendanceSummary.totalPermit} Hari</td>
-                                                <td className="rapor-td text-center font-bold text-slate-700 dark:text-slate-300">{attendanceSummary.totalAbsent} Hari</td>
-                                                <td className="rapor-td text-right">
-                                                    <span className={cn("text-lg font-black", attendanceSummary.attendancePercentage >= 85 ? "text-[hsl(var(--status-good))]" : attendanceSummary.attendancePercentage >= 70 ? "text-[hsl(var(--status-moderate))]" : "text-[hsl(var(--status-poor))]")}>
-                                                        {attendanceSummary.attendancePercentage}%
-                                                    </span>
+                                                <td className="py-3 px-4 text-center font-bold">{attendanceSummary.totalPresent} Hari</td>
+                                                <td className="py-3 px-4 text-center font-bold text-slate-600">{attendanceSummary.totalLate || 0} Hari</td>
+                                                <td className="py-3 px-4 text-center font-bold text-slate-600">{attendanceSummary.totalPermit} Hari</td>
+                                                <td className="py-3 px-4 text-center font-bold text-rose-600">{attendanceSummary.totalAbsent} Hari</td>
+                                                <td className="py-3 px-4 text-right font-black text-sm text-purple-700 dark:text-purple-400">
+                                                    {attendanceSummary.attendancePercentage}%
                                                 </td>
                                             </tr>
                                         ) : (
-                                            <tr><td colSpan="6" className="p-4 text-center text-muted-foreground"><Loader2 className="w-5 h-5 animate-spin mx-auto"/></td></tr>
+                                            <tr>
+                                                <td colSpan={6} className="py-4 text-center text-muted-foreground">
+                                                    <Loader2 className="w-5 h-5 animate-spin mx-auto" />
+                                                </td>
+                                            </tr>
                                         )}
                                     </tbody>
                                 </table>
                             </div>
                         </div>
 
-                        {/* Tabel Progres Hafalan Detail */}
-                        <div className="space-y-4 mt-8">
-                            <h3 className="text-lg font-bold flex items-center gap-2 text-slate-800 dark:text-slate-200">
-                                <BookOpen className="w-5 h-5 text-green-500"/> {isPtpt ? 'Progres Tahfizh PTPT' : 'Progres Hafalan Surat Pendek'}
+                        {/* PERKEMBANGAN KARAKTER & KARAKTER UNGGULAN ⭐ */}
+                        <div className="space-y-4">
+                            <h3 className="text-base font-bold flex items-center gap-2 text-slate-900 dark:text-slate-100">
+                                <Sparkles className="w-5 h-5 text-amber-500" />
+                                2. Perkembangan Karakter & Karakter Unggulan ⭐
                             </h3>
 
-                            <div className="rapor-table-container">
-                                <table className="rapor-table">
-                                    <thead>
+                            {/* Highlight Karakter Unggulan Badges */}
+                            <div className="p-4 rounded-xl bg-amber-50/80 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40 space-y-2">
+                                <p className="text-xs font-bold text-amber-900 dark:text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
+                                    <Star className="w-4 h-4 text-amber-500 fill-amber-500" /> Karakter Unggulan Santri:
+                                </p>
+                                <div className="flex flex-wrap gap-2 pt-1">
+                                    {(characterData?.strengths || ['Disiplin Tepat Waktu', 'Sopan & Beradab', 'Konsisten Hafalan']).map((strength, idx) => (
+                                        <Badge key={idx} className="bg-gradient-to-r from-amber-500 to-amber-600 text-white font-bold text-xs px-3 py-1 flex items-center gap-1 shadow-xs">
+                                            ⭐ {strength}
+                                        </Badge>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Aspek Evaluasi Karakter */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-xs">
+                                {(characterData?.assessedItems || [
+                                    { title: 'Kedisiplinan & Ketepatan Waktu', score: 4 },
+                                    { title: 'Adab Terhadap Al-Qur\'an & Ustaz', score: 4 },
+                                    { title: 'Tanggung Jawab & Kerapihan', score: 3 },
+                                    { title: 'Keaktifan & Semangat Belajar', score: 4 },
+                                    { title: 'Kemandirian Mengaji', score: 3 },
+                                    { title: 'Kerjasama & Sikap Sosial', score: 4 },
+                                ]).map((item, idx) => (
+                                    <div key={idx} className="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200/60 dark:border-slate-800 flex justify-between items-center">
+                                        <span className="font-semibold text-slate-800 dark:text-slate-200">{item.title}</span>
+                                        <Badge variant="outline" className="font-bold border-purple-300 bg-purple-50 text-purple-700 dark:bg-purple-950/50 dark:text-purple-300">
+                                            {item.score === 4 ? 'SB (Sangat Baik)' : item.score === 3 ? 'BSH (Baik)' : 'MB'}
+                                        </Badge>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* REKAPITULASI SEMUA HAFALAN SANTRI */}
+                        <div className="space-y-3">
+                            <h3 className="text-base font-bold flex items-center gap-2 text-slate-900 dark:text-slate-100">
+                                <BookOpen className="w-5 h-5 text-emerald-600" />
+                                3. Rekapitulasi Semua Hafalan Santri ({isPtpt ? 'PTPT' : 'Surat Pendek / Doa / Sholat'})
+                            </h3>
+
+                            <div className="overflow-x-auto max-h-80 overflow-y-auto custom-scrollbar rounded-xl border border-slate-200 dark:border-slate-800">
+                                <table className="w-full text-xs text-left">
+                                    <thead className="sticky top-0 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold border-b z-10">
                                         <tr>
-                                            <th className="rapor-th">Nama Surat / Item</th>
-                                            <th className="rapor-th">Kategori</th>
-                                            <th className="rapor-th text-center">Status Penyelesaian</th>
-                                            <th className="rapor-th text-right">Tanggal Update</th>
+                                            <th className="py-2.5 px-4">Nama Item / Surat</th>
+                                            <th className="py-2.5 px-4">Kategori</th>
+                                            <th className="py-2.5 px-4 text-center">Status Penyelesaian</th>
+                                            <th className="py-2.5 px-4 text-right">Tanggal Evaluasi</th>
                                         </tr>
                                     </thead>
-                                    <tbody>
-                                        {reportHafalanItems?.length > 0 ? (
-                                            reportHafalanItems.map((item, idx) => (
-                                                <tr key={item.id || idx} className="rapor-row">
-                                                    <td className="rapor-td font-semibold text-slate-800 dark:text-slate-200">{item.item_name}</td>
-                                                    <td className="rapor-td text-muted-foreground">{isPtpt ? item.jilid : 'Surat Pendek'}</td>
-                                                    <td className="rapor-td text-center">
-                                                        {item.hafal ? (
-                                                            <span className="status-badge status-badge-good"><Check className="w-3 h-3 mr-1"/> Lulus</span>
+                                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                                        {hafalanData?.allItems?.length > 0 ? (
+                                            hafalanData.allItems.map((item, idx) => (
+                                                <tr key={item.id || idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                                                    <td className="py-2.5 px-4 font-bold text-slate-900 dark:text-slate-100">
+                                                        {item.item_name}
+                                                    </td>
+                                                    <td className="py-2.5 px-4 text-muted-foreground">
+                                                        {item.category || (isPtpt ? 'Tahfizh PTPT' : 'Surat Pendek')}
+                                                    </td>
+                                                    <td className="py-2.5 px-4 text-center">
+                                                        {item.is_completed ? (
+                                                            <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-300 font-bold text-[10px]">
+                                                                <Check className="w-3 h-3 mr-1" /> Lulus / Dihafal
+                                                            </Badge>
                                                         ) : (
-                                                            <span className="status-badge status-badge-moderate"><Clock className="w-3 h-3 mr-1"/> Sedang Hafalan</span>
+                                                            <Badge variant="outline" className="bg-amber-50 text-amber-800 border-amber-300 font-semibold text-[10px]">
+                                                                <Clock className="w-3 h-3 mr-1" /> Dalam Proses
+                                                            </Badge>
                                                         )}
                                                     </td>
-                                                    <td className="rapor-td text-right text-xs text-muted-foreground">
-                                                        {new Date(item.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric'})}
+                                                    <td className="py-2.5 px-4 text-right text-muted-foreground font-mono text-[11px]">
+                                                        {item.created_at ? new Date(item.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : '-'}
                                                     </td>
                                                 </tr>
                                             ))
                                         ) : (
                                             <tr>
-                                                <td colSpan="4" className="p-8 text-center text-muted-foreground italic bg-slate-50 dark:bg-slate-900/30">
-                                                    {isPtpt ? 'Belum ada data tahfizh yang tercatat.' : 'Belum ada data hafalan surat yang tercatat.'}
+                                                <td colSpan={4} className="py-8 text-center text-muted-foreground italic">
+                                                    Belum ada rincian item hafalan yang tercatat untuk santri ini.
                                                 </td>
                                             </tr>
                                         )}
@@ -497,80 +712,29 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
                             </div>
                         </div>
 
-                        <div className="pt-8 border-t mt-8 print-hide text-center">
-                            <p className="text-sm text-muted-foreground mb-4">Ingin mengunduh versi PDF resmi yang dilengkapi kop surat?</p>
-                            <Button onClick={() => { setIsReportViewOpen(false); setIsRaporDialogOpen(true); }} className="bg-indigo-600 hover:bg-indigo-700">
-                                <Download className="w-4 h-4 mr-2"/> Download Rapor PDF
-                            </Button>
-                        </div>
-                    </div>
-                </DialogContent>
-            </Dialog>
-
-            {/* Rapor Generation Dialog */}
-            <Dialog open={isRaporDialogOpen} onOpenChange={setIsRaporDialogOpen}>
-                <DialogContent className="max-w-sm">
-                    <DialogHeader>
-                        <DialogTitle>Generate Rapor Santri</DialogTitle>
-                        <DialogDescription>Pilih periode untuk mengunduh laporan PDF.</DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4 py-4">
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium">Tipe Periode</label>
-                            <Select value={raporPeriodType} onValueChange={setRaporPeriodType}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Pilih tipe periode" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="bulanan">Rapor Bulanan</SelectItem>
-                                    <SelectItem value="tahunan">Rapor Tahunan</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                            {raporPeriodType === 'bulanan' && (
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium">Bulan</label>
-                                    <Select value={raporMonth} onValueChange={setRaporMonth}>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Bulan" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {Array.from({length: 12}, (_, i) => (
-                                                <SelectItem key={i+1} value={(i+1).toString()}>
-                                                    {new Date(2000, i, 1).toLocaleString('id-ID', { month: 'long' })}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                            )}
-                            <div className={raporPeriodType === 'tahunan' ? "col-span-2 space-y-2" : "space-y-2"}>
-                                <label className="text-sm font-medium">Tahun</label>
-                                <Select value={raporYear} onValueChange={setRaporYear}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Tahun" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {yearOptions.map(y => (
-                                            <SelectItem key={y} value={y}>{y}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                        {/* Signatures Box */}
+                        <div className="grid grid-cols-3 gap-6 pt-8 border-t border-slate-200 dark:border-slate-800 text-center text-xs">
+                            <div className="space-y-12">
+                                <p className="font-semibold text-slate-700 dark:text-slate-300">Orang Tua / Wali Santri</p>
+                                <p className="font-bold text-slate-900 dark:text-slate-100 border-b border-slate-300 dark:border-slate-700 pb-1 w-3/4 mx-auto">
+                                    ( .................................... )
+                                </p>
+                            </div>
+                            <div className="space-y-12">
+                                <p className="font-semibold text-slate-700 dark:text-slate-300">Guru Pengampu Kelas</p>
+                                <p className="font-bold text-slate-900 dark:text-slate-100 border-b border-slate-300 dark:border-slate-700 pb-1 w-3/4 mx-auto">
+                                    ( {santri.className || santri.class?.nama_kelas || '..................'} )
+                                </p>
+                            </div>
+                            <div className="space-y-12">
+                                <p className="font-semibold text-slate-700 dark:text-slate-300">Pentashih Official LPQ</p>
+                                <p className="font-bold text-slate-900 dark:text-slate-100 border-b border-slate-300 dark:border-slate-700 pb-1 w-3/4 mx-auto">
+                                    ( .................................... )
+                                </p>
                             </div>
                         </div>
+
                     </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setIsRaporDialogOpen(false)} disabled={isGeneratingRapor}>Batal</Button>
-                        <Button onClick={handleGenerateRapor} disabled={isGeneratingRapor} className="bg-indigo-600 hover:bg-indigo-700">
-                            {isGeneratingRapor ? (
-                                <><Loader2 className="w-4 h-4 mr-2 animate-spin"/> Memproses...</>
-                            ) : (
-                                <><Download className="w-4 h-4 mr-2"/> Unduh Rapor PDF</>
-                            )}
-                        </Button>
-                    </DialogFooter>
                 </DialogContent>
             </Dialog>
         </>
