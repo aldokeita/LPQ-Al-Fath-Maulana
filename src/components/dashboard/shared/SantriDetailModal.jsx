@@ -209,7 +209,7 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
                             <div>
                                 <DialogTitle className="text-2xl font-bold font-serif text-slate-800 dark:text-slate-100 flex items-center gap-2">
                                     <GraduationCap className="w-6 h-6 text-purple-600 dark:text-purple-400" />
-                                    Detail Santri: {santri.nama_lengkap}
+                                    Detail Santri: {santri?.nama_lengkap || 'Santri'}
                                 </DialogTitle>
                                 <DialogDescription>Informasi lengkap & catatan perkembangan akademik santri.</DialogDescription>
                             </div>
@@ -237,8 +237,8 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
                     <div className="flex flex-col sm:flex-row items-center sm:items-start text-center sm:text-left gap-6 pt-4 border-b border-slate-200 dark:border-slate-800 pb-6 relative">
                         <div className="flex flex-col gap-3 items-center">
                             <Avatar className="w-32 h-32 flex-shrink-0 border-4 border-slate-100 shadow-md">
-                                <AvatarImage src={santri.foto_url} className="object-cover" />
-                                <AvatarFallback className="text-4xl font-bold">{santri.nama_lengkap.charAt(0)}</AvatarFallback>
+                                <AvatarImage src={santri?.foto_url} className="object-cover" />
+                                <AvatarFallback className="text-4xl font-bold">{santri?.nama_lengkap?.charAt(0) || 'S'}</AvatarFallback>
                             </Avatar>
                             <div className="flex gap-2 w-full justify-center">
                                 {(onPromote || onDemote) && (

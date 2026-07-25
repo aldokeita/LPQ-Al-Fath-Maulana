@@ -100,17 +100,21 @@ const scoreToneClasses = {
 const HafalanSection = ({
   title,
   category,
-  items,
-  hafalanData,
+  items = [],
+  hafalanData = [],
   tone = 'emerald',
   targets = [1, 2, 3, 4, 5, 6],
   titlePrefix = 'Jilid',
   isTahfizh = false
 }) => {
+  const safeItems = Array.isArray(items) ? items : [];
+  const safeHafalanData = Array.isArray(hafalanData) ? hafalanData : [];
+
   const scoreData = {};
-  items.forEach(i => {
-      const progress = hafalanData.find(h =>
-          h.item_id === i.id || (h.category === category && h.item_name === i.item_name)
+  safeItems.forEach(i => {
+      if (!i) return;
+      const progress = safeHafalanData.find(h =>
+          h && (h.item_id === i.id || (h.category === category && h.item_name === i.item_name))
       );
       scoreData[i.item_name] = progress
           ? Number(progress.score || (progressStatusToComplete(progress.status) ? 4 : 1))
@@ -118,15 +122,15 @@ const HafalanSection = ({
   });
 
   const itemsByJilid = isTahfizh
-    ? groupHafalanItemsByTarget(items, targets)
-    : groupHafalanItemsByJilid(items);
+    ? groupHafalanItemsByTarget(safeItems, targets)
+    : groupHafalanItemsByJilid(safeItems);
   const scoredValues = Object.values(scoreData).filter((score) => Number.isInteger(score) && score >= 1 && score <= 4);
   const averageScore = scoredValues.length
     ? scoredValues.reduce((total, score) => total + score, 0) / scoredValues.length
     : 0;
   const averageMeta = averageScore ? getDevelopmentScoreMeta(Math.round(averageScore)) : null;
   const memorizedCount = Object.values(scoreData).filter((score) => Number(score) === 4).length;
-  const notMemorizedCount = Math.max(0, items.length - memorizedCount);
+  const notMemorizedCount = Math.max(0, safeItems.length - memorizedCount);
 
   return (
     <DashboardDisclosure
