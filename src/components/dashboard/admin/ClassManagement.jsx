@@ -1,4 +1,4 @@
-﻿
+
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
@@ -400,7 +400,8 @@ const GenericClassManagement = ({ userRole, kategori = 'Anak', configKey = 'anak
           { data: guruData, error: guruError },
           { data: rawSantriData, error: santriError },
           { data: attendanceData, error: attendanceError },
-          { data: configData }
+          { data: configData },
+          { data: membershipsData }
         ] = await Promise.all([
           supabase
             .from('classes')
@@ -412,13 +413,18 @@ const GenericClassManagement = ({ userRole, kategori = 'Anak', configKey = 'anak
             .select('id, nomor_induk_qiroati, nama_lengkap, nama_panggilan, kategori, jenis_kelamin, tanggal_lahir, tempat_lahir, alamat, no_hp_ortu, foto_url, avatar_path, rfid_tag, current_class_id, sesi_mengaji, jilid, status, points, order_in_class, created_at')
             .order('order_in_class', { ascending: true, nullsFirst: false }),
           supabase.from('attendance').select('*').eq('attendance_date', today),
-          supabase.from('website_content').select('content').eq('key', configKey).maybeSingle()
+          supabase.from('website_content').select('content').eq('key', configKey).maybeSingle(),
+          supabase.from('class_memberships').select('santri_id, class_id, order_in_class').eq('status', 'active')
         ]);
 
         if (classError || guruError || santriError || attendanceError) {
           toast({ title: 'Gagal memuat data', description: (classError || guruError || santriError || attendanceError).message, variant: 'destructive' });
           return;
         }
+
+        const membershipMap = Object.fromEntries(
+          (membershipsData || []).map(m => [m.santri_id, m])
+        );
 
         const resolvedGuruData = await resolveAvatarRecords(guruData, { ownerType: 'guru' });
         const resolvedSantriData = await resolveAvatarRecords(rawSantriData, { ownerType: 'santri' });
@@ -436,7 +442,17 @@ const GenericClassManagement = ({ userRole, kategori = 'Anak', configKey = 'anak
 
         setGuruList(resolvedGuruData);
 
-        const filteredSantri = resolvedSantriData.map(mapSantriForLegacyUi).filter(s => {
+        const filteredSantri = resolvedSantriData.map(s => {
+          const legacy = mapSantriForLegacyUi(s);
+          const membership = membershipMap[s.id];
+          const classId = s.current_class_id || legacy.id_kelas || membership?.class_id || null;
+          return {
+            ...legacy,
+            current_class_id: classId,
+            id_kelas: classId,
+            order_in_class: s.order_in_class ?? membership?.order_in_class ?? 0,
+          };
+        }).filter(s => {
             const isMatch = kategori === 'Anak' ? (!s.kategori || s.kategori.toLowerCase() === 'anak' || s.kategori.toLowerCase() === 'tpq') : s.kategori === kategori;
             const isActive = !s.status || s.status.toLowerCase() === 'aktif' || s.status.toLowerCase() === 'active';
             return isMatch && isActive;

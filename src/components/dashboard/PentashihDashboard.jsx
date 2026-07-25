@@ -29,11 +29,10 @@ const PentashihDashboard = () => {
         supabase
           .from('classes')
           .select('id, nama_kelas, sesi, kategori, is_active')
-          .eq('is_active', true),
+          .or('is_active.eq.true,is_active.is.null'),
         supabase
           .from('santri')
-          .select('id, kategori, status')
-          .or('status.eq.Aktif,status.eq.active,status.is.null'),
+          .select('id, kategori, status'),
       ]);
 
       if (guruRes.error) throw guruRes.error;

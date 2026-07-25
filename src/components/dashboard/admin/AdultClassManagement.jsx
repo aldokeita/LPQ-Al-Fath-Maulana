@@ -1,4 +1,4 @@
-﻿
+
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
@@ -354,22 +354,41 @@ const AdultClassManagement = () => {
       { data: guruData, error: guruError },
       { data: santriData, error: santriError },
       { data: attendanceData, error: attendanceError },
-      { data: configData }
+      { data: configData },
+      { data: membershipsData }
     ] = await Promise.all([
       supabase.from('classes').select('*, guru:id_guru(id, nama, foto_url, no_hp)').eq('kategori', 'Dewasa').order('sort_order', { ascending: true, nullsFirst: false }),
       supabase.from('guru').select('id, nama, foto_url, no_hp'),
-      supabase.from('santri').select('*').eq('status', 'Aktif').eq('kategori', 'Dewasa').order('order_in_class', { ascending: true, nullsFirst: false }),
+      supabase.from('santri').select('*').or('status.eq.Aktif,status.eq.active,status.is.null').eq('kategori', 'Dewasa').order('order_in_class', { ascending: true, nullsFirst: false }),
       supabase.from('attendance').select('*').eq('attendance_date', today),
-      supabase.from('website_content').select('content').eq('key', 'adultSessionConfig').maybeSingle()
+      supabase.from('website_content').select('content').eq('key', 'adultSessionConfig').maybeSingle(),
+      supabase.from('class_memberships').select('santri_id, class_id, order_in_class').eq('status', 'active')
     ]);
 
     if (classError || guruError || santriError || attendanceError) {
       toast({ title: 'Gagal memuat data', description: (classError || guruError || santriError || attendanceError).message, variant: 'destructive' });
       return;
     }
+
+    const membershipMap = Object.fromEntries(
+      (membershipsData || []).map(m => [m.santri_id, m])
+    );
+
     setClasses(classData || []);
     setGuruList(guruData || []);
-    setSantriList((santriData || []).map(mapSantriForLegacyUi));
+
+    const mappedSantri = (santriData || []).map(s => {
+      const legacy = mapSantriForLegacyUi(s);
+      const membership = membershipMap[s.id];
+      const classId = s.current_class_id || legacy.id_kelas || membership?.class_id || null;
+      return {
+        ...legacy,
+        current_class_id: classId,
+        id_kelas: classId,
+        order_in_class: s.order_in_class ?? membership?.order_in_class ?? 0,
+      };
+    });
+    setSantriList(mappedSantri);
     setDailyAttendance(attendanceData || []);
     if (configData?.content) {
          let parsed = configData.content;
