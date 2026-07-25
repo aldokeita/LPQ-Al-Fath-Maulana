@@ -170,7 +170,7 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
 
     const handleOpenReportView = async () => {
         setIsReportViewOpen(true);
-        await fetchReportViewData();
+        await Promise.all([fetchReportViewData(), fetchSantriFullData()]);
     };
 
     useEffect(() => {
@@ -196,8 +196,9 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
         setIsGeneratingRapor(true);
         try {
             const points = await getPointsData(santri.id);
+            const mergedSantri = { ...santri, ...(santriFullData || {}) };
             const doc = await generateRaporPDF(
-                santri,
+                mergedSantri,
                 attendanceSummary || { totalDays: 0, totalPresent: 0, totalLate: 0, totalPermit: 0, totalAbsent: 0, attendancePercentage: 0 },
                 hafalanData || { allItems: [], doa: { total: 0, completed: 0 }, sholat: { total: 0, completed: 0 }, surat: { total: 0, completed: 0 }, tahfizh: { total: 0, completed: 0 } },
                 points,
@@ -226,7 +227,7 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
     return (
         <>
             <Dialog open={isOpen} onOpenChange={onOpenChange}>
-                <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto custom-scrollbar">
+                <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto custom-scrollbar">
                     <DialogHeader>
                         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mr-6">
                             <div>
@@ -491,10 +492,11 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
 
                             <Button
                                 size="sm"
-                                onClick={() => {
+                                onClick={async () => {
                                     if (attendanceSummary && hafalanData) {
-                                        generateRaporDOCX(santri, attendanceSummary, hafalanData, dateRange.periodText, characterData, scoresSummary);
-                                        toast({ title: 'Rapor RTF Berhasil Diunduh', description: 'File dapat dibuka dengan Microsoft Word / LibreOffice.' });
+                                        const mergedSantri = { ...santri, ...(santriFullData || {}) };
+                                        await generateRaporDOCX(mergedSantri, attendanceSummary, hafalanData, dateRange.periodText, characterData, scoresSummary);
+                                        toast({ title: 'Rapor DOCX Berhasil Diunduh', description: 'File Word (.docx) resmi telah tersimpan.' });
                                     } else {
                                         toast({ title: 'Menyiapkan Data Rapor', description: 'Mohon tunggu sejenak...' });
                                     }
@@ -502,7 +504,7 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
                                 variant="outline"
                                 className="bg-blue-50 dark:bg-blue-950/40 border-blue-200 text-blue-700 dark:text-blue-300 font-bold hover:bg-blue-100"
                             >
-                                <FileText className="w-4 h-4 mr-1.5 text-blue-600" /> Download RTF (Word)
+                                <FileText className="w-4 h-4 mr-1.5 text-blue-600" /> Download DOCX
                             </Button>
                         </div>
                     </div>
@@ -809,18 +811,20 @@ const AttendanceMatrixPanel = ({ santriId }) => {
     const [records, setRecords] = React.useState([]);
     const [loading, setLoading] = React.useState(false);
 
-    const MONTHS = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
-    const STATUS_COLORS = {
-        hadir: 'bg-emerald-500',
-        present: 'bg-emerald-500',
-        terlambat: 'bg-amber-400',
-        late: 'bg-amber-400',
-        alpha: 'bg-rose-500',
-        absent: 'bg-rose-500',
-        izin: 'bg-blue-400',
-        sakit: 'bg-purple-400',
+    const MONTHS = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+    const DAY_NAMES = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum']; // Mon-Fri
+    const STATUS_CONFIG = {
+        hadir:      { bg: 'bg-emerald-500', text: 'text-white', label: 'H', title: 'Hadir' },
+        present:    { bg: 'bg-emerald-500', text: 'text-white', label: 'H', title: 'Hadir' },
+        terlambat:  { bg: 'bg-amber-400',   text: 'text-white', label: 'T', title: 'Terlambat' },
+        late:       { bg: 'bg-amber-400',   text: 'text-white', label: 'T', title: 'Terlambat' },
+        alpha:      { bg: 'bg-rose-500',    text: 'text-white', label: 'A', title: 'Alpha' },
+        absent:     { bg: 'bg-rose-500',    text: 'text-white', label: 'A', title: 'Alpha' },
+        izin:       { bg: 'bg-blue-400',    text: 'text-white', label: 'I', title: 'Izin' },
+        sakit:      { bg: 'bg-purple-400',  text: 'text-white', label: 'S', title: 'Sakit' },
     };
-    const STATUS_LABELS = { hadir: 'H', present: 'H', terlambat: 'T', late: 'T', alpha: 'A', absent: 'A', izin: 'I', sakit: 'S' };
+    // Tidak Hadir (no record on weekday)
+    const TH_CONFIG = { bg: 'bg-rose-100 dark:bg-rose-950/40', text: 'text-rose-700 dark:text-rose-400', label: 'TH', title: 'Tidak Hadir' };
 
     React.useEffect(() => {
         if (!santriId) return;
@@ -842,15 +846,25 @@ const AttendanceMatrixPanel = ({ santriId }) => {
 
     const recordMap = Object.fromEntries((records || []).map(r => [r.attendance_date, r.status?.toLowerCase()]));
     const daysInMonth = new Date(year, month, 0).getDate();
-    const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+    // Only weekdays (Mon=1 to Fri=5)
+    const weekdays = Array.from({ length: daysInMonth }, (_, i) => i + 1).filter(day => {
+        const dow = new Date(year, month - 1, day).getDay();
+        return dow >= 1 && dow <= 5;
+    });
 
     const totalHadir = records.filter(r => ['hadir','present'].includes(r.status?.toLowerCase())).length;
     const totalTerlambat = records.filter(r => ['terlambat','late'].includes(r.status?.toLowerCase())).length;
     const totalAlpha = records.filter(r => ['alpha','absent'].includes(r.status?.toLowerCase())).length;
+    // TH = weekdays with no record
+    const totalTH = weekdays.filter(d => {
+        const dateStr = `${year}-${String(month).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+        return !recordMap[dateStr];
+    }).length;
     const currentYear = new Date().getFullYear();
 
     return (
-        <div className="space-y-4">
+        <div className="space-y-5">
+            {/* Controls */}
             <div className="flex gap-3 flex-wrap items-center">
                 <select value={month} onChange={e => setMonth(Number(e.target.value))}
                     className="h-9 px-3 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-medium">
@@ -860,32 +874,55 @@ const AttendanceMatrixPanel = ({ santriId }) => {
                     className="h-9 px-3 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-medium">
                     {Array.from({length:5},(_,i) => currentYear - i).map(y => <option key={y} value={y}>{y}</option>)}
                 </select>
-                <div className="flex gap-2 text-xs ml-auto">
-                    <span className="flex items-center gap-1"><span className="w-4 h-4 rounded bg-emerald-500 inline-block"/> Hadir ({totalHadir})</span>
-                    <span className="flex items-center gap-1"><span className="w-4 h-4 rounded bg-amber-400 inline-block"/> Terlambat ({totalTerlambat})</span>
-                    <span className="flex items-center gap-1"><span className="w-4 h-4 rounded bg-rose-500 inline-block"/> Alpha ({totalAlpha})</span>
+                <div className="flex flex-wrap gap-2 text-xs ml-auto">
+                    <span className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800">
+                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"/> Hadir ({totalHadir})
+                    </span>
+                    <span className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
+                        <span className="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block"/> Terlambat ({totalTerlambat})
+                    </span>
+                    <span className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800">
+                        <span className="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block"/> Alpha ({totalAlpha})
+                    </span>
+                    <span className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-rose-50 dark:bg-rose-950/30 border border-rose-100 dark:border-rose-900">
+                        <span className="w-2.5 h-2.5 rounded-full bg-rose-200 dark:bg-rose-800 inline-block"/> Tidak Hadir ({totalTH})
+                    </span>
                 </div>
             </div>
 
             {loading ? (
                 <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-blue-500" /></div>
+            ) : weekdays.length === 0 ? (
+                <p className="text-center text-muted-foreground text-sm py-8">Tidak ada hari kerja di bulan ini.</p>
             ) : (
                 <div className="overflow-x-auto">
-                    <div className="grid gap-1.5" style={{gridTemplateColumns: `repeat(${Math.min(daysInMonth, 16)}, minmax(0, 1fr))`}}>
-                        {days.map(day => {
+                    {/* Grid: 5 columns = Mon-Fri */}
+                    <div className="grid gap-1.5 min-w-[300px]" style={{gridTemplateColumns: 'repeat(5, minmax(52px, 1fr))'}}>
+                        {/* Day name headers */}
+                        {DAY_NAMES.map(d => (
+                            <div key={d} className="text-center text-[10px] font-bold text-muted-foreground uppercase tracking-wider py-1">
+                                {d}
+                            </div>
+                        ))}
+
+                        {/* Offset empty cells for the first week */}
+                        {(() => {
+                            const firstDay = new Date(year, month - 1, weekdays[0]).getDay(); // 1=Mon..5=Fri
+                            return Array.from({ length: firstDay - 1 }, (_, i) => <div key={`empty-${i}`} />);
+                        })()}
+
+                        {/* Weekday cells */}
+                        {weekdays.map(day => {
                             const dateStr = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
                             const status = recordMap[dateStr];
-                            const dow = new Date(dateStr).getDay();
-                            const isWeekend = dow === 0 || dow === 6;
+                            const cfg = status ? (STATUS_CONFIG[status] || { bg: 'bg-slate-400', text: 'text-white', label: status.charAt(0).toUpperCase(), title: status }) : TH_CONFIG;
+                            const isToday = dateStr === new Date().toISOString().split('T')[0];
                             return (
-                                <div key={day} title={status ? `${day}: ${status}` : `${day}: Tidak ada data`}
-                                    className={`flex flex-col items-center justify-center rounded-lg p-1.5 min-h-[52px] text-center transition-all ${
-                                        isWeekend ? 'bg-slate-100 dark:bg-slate-800 opacity-40' :
-                                        status ? (STATUS_COLORS[status] || 'bg-slate-400') + ' text-white shadow-sm' :
-                                        'bg-slate-100 dark:bg-slate-800 text-muted-foreground'
-                                    }`}>
-                                    <span className="text-[10px] font-bold">{day}</span>
-                                    <span className="text-[11px] font-black mt-0.5">{status ? (STATUS_LABELS[status] || status.charAt(0).toUpperCase()) : (isWeekend ? '—' : '')}</span>
+                                <div key={day}
+                                    title={`${day} — ${cfg.title}`}
+                                    className={`flex flex-col items-center justify-center rounded-xl p-1.5 min-h-[56px] text-center transition-all cursor-default border ${cfg.bg} ${cfg.text} ${isToday ? 'ring-2 ring-offset-1 ring-blue-500' : 'border-transparent'}`}>
+                                    <span className="text-[9px] font-bold opacity-75">{day}</span>
+                                    <span className="text-[13px] font-black leading-tight mt-0.5">{cfg.label}</span>
                                 </div>
                             );
                         })}

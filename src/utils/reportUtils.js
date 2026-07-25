@@ -2,6 +2,15 @@ import { supabase } from '../lib/customSupabaseClient';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { getSessionName } from './sessionMapping';
+import {
+    fetchCharacterAssessmentItems,
+    fetchSantriCharacterScores,
+    fetchSantriCharacterStrengths
+} from '../lib/academicAdapters';
+import {
+    Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
+    WidthType, AlignmentType, BorderStyle, ShadingType, Footer, PageNumber
+} from 'docx';
 
 export const calculateAttendanceData = async (santriId, startDate, endDate) => {
     try {
@@ -112,7 +121,6 @@ export const getHafalanProgressData = async (santriId) => {
         let allItems = (scopedItems.length > 0 ? scopedItems : rawItems).map(item => {
             const progress = progressByItemId.get(item.id) || progressByName.get(`${item.category}-${item.item_name}`);
             const isLulus = progress?.status === 'lulus' || Number(progress?.score) === 4;
-            const evaluatedDate = (progress?.assessed_at || progress?.updated_at) ? (progress?.assessed_at || progress?.updated_at) : null;
             return {
                 ...item,
                 ...progress,
@@ -122,10 +130,7 @@ export const getHafalanProgressData = async (santriId) => {
                 item_name: item.item_name,
                 jilid: item.jilid || '-',
                 is_completed: isLulus,
-                hafal: isLulus,
-                score: progress?.score ? Number(progress.score) : (isLulus ? 4 : null),
-                display_name: item.item_name,
-                evaluated_at: evaluatedDate
+                score: progress?.score ? Number(progress.score) : (isLulus ? 4 : null)
             };
         });
 
@@ -141,6 +146,17 @@ export const getHafalanProgressData = async (santriId) => {
             }
         }
 
+        const CATEGORY_ORDER = { 'Doa': 1, 'Sholat': 2, 'Surat': 3, 'Tahfizh': 4 };
+        allItems.sort((a, b) => {
+            const catA = CATEGORY_ORDER[a.category] || 99;
+            const catB = CATEGORY_ORDER[b.category] || 99;
+            if (catA !== catB) return catA - catB;
+            const jilidA = parseJilidToNumber(a.jilid);
+            const jilidB = parseJilidToNumber(b.jilid);
+            if (jilidA !== jilidB) return jilidA - jilidB;
+            return (a.item_order || 0) - (b.item_order || 0);
+        });
+
         const doa = allItems.filter(d => d.category === 'Doa');
         const sholat = allItems.filter(d => d.category === 'Sholat');
         const surat = allItems.filter(d => d.category === 'Surat');
@@ -148,40 +164,33 @@ export const getHafalanProgressData = async (santriId) => {
 
         const getCompleted = (arr) => arr.filter(d => d.is_completed).length;
 
-        const CATEGORY_ORDER = { 'Doa': 1, 'Sholat': 2, 'Surat': 3, 'Tahfizh': 4 };
-
-        const sortedAllItems = allItems.sort((a, b) => {
-            const catA = CATEGORY_ORDER[a.category] || 99;
-            const catB = CATEGORY_ORDER[b.category] || 99;
-            if (catA !== catB) return catA - catB;
-
-            if (programScope === 'TPQ') {
-                const jilidA = parseJilidToNumber(a.jilid);
-                const jilidB = parseJilidToNumber(b.jilid);
-                if (jilidA !== jilidB) return jilidA - jilidB;
-            }
-            return (a.item_order || 0) - (b.item_order || 0);
-        });
+        const totalItems = allItems.length || 1;
+        const totalCompleted = getCompleted(allItems);
+        const overallProgress = Math.round((totalCompleted / totalItems) * 100);
 
         return {
-            doa: { total: doa.length, completed: getCompleted(doa), items: doa },
-            sholat: { total: sholat.length, completed: getCompleted(sholat), items: sholat },
-            surat: { total: surat.length, completed: getCompleted(surat), items: surat },
-            tahfizh: { total: tahfizh.length, completed: getCompleted(tahfizh), items: tahfizh },
             programScope,
-            totalCompleted: getCompleted(allItems),
-            overallProgress: allItems.length > 0 ? Math.round((getCompleted(allItems) / allItems.length) * 100) : 0,
-            allItems: sortedAllItems
+            allItems,
+            doa: { total: doa.length, completed: getCompleted(doa) },
+            sholat: { total: sholat.length, completed: getCompleted(sholat) },
+            surat: { total: surat.length, completed: getCompleted(surat) },
+            tahfizh: { total: tahfizh.length, completed: getCompleted(tahfizh) },
+            overallProgress
         };
     } catch (error) {
         console.error("Error fetching hafalan progress:", error);
-        throw new Error("Gagal mengambil data hafalan.");
+        throw new Error("Gagal mengambil data hafalan santri.");
     }
 };
 
 export const getPointsData = async (santriId) => {
     try {
-        const { data, error } = await supabase.from('santri').select('points').eq('id', santriId).single();
+        const { data, error } = await supabase
+            .from('santri')
+            .select('points')
+            .eq('id', santriId)
+            .single();
+
         if (error) throw error;
 
         return {
@@ -196,19 +205,19 @@ export const getPointsData = async (santriId) => {
 
 export const fetchSantriCharacterReportData = async (santriId) => {
     try {
-        const [itemsRes, scoresRes, strengthsRes] = await Promise.all([
-            supabase.from('character_assessment_items').select('id, title, category, order_index').eq('is_active', true).order('order_index'),
-            supabase.from('santri_character_scores').select('item_id, score, updated_at').eq('santri_id', santriId),
-            supabase.from('santri_character_strengths').select('strength_key, created_at').eq('santri_id', santriId),
+        const [items, scoreRows, strengthRows] = await Promise.all([
+            fetchCharacterAssessmentItems(),
+            fetchSantriCharacterScores(santriId),
+            fetchSantriCharacterStrengths(santriId)
         ]);
 
-        const items = itemsRes.data || [];
-        const scoreMap = Object.fromEntries((scoresRes.data || []).map(s => [s.item_id, Number(s.score)]));
-        const strengths = (strengthsRes.data || []).map(s => s.strength_key);
+        const scoreMap = Object.fromEntries(scoreRows.map(s => [s.item_id, Number(s.score)]));
+        const strengths = strengthRows.map(s => s.strength_key);
 
         const assessedItems = items.map(item => ({
             ...item,
-            score: scoreMap[item.id] || 3, // Default 3 (BSH - Berkembang Sesuai Harapan)
+            title: item.item_name,
+            score: scoreMap[item.id] || 3,
         }));
 
         const totalScoreSum = assessedItems.reduce((acc, curr) => acc + curr.score, 0);
@@ -225,7 +234,7 @@ export const fetchSantriCharacterReportData = async (santriId) => {
         console.error("Error fetching character data:", error);
         return {
             assessedItems: [],
-            strengths: ['Disiplin', 'Sopan Santun'],
+            strengths: [],
             avgCharacterScore: 3.5,
             characterPercentage: 88,
         };
@@ -591,195 +600,397 @@ export const generateRaporPDF = async (santriData, attendanceData, hafalanData, 
     });
 };
 
-// Helper: escape special RTF chars
-const rtfEscape = (str) => {
-    if (!str) return '';
-    return String(str)
-        .replace(/\\/g, '\\\\')
-        .replace(/{/g, '\\{')
-        .replace(/}/g, '\\}')
-        .replace(/[^\x00-\x7F]/g, (c) => {
-            const code = c.charCodeAt(0);
-            return `\\u${code}?`;
-        });
+const createCell = (text, options = {}) => {
+    const {
+        bold = false,
+        italic = false,
+        color = '334155',
+        fontSize = 18,
+        shadingColor = null,
+        align = AlignmentType.LEFT,
+        colspan = 1,
+        width = null
+    } = options;
+
+    return new TableCell({
+        columnSpan: colspan,
+        width: width ? { size: width, type: WidthType.PERCENTAGE } : undefined,
+        shading: shadingColor ? { fill: shadingColor, type: ShadingType.CLEAR } : undefined,
+        margins: { top: 100, bottom: 100, left: 140, right: 140 },
+        children: [
+            new Paragraph({
+                alignment: align,
+                children: [
+                    new TextRun({
+                        text: String(text !== undefined && text !== null ? text : '-'),
+                        bold,
+                        italic,
+                        color,
+                        size: fontSize,
+                        font: 'Arial'
+                    })
+                ]
+            })
+        ]
+    });
 };
 
-// Helper: build a simple RTF table row
-const rtfRow = (cells, bold = false, shaded = false) => {
-    const CELL_W = 2268; // twips per column ~4cm
-    const cols = cells.length;
-    let rowDef = '\\trowd\\trqc\\trleft0';
-    for (let i = 1; i <= cols; i++) rowDef += `\\cellx${CELL_W * i}`;
-    const cellContent = cells.map(c => {
-        const shade = shaded ? '\\cbpat8' : '';
-        const b = bold ? '\\b ' : '';
-        return `\\pard\\intbl${shade}${b}${rtfEscape(c || '-')}\\cell`;
-    }).join('');
-    return `${rowDef}${cellContent}\\row\n`;
+const createHeaderCell = (text, options = {}) => {
+    return createCell(text, {
+        bold: true,
+        color: 'FFFFFF',
+        fontSize: 18,
+        shadingColor: options.bg || '1D4ED8',
+        align: options.align || AlignmentType.CENTER,
+        colspan: options.colspan || 1,
+        width: options.width
+    });
 };
 
-export const generateRaporDOCX = (santriData, attendanceData, hafalanData, periodText, characterData, scoresSummary) => {
+export const generateRaporDOCX = async (santriData, attendanceData, hafalanData, periodText, characterData, scoresSummary) => {
     const sessionName = getSessionName(santriData.sesi_mengaji || santriData.sesi || santriData.class?.sesi) || 'Sesi Regular';
     const strengthsList = (characterData?.strengths || []).join(', ') || '-';
     const teacherName = santriData.class?.guru?.nama || santriData.guru?.nama || santriData.nama_guru || '....................................';
     const scores = scoresSummary || { attendanceScore: 0, hafalanScore: 0, characterScore: 0, overallAverage: 0, predicate: 'Baik' };
     const guardianName = santriData.nama_ibu || santriData.nama_ayah || santriData.nama_wali || '-';
-    const CELL4 = [1800, 3600, 5400, 7200]; // 4-col widths in twips
-    const CELL2 = [4500, 9000]; // 2-col widths
 
-    // RTF header
-    let rtf = '{\\rtf1\\ansi\\ansicpg1252\\deff0\\deflang1057\n';
-    rtf += '{\\fonttbl{\\f0\\froman\\fprq2\\fcharset0 Times New Roman;}{\\f1\\fswiss\\fprq2\\fcharset0 Arial;}{\\f2\\fmodern\\fprq1\\fcharset0 Courier New;}}\n';
-    rtf += '{\\colortbl;\\red30\\green58\\blue138;\\red16\\green185\\blue129;\\red126\\green34\\blue206;\\red241\\green245\\blue249;\\red255\\green255\\blue255;}\n';
-    rtf += '\\widowctrl\\hyphauto\n';
-    rtf += '\\paperw12240\\paperh15840\\margl1440\\margr1440\\margt1440\\margb1440\n'; // US Letter, 1 inch margins
+    const doc = new Document({
+        sections: [{
+            properties: {
+                page: {
+                    margin: { top: 1000, bottom: 1000, left: 1000, right: 1000 }
+                }
+            },
+            footers: {
+                default: new Footer({
+                    children: [
+                        new Paragraph({
+                            alignment: AlignmentType.RIGHT,
+                            children: [
+                                new TextRun({ text: "LPQ Al-Fath Maulana - System Generated Rapor Resmi  |  Halaman ", size: 16, color: "94A3B8", font: "Arial" }),
+                                new TextRun({ children: [PageNumber.CURRENT], size: 16, color: "94A3B8", font: "Arial" }),
+                                new TextRun({ text: " dari ", size: 16, color: "94A3B8", font: "Arial" }),
+                                new TextRun({ children: [PageNumber.TOTAL_PAGES], size: 16, color: "94A3B8", font: "Arial" })
+                            ]
+                        })
+                    ]
+                })
+            },
+            children: [
+                // 1. Title Banner
+                new Table({
+                    width: { size: 100, type: WidthType.PERCENTAGE },
+                    rows: [
+                        new TableRow({
+                            children: [
+                                new TableCell({
+                                    shading: { fill: "1D4ED8", type: ShadingType.CLEAR },
+                                    margins: { top: 200, bottom: 200, left: 200, right: 200 },
+                                    children: [
+                                        new Paragraph({
+                                            alignment: AlignmentType.CENTER,
+                                            children: [new TextRun({ text: "RAPOR AKADEMIK & KARAKTER SANTRI", bold: true, size: 28, color: "FFFFFF", font: "Arial" })]
+                                        }),
+                                        new Paragraph({
+                                            alignment: AlignmentType.CENTER,
+                                            children: [new TextRun({ text: "LPQ AL-FATH MAULANA (METODE QIROATI)", size: 20, color: "E0E7FF", font: "Arial" })]
+                                        }),
+                                        new Paragraph({
+                                            alignment: AlignmentType.CENTER,
+                                            children: [new TextRun({ text: `PERIODE EVALUASI: ${periodText.toUpperCase()}`, bold: true, size: 18, color: "FEF08A", font: "Arial" })]
+                                        })
+                                    ]
+                                })
+                            ]
+                        })
+                    ]
+                }),
 
-    // Title block
-    rtf += `\\pard\\sb200\\sa120\\qc{\\f1\\fs32\\b\\cf1 RAPOR AKADEMIK & KARAKTER SANTRI}\\par\n`;
-    rtf += `\\pard\\sb0\\sa60\\qc{\\f1\\fs22 LPQ AL-FATH MAULANA (METODE QIROATI)}\\par\n`;
-    rtf += `\\pard\\sb0\\sa200\\qc{\\f1\\fs18\\i Periode Evaluasi: ${rtfEscape(periodText.toUpperCase())}}\\par\n`;
-    rtf += `\\pard\\sb60\\sa60\\qc{\\f1\\fs18 \\line}\\par\n`;
+                new Paragraph({ text: "", spacing: { after: 150 } }),
 
-    // Section helper
-    const secTitle = (title) => `\\pard\\sb240\\sa80{\\f1\\fs22\\b\\cf1 ${rtfEscape(title)}}\\par\n`;
+                // 2. Section I: BIODATA SANTRI
+                new Paragraph({
+                    children: [new TextRun({ text: "I. BIODATA SANTRI", bold: true, size: 22, color: "1E3A8A", font: "Arial" })],
+                    spacing: { before: 100, after: 80 }
+                }),
+                new Table({
+                    width: { size: 100, type: WidthType.PERCENTAGE },
+                    rows: [
+                        new TableRow({
+                            children: [
+                                createCell("Nama Santri", { bold: true, shadingColor: "F8FAFC", width: 20 }),
+                                createCell(santriData.nama_lengkap, { bold: true, width: 30 }),
+                                createCell("Kelas & Sesi", { bold: true, shadingColor: "F8FAFC", width: 20 }),
+                                createCell(`${santriData.class?.nama_kelas || santriData.className || '-'} (${sessionName})`, { width: 30 })
+                            ]
+                        }),
+                        new TableRow({
+                            children: [
+                                createCell("Nomor Induk (NIQ)", { bold: true, shadingColor: "F8FAFC" }),
+                                createCell(santriData.nomor_induk_qiroati || '-', { bold: true }),
+                                createCell("Wali Santri (Ibu)", { bold: true, shadingColor: "F8FAFC" }),
+                                createCell(guardianName, { bold: true })
+                            ]
+                        }),
+                        new TableRow({
+                            children: [
+                                createCell("Jilid / Tingkat", { bold: true, shadingColor: "F8FAFC" }),
+                                createCell(`${santriData.jilid || '-'} (${santriData.kategori || 'Anak'})`, { bold: true, color: "7E22CE" }),
+                                createCell("Predikat Akhir", { bold: true, shadingColor: "F8FAFC" }),
+                                createCell(`${scores.predicate} (${scoresSummary?.grade || 'A'})`, { bold: true, color: "10B981" })
+                            ]
+                        }),
+                        new TableRow({
+                            children: [
+                                createCell("Karakter Unggulan", { bold: true, shadingColor: "F8FAFC" }),
+                                createCell(`⭐ ${strengthsList}`, { bold: true, color: "7E22CE", colspan: 3 })
+                            ]
+                        })
+                    ]
+                }),
 
-    // I. BIODATA
-    rtf += secTitle('I. BIODATA SANTRI');
-    const bioRows = [
-        ['Nama Santri', santriData.nama_lengkap, 'Kelas & Sesi', `${santriData.class?.nama_kelas || santriData.className || '-'} (${sessionName})`],
-        ['NIQ (Nomor Induk Qiroati)', santriData.nomor_induk_qiroati || '-', 'Wali Santri (Ibu)', guardianName],
-        ['Jilid / Tingkat', `${santriData.jilid || '-'} (${santriData.kategori || 'Anak'})`, 'Predikat Akhir', `${scores.predicate} (${scoresSummary?.grade || 'A'})`],
-        ['Karakter Unggulan', strengthsList, '', ''],
-    ];
-    for (const [l1, v1, l2, v2] of bioRows) {
-        const cells = l2
-            ? [l1, v1, l2, v2]
-            : [l1, { content: v1, colspan: 3 }];
-        if (l2) {
-            rtf += `\\trowd\\trleft0\\cellx2000\\cellx4500\\cellx6500\\cellx9000\\trkeep\n`;
-            rtf += `\\pard\\intbl\\b ${rtfEscape(l1)}\\b0\\cell `;
-            rtf += `\\pard\\intbl ${rtfEscape(v1)}\\cell `;
-            rtf += `\\pard\\intbl\\b ${rtfEscape(l2)}\\b0\\cell `;
-            rtf += `\\pard\\intbl ${rtfEscape(v2)}\\cell \\row\n`;
-        } else {
-            rtf += `\\trowd\\trleft0\\cellx2000\\cellx9000\\trkeep\n`;
-            rtf += `\\pard\\intbl\\b ${rtfEscape(l1)}\\b0\\cell `;
-            rtf += `\\pard\\intbl ${rtfEscape(v1)}\\cell \\row\n`;
-        }
-    }
-    rtf += `\\pard\\sb60\\sa60\\par\n`;
+                new Paragraph({ text: "", spacing: { after: 150 } }),
 
-    // II. REKAPITULASI NILAI
-    rtf += secTitle('II. REKAPITULASI NILAI RATA-RATA PROGRESS');
-    rtf += `\\trowd\\trleft0\\cellx3500\\cellx5500\\cellx7000\\cellx9000\\trkeep\n`;
-    rtf += `\\pard\\intbl\\b Aspek Evaluasi Progress\\b0\\cell `;
-    rtf += `\\pard\\intbl\\b Skor Capaian\\b0\\cell `;
-    rtf += `\\pard\\intbl\\b Bobot\\b0\\cell `;
-    rtf += `\\pard\\intbl\\b Predikat\\b0\\cell \\row\n`;
-    const valRows = [
-        ['Kehadiran & Keaktifan Mengaji', `${scores.attendanceScore}%`, '34%', scores.attendanceScore >= 85 ? 'Sangat Baik' : 'Baik'],
-        ['Ketuntasan Hafalan Doa / Surat', `${scores.hafalanScore}%`, '33%', scores.hafalanScore >= 85 ? 'Sangat Baik' : 'Baik'],
-        ['Perkembangan Karakter & Adab', `${scores.characterScore}%`, '33%', scores.characterScore >= 85 ? 'Sangat Baik' : 'Baik'],
-        ['NILAI AKHIR RATA-RATA', `${scores.overallAverage}/100`, '', scores.predicate],
-    ];
-    for (const [a, b, c, d] of valRows) {
-        rtf += `\\trowd\\trleft0\\cellx3500\\cellx5500\\cellx7000\\cellx9000\\trkeep\n`;
-        rtf += `\\pard\\intbl ${rtfEscape(a)}\\cell `;
-        rtf += `\\pard\\intbl\\qc ${rtfEscape(b)}\\cell `;
-        rtf += `\\pard\\intbl\\qc ${rtfEscape(c)}\\cell `;
-        rtf += `\\pard\\intbl\\qc ${rtfEscape(d)}\\cell \\row\n`;
-    }
-    rtf += `\\pard\\sb60\\sa60\\par\n`;
+                // 3. Section II: REKAPITULASI NILAI RATA-RATA PROGRESS
+                new Paragraph({
+                    children: [new TextRun({ text: "II. REKAPITULASI NILAI RATA-RATA PROGRESS", bold: true, size: 22, color: "1E3A8A", font: "Arial" })],
+                    spacing: { before: 100, after: 80 }
+                }),
+                new Table({
+                    width: { size: 100, type: WidthType.PERCENTAGE },
+                    rows: [
+                        new TableRow({
+                            children: [
+                                createHeaderCell("Aspek Evaluasi Progress", { bg: "1D4ED8", align: AlignmentType.LEFT, width: 40 }),
+                                createHeaderCell("Skor Capaian", { bg: "1D4ED8", width: 20 }),
+                                createHeaderCell("Bobot", { bg: "1D4ED8", width: 20 }),
+                                createHeaderCell("Predikat Progress", { bg: "1D4ED8", width: 20 })
+                            ]
+                        }),
+                        new TableRow({
+                            children: [
+                                createCell("Kehadiran & Keaktifan Mengaji"),
+                                createCell(`${scores.attendanceScore} / 100`, { align: AlignmentType.CENTER }),
+                                createCell("34%", { align: AlignmentType.CENTER }),
+                                createCell(scores.attendanceScore >= 85 ? "Sangat Baik" : "Baik", { align: AlignmentType.CENTER, bold: true, color: "10B981" })
+                            ]
+                        }),
+                        new TableRow({
+                            children: [
+                                createCell("Ketuntasan Hafalan Doa / Surat"),
+                                createCell(`${scores.hafalanScore} / 100`, { align: AlignmentType.CENTER }),
+                                createCell("33%", { align: AlignmentType.CENTER }),
+                                createCell(scores.hafalanScore >= 85 ? "Sangat Baik" : "Baik", { align: AlignmentType.CENTER, bold: true, color: "10B981" })
+                            ]
+                        }),
+                        new TableRow({
+                            children: [
+                                createCell("Perkembangan Karakter & Adab"),
+                                createCell(`${scores.characterScore} / 100`, { align: AlignmentType.CENTER }),
+                                createCell("33%", { align: AlignmentType.CENTER }),
+                                createCell(scores.characterScore >= 85 ? "Sangat Baik" : "Baik", { align: AlignmentType.CENTER, bold: true, color: "10B981" })
+                            ]
+                        }),
+                        new TableRow({
+                            children: [
+                                createCell("NILAI AKHIR RATA-RATA KESELURUHAN", { bold: true, align: AlignmentType.RIGHT, colspan: 2, shadingColor: "F1F5F9" }),
+                                createCell(`${scores.overallAverage} / 100`, { bold: true, align: AlignmentType.CENTER, color: "1D4ED8", shadingColor: "F1F5F9" }),
+                                createCell(scores.predicate, { bold: true, align: AlignmentType.CENTER, color: "10B981", shadingColor: "F1F5F9" })
+                            ]
+                        })
+                    ]
+                }),
 
-    // III. KEHADIRAN
-    rtf += secTitle('III. REKAPITULASI KEHADIRAN');
-    rtf += `\\trowd\\trleft0\\cellx1800\\cellx3600\\cellx5400\\cellx7200\\cellx9000\\trkeep\n`;
-    rtf += `\\pard\\intbl\\b Total Hari Efektif\\b0\\cell \\pard\\intbl\\b Hadir\\b0\\cell \\pard\\intbl\\b Terlambat\\b0\\cell \\pard\\intbl\\b Alpha\\b0\\cell \\pard\\intbl\\b Persentase\\b0\\cell \\row\n`;
-    rtf += `\\trowd\\trleft0\\cellx1800\\cellx3600\\cellx5400\\cellx7200\\cellx9000\\trkeep\n`;
-    rtf += `\\pard\\intbl\\qc ${attendanceData.totalDays} Hari\\cell `;
-    rtf += `\\pard\\intbl\\qc ${attendanceData.totalPresent} Hari\\cell `;
-    rtf += `\\pard\\intbl\\qc ${attendanceData.totalLate || 0} Hari\\cell `;
-    rtf += `\\pard\\intbl\\qc ${attendanceData.totalAbsent} Hari\\cell `;
-    rtf += `\\pard\\intbl\\qc\\b ${attendanceData.attendancePercentage}%\\b0\\cell \\row\n`;
-    rtf += `\\pard\\sb60\\sa60\\par\n`;
+                new Paragraph({ text: "", spacing: { after: 150 } }),
 
-    // IV. PROGRES HAFALAN
-    rtf += secTitle('IV. REKAPITULASI PROGRES HAFALAN');
-    rtf += `\\trowd\\trleft0\\cellx3000\\cellx5000\\cellx7000\\cellx9000\\trkeep\n`;
-    rtf += `\\pard\\intbl\\b Kategori\\b0\\cell \\pard\\intbl\\b\\qc Total Target\\b0\\cell \\pard\\intbl\\b\\qc Lulus\\b0\\cell \\pard\\intbl\\b\\qc Progres\\b0\\cell \\row\n`;
-    const hafalanCats = hafalanData.programScope === 'PTPT'
-        ? [['Tahfizh PTPT', hafalanData.tahfizh?.total, hafalanData.tahfizh?.completed]]
-        : [
-            ['Doa Harian', hafalanData.doa?.total, hafalanData.doa?.completed],
-            ['Bacaan Sholat', hafalanData.sholat?.total, hafalanData.sholat?.completed],
-            ['Surat Pendek / Juz Amma', hafalanData.surat?.total, hafalanData.surat?.completed],
-        ];
-    for (const [cat, total, done] of hafalanCats) {
-        const pct = `${Math.round(((done || 0) / (total || 1)) * 100)}%`;
-        rtf += `\\trowd\\trleft0\\cellx3000\\cellx5000\\cellx7000\\cellx9000\\trkeep\n`;
-        rtf += `\\pard\\intbl ${rtfEscape(cat)}\\cell `;
-        rtf += `\\pard\\intbl\\qc ${total || 0}\\cell `;
-        rtf += `\\pard\\intbl\\qc ${done || 0}\\cell `;
-        rtf += `\\pard\\intbl\\qc\\b ${pct}\\b0\\cell \\row\n`;
-    }
-    rtf += `\\pard\\sb60\\sa60\\par\n`;
+                // 4. Section III: REKAPITULASI KEHADIRAN
+                new Paragraph({
+                    children: [new TextRun({ text: "III. REKAPITULASI KEHADIRAN", bold: true, size: 22, color: "1E3A8A", font: "Arial" })],
+                    spacing: { before: 100, after: 80 }
+                }),
+                new Table({
+                    width: { size: 100, type: WidthType.PERCENTAGE },
+                    rows: [
+                        new TableRow({
+                            children: [
+                                createHeaderCell("Total Hari Efektif", { bg: "334155" }),
+                                createHeaderCell("Hadir", { bg: "334155" }),
+                                createHeaderCell("Terlambat", { bg: "334155" }),
+                                createHeaderCell("Alpha", { bg: "334155" }),
+                                createHeaderCell("Persentase Kehadiran", { bg: "334155" })
+                            ]
+                        }),
+                        new TableRow({
+                            children: [
+                                createCell(`${attendanceData.totalDays} Hari`, { align: AlignmentType.CENTER }),
+                                createCell(`${attendanceData.totalPresent} Hari`, { align: AlignmentType.CENTER, bold: true, color: "10B981" }),
+                                createCell(`${attendanceData.totalLate || 0} Hari`, { align: AlignmentType.CENTER, color: "F59E0B" }),
+                                createCell(`${attendanceData.totalAbsent} Hari`, { align: AlignmentType.CENTER, color: "EF4444" }),
+                                createCell(`${attendanceData.attendancePercentage}%`, { align: AlignmentType.CENTER, bold: true, color: "7E22CE" })
+                            ]
+                        })
+                    ]
+                }),
 
-    // V. PERKEMBANGAN KARAKTER
-    rtf += secTitle('V. PERKEMBANGAN KARAKTER & ADAB');
-    const charItems = characterData?.assessedItems || [];
-    if (charItems.length > 0) {
-        rtf += `\\trowd\\trleft0\\cellx500\\cellx5000\\cellx6500\\cellx9000\\trkeep\n`;
-        rtf += `\\pard\\intbl\\b No\\b0\\cell \\pard\\intbl\\b Aspek Karakter\\b0\\cell \\pard\\intbl\\b\\qc Skor\\b0\\cell \\pard\\intbl\\b Predikat\\b0\\cell \\row\n`;
-        charItems.forEach((item, i) => {
-            const lbl = item.score === 4 ? 'Sangat Baik (SB)' : item.score === 3 ? 'Berkembang Sesuai Harapan (BSH)' : item.score === 2 ? 'Mulai Berkembang (MB)' : 'Belum Berkembang (BB)';
-            rtf += `\\trowd\\trleft0\\cellx500\\cellx5000\\cellx6500\\cellx9000\\trkeep\n`;
-            rtf += `\\pard\\intbl\\qc ${i + 1}\\cell `;
-            rtf += `\\pard\\intbl ${rtfEscape(item.item_name || item.title || '-')}\\cell `;
-            rtf += `\\pard\\intbl\\qc\\b ${item.score || '-'}\\b0\\cell `;
-            rtf += `\\pard\\intbl ${rtfEscape(lbl)}\\cell \\row\n`;
-        });
-    } else {
-        rtf += `\\pard\\sb60\\sa60\\i Belum ada data penilaian karakter.\\i0\\par\n`;
-    }
-    rtf += `\\pard\\sb60\\sa60\\par\n`;
+                new Paragraph({ text: "", spacing: { after: 150 } }),
 
-    // VI. DAFTAR SEMUA HAFALAN
-    rtf += secTitle('VI. DAFTAR SEMUA HAFALAN SANTRI');
-    const allItems = hafalanData?.allItems || [];
-    if (allItems.length > 0) {
-        rtf += `\\trowd\\trleft0\\cellx1200\\cellx4500\\cellx6300\\cellx7200\\cellx8400\\cellx9000\\trkeep\n`;
-        rtf += `\\pard\\intbl\\b Jilid\\b0\\cell \\pard\\intbl\\b Nama Item\\b0\\cell \\pard\\intbl\\b Kategori\\b0\\cell \\pard\\intbl\\b\\qc Skor\\b0\\cell \\pard\\intbl\\b\\qc Status\\b0\\cell \\pard\\intbl\\b\\qc Tanggal\\b0\\cell \\row\n`;
-        for (const item of allItems) {
-            const dateStr = item.evaluated_at
-                ? new Date(item.evaluated_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
-                : '-';
-            rtf += `\\trowd\\trleft0\\cellx1200\\cellx4500\\cellx6300\\cellx7200\\cellx8400\\cellx9000\\trkeep\n`;
-            rtf += `\\pard\\intbl\\qc ${rtfEscape(item.jilid || '-')}\\cell `;
-            rtf += `\\pard\\intbl ${rtfEscape(item.item_name || item.display_name || '-')}\\cell `;
-            rtf += `\\pard\\intbl ${rtfEscape(item.category || '-')}\\cell `;
-            rtf += `\\pard\\intbl\\qc ${item.score ? `${item.score}/4` : '-'}\\cell `;
-            rtf += `\\pard\\intbl\\qc ${item.is_completed ? 'Lulus' : 'Proses'}\\cell `;
-            rtf += `\\pard\\intbl\\qc ${rtfEscape(dateStr)}\\cell \\row\n`;
-        }
-    } else {
-        rtf += `\\pard\\sb60\\sa60\\i Belum ada rincian hafalan.\\i0\\par\n`;
-    }
+                // 5. Section IV: REKAPITULASI PROGRES HAFALAN
+                new Paragraph({
+                    children: [new TextRun({ text: "IV. REKAPITULASI PROGRES HAFALAN", bold: true, size: 22, color: "1E3A8A", font: "Arial" })],
+                    spacing: { before: 100, after: 80 }
+                }),
+                new Table({
+                    width: { size: 100, type: WidthType.PERCENTAGE },
+                    rows: [
+                        new TableRow({
+                            children: [
+                                createHeaderCell("Kategori Hafalan", { bg: "10B981", align: AlignmentType.LEFT, width: 40 }),
+                                createHeaderCell("Total Target Item", { bg: "10B981", width: 20 }),
+                                createHeaderCell("Telah Dikuasai / Lulus", { bg: "10B981", width: 20 }),
+                                createHeaderCell("Progres Ketuntasan", { bg: "10B981", width: 20 })
+                            ]
+                        }),
+                        ...(hafalanData.programScope === 'PTPT' ? [
+                            new TableRow({
+                                children: [
+                                    createCell("Tahfizh PTPT", { bold: true }),
+                                    createCell(hafalanData.tahfizh?.total || 0, { align: AlignmentType.CENTER }),
+                                    createCell(hafalanData.tahfizh?.completed || 0, { align: AlignmentType.CENTER }),
+                                    createCell(`${Math.round(((hafalanData.tahfizh?.completed || 0) / (hafalanData.tahfizh?.total || 1)) * 100)}%`, { align: AlignmentType.CENTER, bold: true })
+                                ]
+                            })
+                        ] : [
+                            new TableRow({
+                                children: [
+                                    createCell("Doa Harian", { bold: true }),
+                                    createCell(hafalanData.doa?.total || 0, { align: AlignmentType.CENTER }),
+                                    createCell(hafalanData.doa?.completed || 0, { align: AlignmentType.CENTER }),
+                                    createCell(`${Math.round(((hafalanData.doa?.completed || 0) / (hafalanData.doa?.total || 1)) * 100)}%`, { align: AlignmentType.CENTER, bold: true })
+                                ]
+                            }),
+                            new TableRow({
+                                children: [
+                                    createCell("Bacaan Sholat", { bold: true }),
+                                    createCell(hafalanData.sholat?.total || 0, { align: AlignmentType.CENTER }),
+                                    createCell(hafalanData.sholat?.completed || 0, { align: AlignmentType.CENTER }),
+                                    createCell(`${Math.round(((hafalanData.sholat?.completed || 0) / (hafalanData.sholat?.total || 1)) * 100)}%`, { align: AlignmentType.CENTER, bold: true })
+                                ]
+                            }),
+                            new TableRow({
+                                children: [
+                                    createCell("Surat Pendek / Juz Amma", { bold: true }),
+                                    createCell(hafalanData.surat?.total || 0, { align: AlignmentType.CENTER }),
+                                    createCell(hafalanData.surat?.completed || 0, { align: AlignmentType.CENTER }),
+                                    createCell(`${Math.round(((hafalanData.surat?.completed || 0) / (hafalanData.surat?.total || 1)) * 100)}%`, { align: AlignmentType.CENTER, bold: true })
+                                ]
+                            })
+                        ])
+                    ]
+                }),
 
-    // Signatures
-    rtf += `\\pard\\sb480\\sa60\\par\n`;
-    rtf += `\\trowd\\trleft0\\cellx3000\\cellx6000\\cellx9000\\trkeep\n`;
-    rtf += `\\pard\\intbl\\qc Mengetahui,\\line {\\b Orang Tua / Wali Santri}\\line\\line\\line\\line\\line ( ........................ )\\cell `;
-    rtf += `\\pard\\intbl\\qc Guru Pengampu Kelas,\\line {\\b Ustadz / Ustadzah}\\line\\line\\line\\line\\line ( {\\b ${rtfEscape(teacherName)}} )\\cell `;
-    rtf += `\\pard\\intbl\\qc Disahkan oleh,\\line {\\b Pentashih LPQ Al-Fath Maulana}\\line\\line\\line\\line\\line ( ........................ )\\cell \\row\n`;
+                new Paragraph({ text: "", spacing: { after: 150 } }),
 
-    // Close RTF
-    rtf += '}\n';
+                // 6. Section V: PERKEMBANGAN KARAKTER & ADAB
+                new Paragraph({
+                    children: [new TextRun({ text: "V. PERKEMBANGAN KARAKTER & ADAB", bold: true, size: 22, color: "1E3A8A", font: "Arial" })],
+                    spacing: { before: 100, after: 80 }
+                }),
+                new Table({
+                    width: { size: 100, type: WidthType.PERCENTAGE },
+                    rows: [
+                        new TableRow({
+                            children: [
+                                createHeaderCell("No", { bg: "7E22CE", width: 10 }),
+                                createHeaderCell("Aspek Karakter & Adab", { bg: "7E22CE", align: AlignmentType.LEFT, width: 50 }),
+                                createHeaderCell("Skor", { bg: "7E22CE", width: 15 }),
+                                createHeaderCell("Predikat", { bg: "7E22CE", align: AlignmentType.LEFT, width: 25 })
+                            ]
+                        }),
+                        ...((characterData?.assessedItems || []).map((item, idx) => {
+                            const lbl = item.score === 4 ? 'Sangat Baik (SB)' : item.score === 3 ? 'Berkembang Sesuai Harapan (BSH)' : item.score === 2 ? 'Mulai Berkembang (MB)' : 'Belum Berkembang (BB)';
+                            const col = item.score === 4 ? '10B981' : item.score === 3 ? '1D4ED8' : 'F59E0B';
+                            return new TableRow({
+                                children: [
+                                    createCell(idx + 1, { align: AlignmentType.CENTER }),
+                                    createCell(item.title || item.item_name || '-'),
+                                    createCell(`${item.score || 3} / 4`, { align: AlignmentType.CENTER, bold: true, color: col }),
+                                    createCell(lbl, { color: col })
+                                ]
+                            });
+                        }))
+                    ]
+                }),
 
-    const blob = new Blob([rtf], { type: 'application/rtf' });
+                new Paragraph({ text: "", spacing: { after: 150 } }),
+
+                // 7. Section VI: DAFTAR SEMUA HAFALAN SANTRI
+                new Paragraph({
+                    children: [new TextRun({ text: "VI. DAFTAR SEMUA HAFALAN SANTRI", bold: true, size: 22, color: "1E3A8A", font: "Arial" })],
+                    spacing: { before: 100, after: 80 }
+                }),
+                new Table({
+                    width: { size: 100, type: WidthType.PERCENTAGE },
+                    rows: [
+                        new TableRow({
+                            children: [
+                                createHeaderCell("Jilid", { bg: "1D4ED8", width: 10 }),
+                                createHeaderCell("Nama Item / Surat", { bg: "1D4ED8", align: AlignmentType.LEFT, width: 35 }),
+                                createHeaderCell("Kategori", { bg: "1D4ED8", align: AlignmentType.LEFT, width: 18 }),
+                                createHeaderCell("Skor", { bg: "1D4ED8", width: 10 }),
+                                createHeaderCell("Status Capaian", { bg: "1D4ED8", width: 15 }),
+                                createHeaderCell("Tanggal Evaluasi", { bg: "1D4ED8", align: AlignmentType.RIGHT, width: 12 })
+                            ]
+                        }),
+                        ...((hafalanData?.allItems || []).map(item => {
+                            const dateStr = item.evaluated_at 
+                                ? new Date(item.evaluated_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
+                                : 'Belum Evaluasi';
+                            return new TableRow({
+                                children: [
+                                    createCell(item.jilid || '-', { align: AlignmentType.CENTER, bold: true, color: "7E22CE" }),
+                                    createCell(item.item_name || item.display_name || '-', { bold: true }),
+                                    createCell(item.category || '-'),
+                                    createCell(item.score ? `${item.score} / 4` : '-', { align: AlignmentType.CENTER, bold: true }),
+                                    createCell(item.is_completed ? "Lulus / Dihafal" : "Dalam Proses", { align: AlignmentType.CENTER, bold: true, color: item.is_completed ? "10B981" : "F59E0B" }),
+                                    createCell(dateStr, { align: AlignmentType.RIGHT })
+                                ]
+                            });
+                        }))
+                    ]
+                }),
+
+                new Paragraph({ text: "", spacing: { after: 300 } }),
+
+                // 8. Signatures Block
+                new Table({
+                    width: { size: 100, type: WidthType.PERCENTAGE },
+                    borders: {
+                        top: { style: BorderStyle.NONE },
+                        bottom: { style: BorderStyle.NONE },
+                        left: { style: BorderStyle.NONE },
+                        right: { style: BorderStyle.NONE },
+                        insideHorizontal: { style: BorderStyle.NONE },
+                        insideVertical: { style: BorderStyle.NONE }
+                    },
+                    rows: [
+                        new TableRow({
+                            children: [
+                                createCell("Mengetahui,\nOrang Tua / Wali Santri\n\n\n\n( .................................... )", { align: AlignmentType.CENTER, width: 33 }),
+                                createCell(`Guru Pengampu Kelas,\nUstadz / Ustadzah\n\n\n\n( ${teacherName} )`, { align: AlignmentType.CENTER, bold: true, width: 34 }),
+                                createCell("Disahkan oleh,\nPentashih LPQ Al-Fath Maulana\n\n\n\n( .................................... )", { align: AlignmentType.CENTER, width: 33 })
+                            ]
+                        })
+                    ]
+                })
+            ]
+        }]
+    });
+
+    const blob = await Packer.toBlob(doc);
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `Rapor_${(santriData.nama_lengkap || 'Santri').replace(/\s+/g, '_')}.rtf`;
+    a.download = `Rapor_LPQ_${(santriData.nama_lengkap || 'Santri').replace(/\s+/g, '_')}.docx`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
