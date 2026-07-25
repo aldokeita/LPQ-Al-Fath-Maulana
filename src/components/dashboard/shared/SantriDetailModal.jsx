@@ -55,17 +55,17 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
     const isPtpt = String(santri?.kategori || '').toUpperCase() === 'PTPT';
 
     const fetchNotes = useCallback(async () => {
-        if (!santri) return;
+        if (!santri?.id) return;
         try {
             const data = await fetchSantriNotes(santri.id);
             setNotes(data);
         } catch (error) {
             toast({ title: "Gagal memuat catatan", description: getAcademicErrorMessage(error), variant: 'destructive' });
         }
-    }, [santri]);
+    }, [santri?.id]);
 
     const fetchJilidHistory = useCallback(async () => {
-        if (!santri) return;
+        if (!santri?.id) return;
         const { data } = await supabase
             .from('jilid_history')
             .select('changed_at')
@@ -84,14 +84,14 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
         const diffTime = Math.abs(now - startDate);
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         setJilidDuration(diffDays);
-    }, [santri]);
+    }, [santri?.id, santri?.created_at]);
 
     useEffect(() => {
-        if (isOpen) {
+        if (isOpen && santri?.id) {
             fetchNotes();
             fetchJilidHistory();
         }
-    }, [isOpen, fetchNotes, fetchJilidHistory]);
+    }, [isOpen, santri?.id, fetchNotes, fetchJilidHistory]);
 
     // Calculate Date Range based on Period Selection
     const dateRange = useMemo(() => {

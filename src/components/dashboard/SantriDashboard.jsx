@@ -570,7 +570,7 @@ const SantriDashboard = ({ isAdult = false }) => {
                        <HafalanSection
                          title="Tahfizh PTPT"
                          category="Tahfizh"
-                         items={hafalanItems.filter(i => i.category === 'Tahfizh')}
+                         items={(Array.isArray(hafalanItems) ? hafalanItems : []).filter(i => i && i.category === 'Tahfizh')}
                          hafalanData={hafalan}
                          tone="violet"
                          targets={PTPT_TAHFIZH_TARGETS}
@@ -579,9 +579,9 @@ const SantriDashboard = ({ isAdult = false }) => {
                        />
                      ) : (
                        <>
-                         <HafalanSection title="Do'a" category="Doa" items={hafalanItems.filter(i => i.category === 'Doa')} hafalanData={hafalan} tone="emerald" />
-                         <HafalanSection title="Sholat" category="Sholat" items={hafalanItems.filter(i => i.category === 'Sholat')} hafalanData={hafalan} tone="sky" />
-                         <HafalanSection title="Surat" category="Surat" items={hafalanItems.filter(i => i.category === 'Surat')} hafalanData={hafalan} tone="violet" />
+                         <HafalanSection title="Do'a" category="Doa" items={(Array.isArray(hafalanItems) ? hafalanItems : []).filter(i => i && i.category === 'Doa')} hafalanData={hafalan} tone="emerald" />
+                         <HafalanSection title="Sholat" category="Sholat" items={(Array.isArray(hafalanItems) ? hafalanItems : []).filter(i => i && i.category === 'Sholat')} hafalanData={hafalan} tone="sky" />
+                         <HafalanSection title="Surat" category="Surat" items={(Array.isArray(hafalanItems) ? hafalanItems : []).filter(i => i && i.category === 'Surat')} hafalanData={hafalan} tone="violet" />
                        </>
                      )}
                      <SantriDevelopmentProfile santriId={santriData.id} editable={false} collapsible />
