@@ -4,32 +4,55 @@ import 'jspdf-autotable';
 
 export const calculateAttendanceData = async (santriId, startDate, endDate) => {
     try {
-        let query = supabase.from('attendance').select('status, attendance_date, check_in_timestamp, class_id').eq('user_id', santriId);
+        const [attRes, calRes] = await Promise.all([
+            supabase.from('attendance')
+                .select('status, attendance_date, check_in_timestamp, class_id')
+                .or(`user_id.eq.${santriId},santri_id.eq.${santriId}`)
+                .gte('attendance_date', startDate)
+                .lte('attendance_date', endDate),
+            supabase.from('academic_calendar')
+                .select('date')
+                .eq('is_holiday', true)
+        ]);
 
-        if (startDate) query = query.gte('attendance_date', startDate);
-        if (endDate) query = query.lte('attendance_date', endDate);
+        if (attRes.error) throw attRes.error;
 
-        const { data, error } = await query;
-        if (error) throw error;
+        const safeData = attRes.data || [];
+        const holidays = new Set((calRes.data || []).map(c => c.date));
 
-        const safeData = data || [];
-        const totalPresent = safeData.filter(d => d?.status && String(d.status).toLowerCase() === 'hadir').length;
-        const totalLate = safeData.filter(d => d?.status && String(d.status).toLowerCase() === 'terlambat').length;
-        const totalAbsent = safeData.filter(d => d?.status && (String(d.status).toLowerCase() === 'alpha' || String(d.status).toLowerCase() === 'tidak hadir')).length;
-        const totalPermit = safeData.filter(d => d?.status && ['izin', 'sakit'].includes(String(d.status).toLowerCase())).length;
+        // Compute Total Effective Days (Mon-Fri, non-holiday up to min(endDate, today))
+        let totalEffectiveDays = 0;
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        const today = new Date();
+        today.setHours(23, 59, 59, 999);
+        const limitDate = end < today ? end : today;
 
-        // Total valid attendance days
-        const validPresence = totalPresent + totalLate;
-        const totalDays = validPresence + totalAbsent + totalPermit;
+        for (let d = new Date(start); d <= limitDate; d.setDate(d.getDate() + 1)) {
+            const dayOfWeek = d.getDay();
+            const dateStr = d.toISOString().split('T')[0];
+            if (dayOfWeek >= 1 && dayOfWeek <= 5 && !holidays.has(dateStr)) {
+                totalEffectiveDays++;
+            }
+        }
 
-        const attendancePercentage = totalDays > 0 ? Math.round((validPresence / totalDays) * 100) : 0;
+        const totalPresent = safeData.filter(d => d?.status && ['hadir', 'present'].includes(String(d.status).toLowerCase())).length;
+        const totalLate = safeData.filter(d => d?.status && ['terlambat', 'late'].includes(String(d.status).toLowerCase())).length;
+        const checkInOnlyCount = safeData.filter(d => d?.check_in_timestamp && !['hadir', 'present', 'terlambat', 'late'].includes(String(d?.status || '').toLowerCase())).length;
+        const finalPresent = totalPresent + checkInOnlyCount;
+
+        const totalAttended = finalPresent + totalLate;
+        const totalAbsent = Math.max(0, totalEffectiveDays - totalAttended);
+
+        const attendancePercentage = totalEffectiveDays > 0 
+            ? Math.min(100, Math.round((totalAttended / totalEffectiveDays) * 100)) 
+            : (totalAttended > 0 ? 100 : 0);
 
         return {
-            totalPresent,
+            totalPresent: finalPresent,
             totalLate,
             totalAbsent,
-            totalPermit,
-            totalDays,
+            totalDays: totalEffectiveDays || totalAttended || 1,
             attendancePercentage,
             attendanceData: safeData
         };
@@ -51,29 +74,43 @@ export const getHafalanProgressData = async (santriId) => {
 
         const parseJilidToNumber = (jilidStr) => {
             if (!jilidStr) return 0;
-            const str = jilidStr.toLowerCase();
-            if (str.includes('pra tk')) return 0.5;
-            const match = str.match(/jilid\s*(\d+)/i);
+            const str = String(jilidStr).toLowerCase().trim();
+            if (str.includes('pra')) return 0.5;
+            const match = str.match(/(\d+)/);
             if (match) return parseInt(match[1]);
-            if (str.includes('al-qur\'an') || str.includes('al-quran') || str.includes('alquran')) return 7;
+            if (str.includes('al-qur') || str.includes('alqur')) return 7;
             if (str.includes('ghorib')) return 8;
-            if (str.includes('finishing')) return 9;
-            return 10;
+            if (str.includes('finish') || str.includes('khatam')) return 9;
+            return 0;
         };
         const santriJilidNum = parseJilidToNumber(santri?.jilid);
 
         const [itemsRes, progressRes] = await Promise.all([
-            supabase.from('hafalan_items').select('id,program_scope,category,jilid,item_name,item_order,is_active,created_at').eq('program_scope', programScope).eq('is_active', true).order('item_order'),
-            supabase.from('hafalan_progress').select('id,santri_id,item_id,category,item_name,status,score,created_at,updated_at').eq('santri_id', santriId)
+            supabase.from('hafalan_items')
+                .select('id,program_scope,category,jilid,item_name,item_order,is_active,created_at')
+                .eq('is_active', true)
+                .order('item_order'),
+            supabase.from('hafalan_progress')
+                .select('id,santri_id,item_id,category,item_name,status,score,created_at,updated_at')
+                .or(`santri_id.eq.${santriId},santri_id.eq.${santriId}`)
         ]);
 
         if (itemsRes.error) throw itemsRes.error;
         if (progressRes.error) throw progressRes.error;
 
+        const rawItems = itemsRes.data || [];
+        const scopedItems = rawItems.filter(item => {
+            if (!item.program_scope) return true;
+            if (programScope === 'PTPT') return String(item.program_scope).toUpperCase() === 'PTPT';
+            return String(item.program_scope).toUpperCase() === 'TPQ';
+        });
+
         const progressByItemId = new Map((progressRes.data || []).filter(item => item.item_id).map(item => [item.item_id, item]));
         const progressByName = new Map((progressRes.data || []).map(item => [`${item.category}-${item.item_name}`, item]));
-        let allItems = (itemsRes.data || []).map(item => {
+
+        let allItems = (scopedItems.length > 0 ? scopedItems : rawItems).map(item => {
             const progress = progressByItemId.get(item.id) || progressByName.get(`${item.category}-${item.item_name}`);
+            const isLulus = progress?.status === 'lulus' || Number(progress?.score) === 4;
             return {
                 ...item,
                 ...progress,
@@ -81,20 +118,24 @@ export const getHafalanProgressData = async (santriId) => {
                 item_id: item.id,
                 category: item.category,
                 item_name: item.item_name,
-                is_completed: progress?.status === 'lulus',
-                hafal: progress?.status === 'lulus',
-                score: progress?.score || null,
+                is_completed: isLulus,
+                hafal: isLulus,
+                score: progress?.score ? Number(progress.score) : (isLulus ? 4 : null),
                 display_name: item.item_name,
                 created_at: progress?.updated_at || progress?.created_at || item.created_at
             };
         });
 
-        // Filter based on santri current jilid
         if (programScope === 'TPQ' && santriJilidNum > 0) {
-            allItems = allItems.filter(item => {
+            const filtered = allItems.filter(item => {
                 if (!item.jilid) return true;
-                return parseJilidToNumber(item.jilid) <= santriJilidNum;
+                const itemJilidNum = parseJilidToNumber(item.jilid);
+                if (itemJilidNum === 0) return true;
+                return itemJilidNum <= santriJilidNum || item.is_completed;
             });
+            if (filtered.length > 0) {
+                allItems = filtered;
+            }
         }
 
         const doa = allItems.filter(d => d.category === 'Doa');
@@ -186,9 +227,8 @@ export const calculateProgressAverageScores = (attendanceData, hafalanData, char
     const attendanceScore = attendanceData?.attendancePercentage ?? 85;
     const hafalanScore = hafalanData?.overallProgress ?? 80;
     const characterScore = characterData?.characterPercentage ?? 88;
-    const readingScore = Math.min(100, Math.max(75, Math.round((attendanceScore * 0.4) + (hafalanScore * 0.3) + (characterScore * 0.3))));
 
-    const overallAverage = Math.round((attendanceScore + hafalanScore + characterScore + readingScore) / 4);
+    const overallAverage = Math.round((attendanceScore * 0.34) + (hafalanScore * 0.33) + (characterScore * 0.33));
 
     let predicate = 'Baik (Jayyid)';
     let grade = 'B+';
@@ -209,7 +249,6 @@ export const calculateProgressAverageScores = (attendanceData, hafalanData, char
     return {
         attendanceScore,
         hafalanScore,
-        readingScore,
         characterScore,
         overallAverage,
         predicate,
@@ -288,62 +327,60 @@ export const generateRaporPDF = async (santriData, attendanceData, hafalanData, 
         doc.text(`: ${scoresSummary?.predicate || 'Sangat Baik'} (${scoresSummary?.grade || 'A'})`, 150, 74);
 
         // --- Score Summary Box ---
-        const scores = scoresSummary || { attendanceScore: 90, hafalanScore: 85, readingScore: 88, characterScore: 92, overallAverage: 89, predicate: 'Sangat Baik (Mumtaz)' };
-        doc.setFontSize(12);
+        const scores = scoresSummary || { attendanceScore: 90, hafalanScore: 85, characterScore: 92, overallAverage: 89, predicate: 'Sangat Baik (Mumtaz)' };
+        doc.setFontSize(11);
         doc.setFont('helvetica', 'bold');
         doc.setTextColor(...secondaryColor);
-        doc.text("II. REKAPITULASI NILAI RATA-RATA PROGRESS", 15, 86);
+        doc.text("II. REKAPITULASI NILAI RATA-RATA PROGRESS", 15, 84);
 
         doc.autoTable({
-            startY: 90,
+            startY: 87,
             head: [['Aspek Evaluasi Progress', 'Skor Capaian', 'Bobot Evaluasi', 'Predikat Progress']],
             body: [
-                ['Kehadiran & Keaktifan Mengaji', `${scores.attendanceScore} / 100`, '25%', scores.attendanceScore >= 85 ? 'Sangat Baik' : 'Baik'],
-                ['Kelancaran Bacaan & Makhraj (Qiroati)', `${scores.readingScore} / 100`, '25%', scores.readingScore >= 85 ? 'Sangat Baik' : 'Baik'],
-                ['Ketuntasan Hafalan Doa / Surat', `${scores.hafalanScore} / 100`, '25%', scores.hafalanScore >= 85 ? 'Sangat Baik' : 'Baik'],
-                ['Perkembangan Karakter & Adab', `${scores.characterScore} / 100`, '25%', scores.characterScore >= 85 ? 'Sangat Baik' : 'Baik'],
+                ['Kehadiran & Keaktifan Mengaji', `${scores.attendanceScore} / 100`, '34%', scores.attendanceScore >= 85 ? 'Sangat Baik' : 'Baik'],
+                ['Ketuntasan Hafalan Doa / Surat', `${scores.hafalanScore} / 100`, '33%', scores.hafalanScore >= 85 ? 'Sangat Baik' : 'Baik'],
+                ['Perkembangan Karakter & Adab', `${scores.characterScore} / 100`, '33%', scores.characterScore >= 85 ? 'Sangat Baik' : 'Baik'],
                 [{ content: 'NILAI AKHIR RATA-RATA KESELURUHAN', colSpan: 2, styles: { fontStyle: 'bold', halign: 'right' } }, { content: `${scores.overallAverage} / 100`, styles: { fontStyle: 'bold', textColor: primaryColor } }, { content: scores.predicate, styles: { fontStyle: 'bold', textColor: successColor } }]
             ],
             theme: 'grid',
             headStyles: { fillColor: primaryColor, textColor: 255, fontStyle: 'bold', halign: 'center' },
             bodyStyles: { textColor: 51, halign: 'center' },
             columnStyles: { 0: { halign: 'left' } },
-            styles: { fontSize: 9.5, cellPadding: 4 }
+            styles: { fontSize: 8.5, cellPadding: 3 }
         });
 
         // --- Attendance Table ---
-        let currentY = doc.lastAutoTable.finalY + 8;
-        doc.setFontSize(12);
+        let currentY = doc.lastAutoTable.finalY + 6;
+        doc.setFontSize(11);
         doc.setFont('helvetica', 'bold');
         doc.setTextColor(...secondaryColor);
         doc.text("III. REKAPITULASI KEHADIRAN", 15, currentY);
 
         doc.autoTable({
-            startY: currentY + 4,
-            head: [['Total Hari Efektif', 'Hadir', 'Terlambat', 'Izin / Sakit', 'Alpha', 'Persentase Kehadiran']],
+            startY: currentY + 3,
+            head: [['Total Hari Efektif', 'Hadir', 'Terlambat', 'Alpha', 'Persentase Kehadiran']],
             body: [[
                 `${attendanceData.totalDays} Hari`,
                 `${attendanceData.totalPresent} Hari`,
                 `${attendanceData.totalLate || 0} Hari`,
-                `${attendanceData.totalPermit} Hari`,
                 `${attendanceData.totalAbsent} Hari`,
                 { content: `${attendanceData.attendancePercentage}%`, styles: { fontStyle: 'bold', textColor: attendanceData.attendancePercentage >= 80 ? successColor : warningColor } }
             ]],
             theme: 'grid',
             headStyles: { fillColor: [51, 65, 85], textColor: 255, fontStyle: 'bold', halign: 'center' },
             bodyStyles: { textColor: 51, halign: 'center' },
-            styles: { fontSize: 9, cellPadding: 4 }
+            styles: { fontSize: 8.5, cellPadding: 3 }
         });
 
         // --- Hafalan Overview Table ---
-        currentY = doc.lastAutoTable.finalY + 8;
-        doc.setFontSize(12);
+        currentY = doc.lastAutoTable.finalY + 6;
+        doc.setFontSize(11);
         doc.setFont('helvetica', 'bold');
         doc.setTextColor(...secondaryColor);
         doc.text("IV. REKAPITULASI PROGRES HAFALAN", 15, currentY);
 
         doc.autoTable({
-            startY: currentY + 4,
+            startY: currentY + 3,
             head: [['Kategori Hafalan', 'Total Target Item', 'Telah Dikuasai / Lulus', 'Progres Ketuntasan']],
             body: hafalanData.programScope === 'PTPT'
                 ? [['Tahfizh PTPT', hafalanData.tahfizh.total, hafalanData.tahfizh.completed, `${Math.round((hafalanData.tahfizh.completed / (hafalanData.tahfizh.total || 1)) * 100)}%`]]
@@ -356,7 +393,7 @@ export const generateRaporPDF = async (santriData, attendanceData, hafalanData, 
             headStyles: { fillColor: successColor, textColor: 255, fontStyle: 'bold' },
             bodyStyles: { textColor: 51, halign: 'center' },
             columnStyles: { 0: { halign: 'left', fontStyle: 'bold' } },
-            styles: { fontSize: 9, cellPadding: 4 }
+            styles: { fontSize: 8.5, cellPadding: 3 }
         });
 
         // --- Page 2: Detail Hafalan & Character Strengths ---

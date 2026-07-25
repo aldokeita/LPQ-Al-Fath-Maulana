@@ -530,20 +530,16 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
                                                 Skor Rata-Rata Keseluruhan
                                             </h3>
                                             <p className="text-xs text-muted-foreground">
-                                                Gabungan evaluasi kehadiran, kelancaran Qiroati, ketuntasan hafalan, & karakter.
+                                                Gabungan evaluasi kehadiran, ketuntasan hafalan, & karakter.
                                             </p>
                                         </div>
                                     </div>
 
-                                    {/* 4 Domain Progress Bars */}
-                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full md:w-auto flex-1 max-w-xl">
+                                    {/* 3 Domain Progress Bars */}
+                                    <div className="grid grid-cols-3 gap-3 w-full md:w-auto flex-1 max-w-md">
                                         <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border text-center space-y-1">
                                             <p className="text-[10px] text-muted-foreground uppercase font-bold">Kehadiran</p>
                                             <p className="text-lg font-black text-blue-600">{scoresSummary.attendanceScore}%</p>
-                                        </div>
-                                        <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border text-center space-y-1">
-                                            <p className="text-[10px] text-muted-foreground uppercase font-bold">Kelancaran</p>
-                                            <p className="text-lg font-black text-purple-600">{scoresSummary.readingScore}</p>
                                         </div>
                                         <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border text-center space-y-1">
                                             <p className="text-[10px] text-muted-foreground uppercase font-bold">Hafalan</p>
@@ -569,10 +565,9 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
                                 <table className="w-full text-xs text-left">
                                     <thead>
                                         <tr className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold border-b">
-                                            <th className="py-2.5 px-4">Status Evaluasi</th>
+                                            <th className="py-2.5 px-4 text-center">Total Hari Efektif</th>
                                             <th className="py-2.5 px-4 text-center">Hadir</th>
                                             <th className="py-2.5 px-4 text-center">Terlambat</th>
-                                            <th className="py-2.5 px-4 text-center">Izin / Sakit</th>
                                             <th className="py-2.5 px-4 text-center">Alpha</th>
                                             <th className="py-2.5 px-4 text-right">Persentase Kehadiran</th>
                                         </tr>
@@ -580,21 +575,9 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
                                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                                         {attendanceSummary ? (
                                             <tr>
-                                                <td className="py-3 px-4 font-semibold">
-                                                    <Badge className={cn(
-                                                        "text-[10px] px-2.5 py-0.5 font-bold",
-                                                        attendanceSummary.attendancePercentage >= 85
-                                                            ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-300"
-                                                            : attendanceSummary.attendancePercentage >= 70
-                                                                ? "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border-amber-300"
-                                                                : "bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300 border-rose-300"
-                                                    )}>
-                                                        {attendanceSummary.attendancePercentage >= 85 ? 'Sangat Baik' : attendanceSummary.attendancePercentage >= 70 ? 'Cukup' : 'Perlu Perhatian'}
-                                                    </Badge>
-                                                </td>
-                                                <td className="py-3 px-4 text-center font-bold">{attendanceSummary.totalPresent} Hari</td>
-                                                <td className="py-3 px-4 text-center font-bold text-slate-600">{attendanceSummary.totalLate || 0} Hari</td>
-                                                <td className="py-3 px-4 text-center font-bold text-slate-600">{attendanceSummary.totalPermit} Hari</td>
+                                                <td className="py-3 px-4 text-center font-bold">{attendanceSummary.totalDays} Hari</td>
+                                                <td className="py-3 px-4 text-center font-bold text-emerald-600">{attendanceSummary.totalPresent} Hari</td>
+                                                <td className="py-3 px-4 text-center font-bold text-amber-600">{attendanceSummary.totalLate || 0} Hari</td>
                                                 <td className="py-3 px-4 text-center font-bold text-rose-600">{attendanceSummary.totalAbsent} Hari</td>
                                                 <td className="py-3 px-4 text-right font-black text-sm text-purple-700 dark:text-purple-400">
                                                     {attendanceSummary.attendancePercentage}%
@@ -602,7 +585,7 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
                                             </tr>
                                         ) : (
                                             <tr>
-                                                <td colSpan={6} className="py-4 text-center text-muted-foreground">
+                                                <td colSpan={5} className="py-4 text-center text-muted-foreground">
                                                     <Loader2 className="w-5 h-5 animate-spin mx-auto" />
                                                 </td>
                                             </tr>
