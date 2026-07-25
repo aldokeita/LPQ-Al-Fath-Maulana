@@ -126,7 +126,7 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
 
     // Fetch Full Comprehensive Report View Data
     const fetchReportViewData = useCallback(async () => {
-        if (!santri) return;
+        if (!santri?.id) return;
         setIsLoadingReportData(true);
         try {
             const [attSummary, hafalan, charData] = await Promise.all([
@@ -141,20 +141,23 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
             setHafalanData(hafalan);
             setCharacterData(charData);
             setScoresSummary(summaryScores);
-
-            setIsReportViewOpen(true);
         } catch (error) {
             toast({ title: "Gagal memuat data rapor", description: error.message, variant: 'destructive' });
         } finally {
             setIsLoadingReportData(false);
         }
-    }, [santri, dateRange]);
+    }, [santri?.id, dateRange]);
+
+    const handleOpenReportView = async () => {
+        setIsReportViewOpen(true);
+        await fetchReportViewData();
+    };
 
     useEffect(() => {
-        if (isReportViewOpen) {
+        if (isReportViewOpen && santri?.id) {
             fetchReportViewData();
         }
-    }, [dateRange, isReportViewOpen]);
+    }, [dateRange, isReportViewOpen, santri?.id, fetchReportViewData]);
 
     const handleSaveNote = async () => {
         if (!newNote.trim()) return;
@@ -216,7 +219,7 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
                             <div className="flex flex-wrap gap-2">
                                 <Button
                                     variant="outline"
-                                    onClick={fetchReportViewData}
+                                    onClick={handleOpenReportView}
                                     disabled={isLoadingReportData}
                                     className="bg-purple-50 hover:bg-purple-100 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300 border-purple-200 dark:border-purple-800 font-semibold"
                                 >
@@ -225,7 +228,7 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
                                 </Button>
                                 <Button
                                     variant="default"
-                                    onClick={() => { setIsReportViewOpen(true); }}
+                                    onClick={handleOpenReportView}
                                     className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold shadow-md"
                                 >
                                     <FileText className="w-4 h-4 mr-2" /> Rapor Proper

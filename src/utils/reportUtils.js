@@ -12,10 +12,11 @@ export const calculateAttendanceData = async (santriId, startDate, endDate) => {
         const { data, error } = await query;
         if (error) throw error;
 
-        const totalPresent = data.filter(d => d.status.toLowerCase() === 'hadir').length;
-        const totalLate = data.filter(d => d.status.toLowerCase() === 'terlambat').length;
-        const totalAbsent = data.filter(d => d.status.toLowerCase() === 'alpha' || d.status.toLowerCase() === 'tidak hadir').length;
-        const totalPermit = data.filter(d => ['izin', 'sakit'].includes(d.status.toLowerCase())).length;
+        const safeData = data || [];
+        const totalPresent = safeData.filter(d => d?.status && String(d.status).toLowerCase() === 'hadir').length;
+        const totalLate = safeData.filter(d => d?.status && String(d.status).toLowerCase() === 'terlambat').length;
+        const totalAbsent = safeData.filter(d => d?.status && (String(d.status).toLowerCase() === 'alpha' || String(d.status).toLowerCase() === 'tidak hadir')).length;
+        const totalPermit = safeData.filter(d => d?.status && ['izin', 'sakit'].includes(String(d.status).toLowerCase())).length;
 
         // Total valid attendance days
         const validPresence = totalPresent + totalLate;
@@ -30,7 +31,7 @@ export const calculateAttendanceData = async (santriId, startDate, endDate) => {
             totalPermit,
             totalDays,
             attendancePercentage,
-            attendanceData: data
+            attendanceData: safeData
         };
     } catch (error) {
         console.error("Error calculating attendance:", error);
