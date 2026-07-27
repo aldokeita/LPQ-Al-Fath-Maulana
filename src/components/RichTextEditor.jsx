@@ -1,6 +1,7 @@
 import React from 'react';
-import ReactQuill from 'react-quill';
-import 'react-quill/dist/quill.snow.css';
+import ReactQuill from 'react-quill-new';
+import 'react-quill-new/dist/quill.snow.css';
+import { sanitizeRichText } from '@/lib/richTextSanitizer';
 
 const modules = {
   toolbar: [
@@ -20,12 +21,14 @@ const formats = [
 ];
 
 const RichTextEditor = ({ value, onChange }) => {
+  const safeValue = sanitizeRichText(value);
+
   return (
     <div className="bg-background">
         <ReactQuill
             theme="snow"
-            value={value}
-            onChange={onChange}
+            value={safeValue}
+            onChange={(html) => onChange(sanitizeRichText(html))}
             modules={modules}
             formats={formats}
         />
