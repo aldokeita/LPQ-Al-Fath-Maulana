@@ -1,6 +1,6 @@
 import { supabase } from '../lib/customSupabaseClient';
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import { jsPDF } from 'jspdf';
+import { autoTable } from 'jspdf-autotable';
 import { getSessionName } from './sessionMapping';
 import {
     fetchCharacterAssessmentItems,
@@ -398,7 +398,7 @@ export const generateRaporPDF = async (santriData, attendanceData, hafalanData, 
         doc.setTextColor(...secondaryColor);
         doc.text("II. REKAPITULASI NILAI RATA-RATA PROGRESS", 15, 87);
 
-        doc.autoTable({
+        autoTable(doc, {
             startY: 90,
             head: [['Aspek Evaluasi Progress', 'Skor Capaian', 'Bobot Evaluasi', 'Predikat Progress']],
             body: [
@@ -421,7 +421,7 @@ export const generateRaporPDF = async (santriData, attendanceData, hafalanData, 
         doc.setTextColor(...secondaryColor);
         doc.text("III. REKAPITULASI KEHADIRAN", 15, currentY);
 
-        doc.autoTable({
+        autoTable(doc, {
             startY: currentY + 3,
             head: [['Total Hari Efektif', 'Hadir', 'Terlambat', 'Alpha', 'Persentase Kehadiran']],
             body: [[
@@ -452,7 +452,7 @@ export const generateRaporPDF = async (santriData, attendanceData, hafalanData, 
                 ['Surat Pendek / Juz Amma', hafalanData.surat.total, hafalanData.surat.completed, `${Math.round((hafalanData.surat.completed / (hafalanData.surat.total || 1)) * 100)}%`]
             ];
 
-        doc.autoTable({
+        autoTable(doc, {
             startY: currentY + 3,
             head: [['Kategori Hafalan', 'Total Target Item', 'Telah Dikuasai / Lulus', 'Progres Ketuntasan']],
             body: hafalanSummaryBody,
@@ -499,7 +499,7 @@ export const generateRaporPDF = async (santriData, attendanceData, hafalanData, 
                 ];
             });
 
-            doc.autoTable({
+            autoTable(doc, {
                 startY: currentY + 3,
                 head: [['No', 'Aspek Karakter', 'Skor', 'Predikat']],
                 body: charRows,
@@ -553,7 +553,7 @@ export const generateRaporPDF = async (santriData, attendanceData, hafalanData, 
         });
 
         if (hafalanRows.length > 0) {
-            doc.autoTable({
+            autoTable(doc, {
                 startY: currentY + 4,
                 head: [['Jilid', 'Nama Item / Surat', 'Kategori', 'Skor', 'Status Capaian', 'Tanggal Evaluasi']],
                 body: hafalanRows,

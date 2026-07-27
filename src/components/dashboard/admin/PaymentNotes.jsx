@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/customSupabaseClient';
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import { jsPDF } from 'jspdf';
+import { autoTable } from 'jspdf-autotable';
 import { Trash2, Download } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import ConfirmationDialog from '@/components/ui/confirmation-dialog';
@@ -67,7 +67,7 @@ const PaymentStatusTable = () => {
   const generatePDF = () => {
     const doc = new jsPDF();
     doc.text(`Status Pembayaran SPP - ${selectedMonth} ${selectedYear}`, 14, 16);
-    doc.autoTable({
+    autoTable(doc, {
       head: [['Nama Santri', 'Kelas', 'Periode', 'Status']],
       body: statusData.map(s => [s.nama_lengkap, s.class_name, s.periode, s.status]),
       startY: 20,
@@ -167,7 +167,7 @@ const PaymentNotes = () => {
   const generatePDF = () => {
     const doc = new jsPDF();
     doc.text("Riwayat Pembayaran SPP Santri", 14, 16);
-    doc.autoTable({
+    autoTable(doc, {
       head: [['Tanggal', 'Nama Santri', 'Keterangan', 'Jumlah', 'Metode']],
       body: payments.map(p => [
         new Date(p.tanggal_pembayaran).toLocaleDateString('id-ID'),
