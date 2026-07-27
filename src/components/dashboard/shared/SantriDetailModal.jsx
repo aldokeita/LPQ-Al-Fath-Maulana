@@ -74,14 +74,14 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
         if (!santri?.id) return;
         const { data } = await supabase
             .from('santri')
-            .select('id, nama_ibu, nama_ayah, nama_wali, no_hp_ortu')
+            .select('id, nama_ibu, nama_ayah, no_hp_ortu')
             .eq('id', santri.id)
             .maybeSingle();
         if (data) setSantriFullData(data);
     }, [santri?.id]);
 
-    const guardianName = santriFullData?.nama_ibu || santriFullData?.nama_ayah || santriFullData?.nama_wali
-        || santri?.nama_ibu || santri?.nama_ayah || santri?.nama_wali || '-';
+    const guardianName = santriFullData?.nama_ibu || santriFullData?.nama_ayah
+        || santri?.nama_ibu || santri?.nama_ayah || '-';
 
     const fetchJilidHistory = useCallback(async () => {
         if (!santri?.id) return;
