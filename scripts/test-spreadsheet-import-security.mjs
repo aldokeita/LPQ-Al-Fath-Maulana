@@ -7,12 +7,12 @@ import {
   validateSpreadsheetFile,
 } from '../src/lib/spreadsheetImport.js';
 
-const workbookBuffer = (sheets) => {
+const workbookBuffer = (sheets, bookType = 'xlsx') => {
   const workbook = XLSX.utils.book_new();
   for (const [name, rows] of Object.entries(sheets)) {
     XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(rows), name);
   }
-  const bytes = XLSX.write(workbook, { type: 'array', bookType: 'xlsx' });
+  const bytes = XLSX.write(workbook, { type: 'array', bookType });
   if (bytes instanceof ArrayBuffer) return bytes;
   return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
 };
@@ -33,6 +33,26 @@ const records = parseSpreadsheetArrayBuffer(normalBuffer, {
 assert.equal(Object.getPrototypeOf(records.santri[0]), null);
 assert.equal(records.santri[0].nama, 'Ahmad');
 assert.equal(records.santri[0].points, 10);
+
+const legacyRows = parseSpreadsheetArrayBuffer(workbookBuffer({ santri: [['nama', 'points'], ['Budi', 8]] }, 'xls'), {
+  extension: 'xls',
+  output: 'rows',
+  limits: SPREADSHEET_LIMITS.import,
+});
+assert.deepEqual(legacyRows, [['nama', 'points'], ['Budi', 8]]);
+
+const csvRows = parseSpreadsheetArrayBuffer(
+  workbookBuffer({ ignored: [['nama', 'points'], ['Citra', 9]] }, 'csv'),
+  { extension: 'csv', output: 'rows', limits: SPREADSHEET_LIMITS.import },
+);
+assert.deepEqual(csvRows, [['nama', 'points'], ['Citra', 9]]);
+
+const multiSheetRecords = parseSpreadsheetArrayBuffer(
+  workbookBuffer({ guru: [['nama'], ['Guru Uji']], santri: [['nama'], ['Santri Uji']] }),
+  { extension: 'xlsx', output: 'records', limits: SPREADSHEET_LIMITS.restore },
+);
+assert.equal(multiSheetRecords.guru[0].nama, 'Guru Uji');
+assert.equal(multiSheetRecords.santri[0].nama, 'Santri Uji');
 
 assert.throws(() => parseSpreadsheetArrayBuffer(workbookBuffer({ one: [['a']], two: [['b']] }), {
   extension: 'xlsx',
