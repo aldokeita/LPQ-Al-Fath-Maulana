@@ -114,7 +114,20 @@ with expected_migrations(version) as (
     ('20260717000300'),
     ('20260717000400'),
     ('20260721000100'),
-    ('20260721000200')
+    ('20260721000200'),
+    ('20260721000300'),
+    ('20260721000400'),
+    ('20260721000500'),
+    ('20260722000100'),
+    ('20260722000200'),
+    ('20260722000300'),
+    ('20260723000100'),
+    ('20260723000200'),
+    ('20260723000300'),
+    ('20260724000100'),
+    ('20260725000100'),
+    ('20260725000200'),
+    ('20260727000100')
 ),
 sensitive_tables(table_name) as (
   values
@@ -148,7 +161,7 @@ forbidden_payment_columns(column_name) as (
     ('payment_reference')
 )
 select 'all migrations recorded' as check_name,
-       (count(sm.version) = 32 and not exists (
+       (count(sm.version) = 45 and not exists (
          select 1
          from expected_migrations em
          left join supabase_migrations.schema_migrations sm2 on sm2.version = em.version

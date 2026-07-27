@@ -8,7 +8,8 @@
     "generate:llms": "node tools/generate-llms.js",
     "build": "node tools/build.js",
     "preview": "vite preview --host :: --port 3000",
-    "lint": "eslint . --quiet"
+    "lint": "eslint . --quiet",
+    "test:regression": "node scripts/test-payment-history-pagination.mjs && node scripts/test-admin-role-boundary.mjs && node scripts/test-atomic-guru-account-update.mjs && node scripts/test-attendance-first-record.mjs && node scripts/test-random-name-points.mjs && node scripts/test-pentashih-role-boundary.mjs && node scripts/test-routing-boundaries.mjs"
   },
   "overrides": {
     "eslint-config-react-app": {

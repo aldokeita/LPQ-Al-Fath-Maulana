@@ -60,6 +60,7 @@ const createUnconfiguredClient = () => ({
     signUp: async () => notConfiguredResult,
     signInWithPassword: async () => ({ data: { user: null, session: null }, error: notConfiguredError }),
     setSession: async () => ({ data: { user: null, session: null }, error: notConfiguredError }),
+    updateUser: async () => ({ data: { user: null }, error: notConfiguredError }),
     signOut: async () => ({ error: null }),
     getUser: async () => ({ data: { user: null }, error: notConfiguredError }),
   },

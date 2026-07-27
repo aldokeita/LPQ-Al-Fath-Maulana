@@ -1,8 +1,20 @@
 # Handoff LPQ Al-Fath Maulana
 
-## Status template
+## Status Saat Ini
 
-Repository ini adalah template lokal independen untuk **LPQ Al-Fath Maulana**. Belum ada GitHub remote, Supabase online baru, Vercel project, akun resmi, atau deployment baru. Logo, domain, kontak, alamat, profil, jadwal TPQ, kuota, biaya, persyaratan pendaftaran, sistem pembelajaran, dan aset publik dasar sudah diisi dari informasi resmi lembaga.
+Repository ini adalah aplikasi independen untuk **LPQ Al-Fath Maulana**. Branch stabilisasi aktif saat ini adalah `fix/project-stabilization`; `master` tetap menjadi baseline stabil. Repository sudah memiliki Git remote, tetapi status target Supabase online, Vercel project, dan deployment aktif tetap harus dikonfirmasi sebelum operasi online.
+
+Baseline lokal yang sudah diverifikasi:
+
+- Build produksi lulus.
+- Lint lulus setelah perbaikan import sesi kelas dewasa.
+- Terdapat 45 migration aktif di `supabase/migrations`.
+- Validator urutan migration sudah mencakup seluruh 45 migration.
+- Regression checks source-level tersedia melalui `npm run test:regression`.
+- Backend integration test membutuhkan Docker Desktop/Supabase lokal yang sedang aktif.
+- Dependency non-breaking sudah diperbarui melalui `npm audit fix`; audit masih menyisakan risiko pada jsPDF/DOMPurify, React Quill/Quill, dan `xlsx`.
+
+Logo, domain, kontak, alamat, profil, jadwal TPQ, kuota, biaya, persyaratan pendaftaran, sistem pembelajaran, dan aset publik dasar sudah diisi dari informasi resmi lembaga.
 
 Jangan memasukkan credential, akun Auth, backup, data pribadi, asset privat, URL, Project Ref, maupun data operasional dari lembaga sumber.
 
@@ -10,6 +22,7 @@ Jangan memasukkan credential, akun Auth, backup, data pribadi, asset privat, URL
 
 - Frontend memakai React 18, Vite, React Router, Tailwind CSS, komponen UI Radix, dan Framer Motion.
 - Route utama disusun di `src/App.jsx`; halaman publik dan dashboard role berada di `src/pages` dan `src/components/dashboard`.
+- Halaman route dimuat secara lazy untuk menjaga bundle awal; route yang tidak dikenal menampilkan `src/pages/NotFoundPage.jsx`.
 - Akses data memakai satu client Supabase di `src/lib/customSupabaseClient.js`, lalu adapter per domain di `src/lib`.
 - Backend lokal berada di `supabase`: migration PostgreSQL, RLS, RPC, Storage policy, seed dummy, dan Edge Functions.
 - Konfigurasi browser hanya boleh memakai `VITE_SUPABASE_URL` dan publishable/anon key milik environment baru. Service-role key tidak boleh masuk frontend atau Git.
@@ -39,9 +52,11 @@ Domain internal tersebut hanya identifier teknis lokal/aplikasi, bukan alamat em
 - Migration dijalankan berurutan dari `supabase/migrations`; migration lama yang sudah stabil tidak diubah urutannya.
 - Migration mencakup tipe/extension, profil dan role, guru/santri, kelas/mutasi, absensi, pembayaran/pengeluaran, hafalan/murojaah, kalender, MMQ, konten publik, audit, helper RLS, policy, Storage, index/constraint, RPC, kategori santri, arsip, PTPT/tahfizh, avatar guru, dan sesi absensi aktual.
 - RLS utama berada pada migration `20260624001500_rls_helper_functions.sql` dan `20260624001600_rls_policies.sql` beserta penyesuaian migration berikutnya.
+- Migration `20260727000100_harden_pentashih_role_check.sql` memastikan helper baca Pentashih menggunakan role aktif dari `user_profiles`, bukan `auth.jwt() user_metadata`.
 - Storage memakai bucket `avatars`, `website-assets`, `murojaah-recordings`, dan `music-files` dengan akses publik/pribadi sesuai migration policy.
 - Edge Functions yang dipertahankan: `signin-with-nomor-induk`, `manage-user`, `reset-user-password`, `generate-signed-upload-url`, dan `record-login-attempt`.
-- Test backend lokal berada di `supabase/tests` dan dijalankan melalui `scripts/run-local-backend-tests.ps1`.
+- Test backend lokal berada di `supabase/tests` dan dijalankan melalui `scripts/run-local-backend-tests.ps1`; validator migration dijalankan melalui `scripts/validate-migration-order.ps1`.
+- Regression test frontend/source-level dijalankan melalui `npm run test:regression`.
 
 ## Modul utama
 
@@ -61,7 +76,7 @@ Gunakan secara terarah pada permukaan interaktif. Pertahankan kontras, focus sta
 
 ## Workflow local → staging → production
 
-1. **Local:** isi `.env.local` hanya dengan Supabase lokal, jalankan Supabase melalui Docker, migration, bootstrap Auth dummy baru, seed dummy, test backend, test frontend, dan build.
+1. **Local:** isi `.env.local` hanya dengan Supabase lokal, jalankan Supabase melalui Docker, migration, bootstrap Auth dummy baru, seed dummy, test backend, `npm run test:regression`, dan build.
 2. **Staging:** setelah persetujuan, buat Supabase staging baru dan repository GitHub baru. Berikan URL/Project Ref baru secara eksplisit; deploy migration dan Edge Functions tanpa data asli, lalu buat akun dummy staging baru.
 3. **Frontend staging:** hubungkan Vite ke publishable key staging baru, buat Vercel project baru, atur CORS melalui `ALLOWED_ORIGINS`, lalu jalankan E2E staging.
 4. **Production:** hanya setelah persetujuan terpisah, buat/konfirmasi target production baru, ulangi gate keamanan, dan gunakan credential baru melalui secret manager/dashboard—bukan file repository.

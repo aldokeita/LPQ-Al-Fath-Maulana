@@ -1,46 +1,48 @@
-import React, { useEffect, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { Toaster } from '@/components/ui/toaster';
 import { AuthProvider, useAuth } from '@/contexts/SupabaseAuthContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
-import HomePage from '@/pages/HomePage';
-import LoginPage from '@/pages/LoginPage';
-import DashboardPage from '@/pages/DashboardPage';
-import ProfilePage from '@/pages/ProfilePage';
-import RegistrationInfoPage from '@/pages/RegistrationInfoPage';
-import BrochurePage from '@/pages/BrochurePage';
-import ContactPage from '@/pages/ContactPage';
-import PaymentStatusPage from '@/pages/PaymentStatusPage';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import ScrollToTopButton from '@/components/ScrollToTopButton';
-import NewsPage from '@/pages/NewsPage';
-import NewsDetailPage from '@/pages/NewsDetailPage';
-import AnnouncementPage from '@/pages/AnnouncementPage';
-import AnnouncementDetailPage from '@/pages/AnnouncementDetailPage';
-import QiroatiMethodPage from '@/pages/QiroatiMethodPage';
-import FacilitiesPage from '@/pages/FacilitiesPage';
-import ParentingPage from '@/pages/ParentingPage';
-import ParentingArticlePage from '@/pages/ParentingArticlePage';
-import ForumPage from '@/pages/ForumPage';
-import ForumTopicPage from '@/pages/ForumTopicPage';
-import EduMediaPage from '@/pages/EduMediaPage';
-import SystemPage from '@/pages/SystemPage';
-import WaliDiscussionPage from '@/pages/WaliDiscussionPage';
-import DigitalAttendancePage from '@/pages/DigitalAttendancePage';
-import TvDisplayPage from '@/pages/TvDisplayPage';
-import QuizHafalanPage from '@/pages/QuizHafalanPage';
-import GatchaGamePage from '@/pages/GatchaGamePage';
-import GalleryPage from '@/pages/GalleryPage';
-import RandomNamePage from '@/pages/RandomNamePage';
-import TopScorePage from '@/pages/TopScorePage';
+import NotFoundPage from '@/pages/NotFoundPage';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { verifyDatabaseSchema } from '@/utils/verifyDatabaseSchema';
 import { AlertTriangle, X } from 'lucide-react';
 import { supabase, isSupabaseConfigured } from '@/lib/customSupabaseClient';
 import { enableDeferredFeatures, enableGameFeatures } from '@/lib/featureFlags';
+
+const HomePage = lazy(() => import('@/pages/HomePage'));
+const LoginPage = lazy(() => import('@/pages/LoginPage'));
+const DashboardPage = lazy(() => import('@/pages/DashboardPage'));
+const ProfilePage = lazy(() => import('@/pages/ProfilePage'));
+const RegistrationInfoPage = lazy(() => import('@/pages/RegistrationInfoPage'));
+const BrochurePage = lazy(() => import('@/pages/BrochurePage'));
+const ContactPage = lazy(() => import('@/pages/ContactPage'));
+const PaymentStatusPage = lazy(() => import('@/pages/PaymentStatusPage'));
+const NewsPage = lazy(() => import('@/pages/NewsPage'));
+const NewsDetailPage = lazy(() => import('@/pages/NewsDetailPage'));
+const AnnouncementPage = lazy(() => import('@/pages/AnnouncementPage'));
+const AnnouncementDetailPage = lazy(() => import('@/pages/AnnouncementDetailPage'));
+const QiroatiMethodPage = lazy(() => import('@/pages/QiroatiMethodPage'));
+const FacilitiesPage = lazy(() => import('@/pages/FacilitiesPage'));
+const ParentingPage = lazy(() => import('@/pages/ParentingPage'));
+const ParentingArticlePage = lazy(() => import('@/pages/ParentingArticlePage'));
+const ForumPage = lazy(() => import('@/pages/ForumPage'));
+const ForumTopicPage = lazy(() => import('@/pages/ForumTopicPage'));
+const EduMediaPage = lazy(() => import('@/pages/EduMediaPage'));
+const SystemPage = lazy(() => import('@/pages/SystemPage'));
+const WaliDiscussionPage = lazy(() => import('@/pages/WaliDiscussionPage'));
+const DigitalAttendancePage = lazy(() => import('@/pages/DigitalAttendancePage'));
+const TvDisplayPage = lazy(() => import('@/pages/TvDisplayPage'));
+const QuizHafalanPage = lazy(() => import('@/pages/QuizHafalanPage'));
+const GatchaGamePage = lazy(() => import('@/pages/GatchaGamePage'));
+const GalleryPage = lazy(() => import('@/pages/GalleryPage'));
+const RandomNamePage = lazy(() => import('@/pages/RandomNamePage'));
+const TopScorePage = lazy(() => import('@/pages/TopScorePage'));
 
 const RouteLogger = () => {
   const location = useLocation();
@@ -169,6 +171,15 @@ const DeferredFeaturePage = () => (
   </div>
 );
 
+const RouteLoadingPage = () => (
+  <div className="flex min-h-[55vh] items-center justify-center px-4" role="status" aria-live="polite">
+    <div className="flex items-center gap-3 rounded-2xl border border-border/60 bg-background/75 px-5 py-4 shadow-lg backdrop-blur-md">
+      <span className="h-5 w-5 animate-spin rounded-full border-2 border-primary/30 border-t-primary motion-reduce:animate-none" aria-hidden="true" />
+      <span className="text-sm font-medium text-muted-foreground">Memuat halaman...</span>
+    </div>
+  </div>
+);
+
 const allDashboardRoles = ['admin', 'guru', 'santri', 'pentashih'];
 const operationalDisplayRoles = ['admin', 'guru', 'pentashih'];
 
@@ -203,7 +214,8 @@ function App() {
             <DatabaseHealthCheck />
             <RouteLogger />
             <div className="min-h-screen flex flex-col bg-background text-foreground transition-colors duration-300">
-              <Routes>
+              <Suspense fallback={<RouteLoadingPage />}>
+                <Routes>
                 <Route path="/absensi-digital" element={<ProtectedRoute allowedRoles={operationalDisplayRoles}><DigitalAttendancePage /></ProtectedRoute>} />
                 <Route path="/tv-display-mode" element={<ProtectedRoute allowedRoles={operationalDisplayRoles}><TvDisplayPage /></ProtectedRoute>} />
                 {enableGameFeatures ? (
@@ -226,7 +238,8 @@ function App() {
                   <>
                     <Navbar />
                     <main className="flex-grow">
-                      <Routes>
+                      <Suspense fallback={<RouteLoadingPage />}>
+                        <Routes>
                         <Route path="/" element={<HomePage />} />
                         <Route path="/login" element={<LoginPage />} />
                         <Route path="/profil" element={<ProfilePage />} />
@@ -258,12 +271,15 @@ function App() {
                         <Route path="/metode-qiroati" element={<QiroatiMethodPage />} />
                         <Route path="/fasilitas" element={<FacilitiesPage />} />
                         <Route path="/dashboard" element={<ProtectedRoute allowedRoles={allDashboardRoles}><DashboardPage /></ProtectedRoute>} />
-                      </Routes>
+                        <Route path="*" element={<NotFoundPage />} />
+                        </Routes>
+                      </Suspense>
                     </main>
                     <Footer />
                   </>
                 } />
-              </Routes>
+                </Routes>
+              </Suspense>
               <Toaster />
               <ScrollToTopButton />
             </div>

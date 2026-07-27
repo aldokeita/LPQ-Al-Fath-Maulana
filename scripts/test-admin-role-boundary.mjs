@@ -18,8 +18,11 @@ const revokedAdminInput = { nama: 'Guru Kembali', roles: ['Pengajar'] };
 assert.equal(getOperationalRoleFromGuruForm(revokedAdminInput), 'guru');
 assert.deepEqual(pickGuruProfileFields(revokedAdminInput, 'guru').roles, ['Pengajar']);
 
-const [management, edgeFunction, validation, restrictionMigration, enablementMigration] = await Promise.all([
+const [management, guruDashboard, authContext, supabaseClient, edgeFunction, validation, restrictionMigration, enablementMigration] = await Promise.all([
   readFile(new URL('../src/components/dashboard/admin/GuruManagement.jsx', import.meta.url), 'utf8'),
+  readFile(new URL('../src/components/dashboard/GuruDashboard.jsx', import.meta.url), 'utf8'),
+  readFile(new URL('../src/contexts/SupabaseAuthContext.jsx', import.meta.url), 'utf8'),
+  readFile(new URL('../src/lib/customSupabaseClient.js', import.meta.url), 'utf8'),
   readFile(new URL('../supabase/functions/manage-user/index.ts', import.meta.url), 'utf8'),
   readFile(new URL('../supabase/functions/_shared/validation.ts', import.meta.url), 'utf8'),
   readFile(new URL('../supabase/migrations/20260722000100_restrict_admin_to_official_email.sql', import.meta.url), 'utf8'),
@@ -29,6 +32,10 @@ const [management, edgeFunction, validation, restrictionMigration, enablementMig
 assert.match(management, /AVAILABLE_ROLES\s*=\s*\[[^\]]*['"]Admin['"]/);
 assert.match(management, /Role Admin memberikan akses penuh ke Dashboard Admin/);
 assert.match(management, /action:\s*['"]update['"]/);
+assert.match(guruDashboard, /const \{ updateUserPassword \} = useAuth\(\)/);
+assert.match(authContext, /supabase\.auth\.updateUser\(\{ password \}\)/);
+assert.match(authContext, /updateUserPassword,/);
+assert.match(supabaseClient, /updateUser:\s*async/);
 assert.match(edgeFunction, /OFFICIAL_ADMIN_EMAIL\s*=\s*['"]admin@lpqalfathmaulana\.id['"]/);
 assert.match(edgeFunction, /role === "admin" \? "admin"/);
 assert.match(validation, /value === "admin"/);

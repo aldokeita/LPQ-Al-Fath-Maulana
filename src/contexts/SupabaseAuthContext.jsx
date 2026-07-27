@@ -295,6 +295,29 @@ export const AuthProvider = ({ children }) => {
     return { error: null };
   }, [clearAuthState, toast]);
 
+  const updateUserPassword = useCallback(async (password) => {
+    if (!isSupabaseConfigured) {
+      toast({
+        variant: "destructive",
+        title: "Supabase belum dikonfigurasi",
+        description: supabaseConfigurationMessage,
+      });
+      return false;
+    }
+
+    const { error } = await supabase.auth.updateUser({ password });
+    if (error) {
+      toast({
+        variant: "destructive",
+        title: "Gagal mengganti password",
+        description: error.message || "Password akun tidak dapat diperbarui.",
+      });
+      return false;
+    }
+
+    return true;
+  }, [toast]);
+
   const value = useMemo(() => ({
     user,
     session,
@@ -306,8 +329,9 @@ export const AuthProvider = ({ children }) => {
     signIn,
     signInWithUsername,
     signOut,
+    updateUserPassword,
     refreshProfile: user ? () => loadUserProfile(user.id) : async () => ({ profile: null, error: null }),
-  }), [user, session, profile, role, loading, profileLoading, signUp, signIn, signInWithUsername, signOut, loadUserProfile]);
+  }), [user, session, profile, role, loading, profileLoading, signUp, signIn, signInWithUsername, signOut, updateUserPassword, loadUserProfile]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
