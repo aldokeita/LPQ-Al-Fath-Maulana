@@ -26,6 +26,7 @@ import { archiveSantriAccounts, getFunctionErrorMessage } from '@/lib/santriArch
 import { copyTextToClipboard } from '@/lib/clipboardUtils';
 import SantriArchiveDialog from '@/components/dashboard/admin/SantriArchiveDialog';
 import DataPagination from '@/components/dashboard/shared/DataPagination';
+import { parseSpreadsheetFile, SPREADSHEET_LIMITS, validateSpreadsheetFile } from '@/lib/spreadsheetImport';
 
 const PAGE_SIZE = 10;
 
@@ -95,7 +96,15 @@ const BulkUploadModal = ({ isOpen, onClose, onUpload, category = 'Anak' }) => {
 
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
-    if (selectedFile) setFile(selectedFile);
+    if (!selectedFile) return;
+    try {
+      validateSpreadsheetFile(selectedFile, { maxBytes: SPREADSHEET_LIMITS.import.maxBytes });
+      setFile(selectedFile);
+    } catch (error) {
+      setFile(null);
+      e.target.value = '';
+      toast({ title: 'File Tidak Valid', description: error.message, variant: 'destructive' });
+    }
   };
 
   const downloadTemplate = () => {
@@ -111,22 +120,10 @@ const BulkUploadModal = ({ isOpen, onClose, onUpload, category = 'Anak' }) => {
   };
 
   const processExcel = async (file) => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        try {
-          const data = new Uint8Array(e.target.result);
-          const workbook = XLSX.read(data, { type: 'array' });
-          const firstSheetName = workbook.SheetNames[0];
-          const worksheet = workbook.Sheets[firstSheetName];
-          const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-          resolve(json);
-        } catch (error) {
-          reject(error);
-        }
-      };
-      reader.onerror = (error) => reject(error);
-      reader.readAsArrayBuffer(file);
+    return parseSpreadsheetFile(file, {
+      output: 'rows',
+      limits: SPREADSHEET_LIMITS.import,
+      maxBytes: SPREADSHEET_LIMITS.import.maxBytes,
     });
   };
 

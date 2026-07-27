@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { motion } from 'framer-motion';
 import { enableEdgeFunctions } from '@/lib/featureFlags';
+import { parseSpreadsheetFile, SPREADSHEET_LIMITS, validateSpreadsheetFile } from '@/lib/spreadsheetImport';
 
 const BACKUP_TABLES = [
     'guru',
@@ -460,8 +461,19 @@ const BackupRestoreManagement = () => {
             return;
         }
 
-        if (file.size > 25 * 1024 * 1024) {
-            toast({ variant: 'destructive', title: 'File Terlalu Besar', description: 'Ukuran maksimal file restore adalah 25 MB.' });
+        if (extension !== 'json') {
+            try {
+                validateSpreadsheetFile(file, {
+                    allowedExtensions: ['xlsx', 'csv'],
+                    maxBytes: SPREADSHEET_LIMITS.restore.maxBytes,
+                });
+            } catch (error) {
+                toast({ variant: 'destructive', title: 'File Tidak Valid', description: error.message });
+                event.target.value = '';
+                return;
+            }
+        } else if (file.size <= 0 || file.size > SPREADSHEET_LIMITS.restore.maxBytes) {
+            toast({ variant: 'destructive', title: 'File Tidak Valid', description: 'File JSON harus berukuran antara 1 byte dan 25 MB.' });
             event.target.value = '';
             return;
         }
@@ -478,58 +490,37 @@ const BackupRestoreManagement = () => {
 
         try {
             console.log(`Parsing file: ${restoreFile.name}`);
-            const reader = new FileReader();
-
-            reader.onload = async (e) => {
-                const content = e.target.result;
-                let parsedData = {};
-
-                try {
-                    if (restoreFile.name.toLowerCase().endsWith('.json')) {
-                        parsedData = JSON.parse(content);
-                    } else if (restoreFile.name.toLowerCase().endsWith('.xlsx')) {
-                        const workbook = XLSX.read(content, { type: 'binary' });
-                        workbook.SheetNames.forEach(sheetName => {
-                            const rowData = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
-                            parsedData[sheetName] = rowData;
-                        });
-                    } else if (restoreFile.name.toLowerCase().endsWith('.csv')) {
-                        const workbook = XLSX.read(content, { type: 'binary' });
-                        const sheetName = workbook.SheetNames[0];
-                        parsedData['santri'] = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
-                    }
-
-                    if (Object.keys(parsedData).length === 0) {
-                        throw new Error("File kosong atau format data tidak dapat diekstrak.");
-                    }
-
-                    const recognizedTables = BACKUP_TABLES.filter((tableName) => Array.isArray(parsedData[tableName]));
-                    if (recognizedTables.length === 0) {
-                        throw new Error('File tidak berisi tabel LPQ yang dikenali.');
-                    }
-
-                    setRestoreData(parsedData);
-                    setShowConfirmRestore(true);
-                } catch (parseErr) {
-                    console.error("File parsing logic error:", parseErr);
-                    toast({ variant: "destructive", title: "Format File Salah", description: parseErr.message || "Gagal mengurai isi file backup." });
-                } finally {
-                    setIsLoading(false);
+            let parsedData;
+            if (restoreFile.name.toLowerCase().endsWith('.json')) {
+                parsedData = JSON.parse(await restoreFile.text());
+            } else {
+                const sheets = await parseSpreadsheetFile(restoreFile, {
+                    allowedExtensions: ['xlsx', 'csv'],
+                    output: 'records',
+                    limits: SPREADSHEET_LIMITS.restore,
+                    maxBytes: SPREADSHEET_LIMITS.restore.maxBytes,
+                });
+                if (restoreFile.name.toLowerCase().endsWith('.csv')) {
+                    parsedData = { santri: sheets[Object.keys(sheets)[0]] };
+                } else {
+                    parsedData = sheets;
                 }
-            };
+            }
 
-            reader.onerror = (e) => {
-                console.error("FileReader error:", e);
-                toast({ variant: "destructive", title: "Gagal Membaca File", description: "Terjadi kesalahan saat membaca file dari perangkat Anda." });
-                setIsLoading(false);
-            };
+            if (!parsedData || typeof parsedData !== 'object' || Array.isArray(parsedData) || Object.keys(parsedData).length === 0) {
+                throw new Error("File kosong atau format data tidak dapat diekstrak.");
+            }
 
-            if (restoreFile.name.toLowerCase().endsWith('.json')) reader.readAsText(restoreFile);
-            else reader.readAsBinaryString(restoreFile);
+            const recognizedTables = BACKUP_TABLES.filter((tableName) => Array.isArray(parsedData[tableName]));
+            if (recognizedTables.length === 0) throw new Error('File tidak berisi tabel LPQ yang dikenali.');
+
+            setRestoreData(parsedData);
+            setShowConfirmRestore(true);
 
         } catch (error) {
-            console.error("Parse Setup Error:", error);
-            toast({ variant: "destructive", title: "Gagal Setup File", description: error.message || "Gagal memproses file." });
+            console.error("File parsing error:", error);
+            toast({ variant: "destructive", title: "Format File Salah", description: error.message || "Gagal mengurai isi file backup." });
+        } finally {
             setIsLoading(false);
         }
     };
