@@ -30,21 +30,54 @@ begin
       message = 'Data santri tidak ditemukan atau sudah dihapus.';
   end if;
 
-  -- 1. Delete associated records across all modules with explicit table aliases
-  delete from public.attendance a where a.user_id = p_santri_id;
-  delete from public.hafalan_progress hp where hp.santri_id = p_santri_id;
-  delete from public.santri_character_scores scs where scs.santri_id = p_santri_id;
-  delete from public.santri_character_strengths scst where scst.santri_id = p_santri_id;
-  delete from public.santri_jilid_history sjh where sjh.santri_id = p_santri_id;
-  delete from public.santri_class_mutations scm where scm.santri_id = p_santri_id;
-  delete from public.class_memberships cm where cm.santri_id = p_santri_id;
-  delete from public.payments p where p.santri_id = p_santri_id;
-  delete from public.auth_login_aliases ala where ala.auth_user_id = p_santri_id;
-  delete from public.login_activity_logs lal where lal.user_id = p_santri_id;
+  -- 1. Delete associated records across all modules safely using to_regclass checks
+  if to_regclass('public.attendance') is not null then
+    delete from public.attendance where user_id = p_santri_id;
+  end if;
+
+  if to_regclass('public.hafalan_progress') is not null then
+    delete from public.hafalan_progress where santri_id = p_santri_id;
+  end if;
+
+  if to_regclass('public.santri_character_scores') is not null then
+    delete from public.santri_character_scores where santri_id = p_santri_id;
+  end if;
+
+  if to_regclass('public.santri_character_strengths') is not null then
+    delete from public.santri_character_strengths where santri_id = p_santri_id;
+  end if;
+
+  if to_regclass('public.jilid_history') is not null then
+    delete from public.jilid_history where santri_id = p_santri_id;
+  end if;
+
+  if to_regclass('public.santri_jilid_history') is not null then
+    delete from public.santri_jilid_history where santri_id = p_santri_id;
+  end if;
+
+  if to_regclass('public.santri_class_mutations') is not null then
+    delete from public.santri_class_mutations where santri_id = p_santri_id;
+  end if;
+
+  if to_regclass('public.class_memberships') is not null then
+    delete from public.class_memberships where santri_id = p_santri_id;
+  end if;
+
+  if to_regclass('public.payments') is not null then
+    delete from public.payments where santri_id = p_santri_id;
+  end if;
+
+  if to_regclass('public.auth_login_aliases') is not null then
+    delete from public.auth_login_aliases where auth_user_id = p_santri_id;
+  end if;
+
+  if to_regclass('public.login_activity_logs') is not null then
+    delete from public.login_activity_logs where user_id = p_santri_id;
+  end if;
 
   -- 2. Delete santri and user_profiles record
-  delete from public.santri s where s.id = p_santri_id;
-  delete from public.user_profiles up where up.id = p_santri_id;
+  delete from public.santri where id = p_santri_id;
+  delete from public.user_profiles where id = p_santri_id;
 
   return query select p_santri_id, true;
 end;
