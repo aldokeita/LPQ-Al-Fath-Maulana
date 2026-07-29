@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { toast } from '@/components/ui/use-toast';
-import { Archive, Plus, Edit, Search, Upload, ArrowUpDown, FileCheck, Download, XCircle, Trophy, Users, Filter, FileSpreadsheet, ArrowRightLeft, User, Phone, GraduationCap, FileText, Lock, Star, Bell, Cake, Copy, BookOpen, CheckCircle } from 'lucide-react';
+import { Archive, Plus, Edit, Search, Upload, ArrowUpDown, FileCheck, Download, XCircle, Trophy, Users, Filter, FileSpreadsheet, ArrowRightLeft, User, Phone, GraduationCap, FileText, Lock, Star, Bell, Cake, Copy, BookOpen, CheckCircle, AlertCircle } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -320,6 +320,7 @@ const UploadReportModal = ({ isOpen, onClose, report, onConfirm }) => {
                         <thead className="bg-slate-100 border-b">
                             <tr>
                                 <th className="p-2">Nama Lengkap</th>
+                                <th className="p-2">No. Induk Qiroati</th>
                                 <th className="p-2">Jilid</th>
                                 <th className="p-2">Jenis Kelamin</th>
                                 <th className="p-2">Sesi</th>
@@ -328,7 +329,11 @@ const UploadReportModal = ({ isOpen, onClose, report, onConfirm }) => {
                         <tbody>
                             {report.validData.slice(0, 5).map((d, i) => (
                                 <tr key={i} className="border-b last:border-0">
-                                    <td className="p-2">{d.nama_lengkap}</td>
+                                    <td className="p-2 font-semibold">{d.nama_lengkap}</td>
+                                    <td className="p-2 font-mono">
+                                      {d.nomor_induk_qiroati || '-'}
+                                      {d.is_auto_niq && <span className="ml-1 text-[10px] text-emerald-600 bg-emerald-50 border border-emerald-200 px-1 py-0.2 rounded font-sans font-normal">(Otomatis)</span>}
+                                    </td>
                                     <td className="p-2">{d.jilid}</td>
                                     <td className="p-2">{d.jenis_kelamin}</td>
                                     <td className="p-2">{getSessionName(d.sesi_mengaji)}</td>
@@ -342,9 +347,52 @@ const UploadReportModal = ({ isOpen, onClose, report, onConfirm }) => {
 
         <DialogFooter className="gap-2 sm:gap-0 mt-4">
             <Button variant="outline" onClick={onClose}>Batal</Button>
-            <Button onClick={onConfirm} disabled={report.validCount === 0} className="bg-green-600 hover:bg-green-700">
-                <CheckCircle className="w-4 h-4 mr-2"/> Simpan {report.validCount} Data Valid
+            <Button onClick={onConfirm} disabled={report.validCount === 0} className="bg-green-600 hover:bg-green-700 font-bold">
+                <CheckCircle className="w-4 h-4 mr-2"/> Proses Import {report.validCount} Data Santri
             </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+const ImportResultReportModal = ({ isOpen, onClose, report }) => {
+  if (!report) return null;
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-lg p-6 rounded-3xl">
+        <DialogHeader>
+          <div className="flex items-center gap-3 text-amber-600 mb-1">
+            <AlertCircle className="h-6 w-6" />
+            <DialogTitle className="text-base font-bold text-slate-900 dark:text-white">Hasil Impor Massal Santri</DialogTitle>
+          </div>
+          <DialogDescription className="text-xs">
+            {report.successCount} santri berhasil diimpor ke database. Terdapat {report.failures.length} santri yang gagal diimpor.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="py-2 space-y-2">
+          <p className="text-xs font-bold text-slate-800 dark:text-slate-200">Daftar Santri Gagal Diimpor:</p>
+          <div className="max-h-56 overflow-y-auto space-y-2 pr-1">
+            {report.failures.map((f, i) => (
+              <div key={i} className="p-3 rounded-xl bg-amber-500/10 border border-amber-200 dark:border-amber-900/50 text-xs space-y-1">
+                <div className="flex items-center justify-between font-bold text-slate-900 dark:text-slate-100">
+                  <span>Baris {f.row}: {f.name}</span>
+                  <span className="font-mono text-[10px] text-muted-foreground">NIQ: {f.niq || '-'}</span>
+                </div>
+                <p className="text-rose-700 dark:text-rose-400 text-[11px] font-medium leading-relaxed">
+                  Alasan: {f.reason}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <DialogFooter className="mt-4">
+          <Button type="button" onClick={onClose} className="w-full rounded-xl">
+            Saya Mengerti
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -391,6 +439,68 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
       return null;
   };
 
+  const generateAutoNomorInduk = (usedSet) => {
+    const yearPrefix = new Date().getFullYear().toString().slice(-2);
+    let attempts = 0;
+    while (attempts < 500) {
+      attempts++;
+      const rand = Math.floor(10000 + Math.random() * 90000);
+      const candidate = `${yearPrefix}${rand}`;
+      if (!usedSet.has(candidate)) {
+        usedSet.add(candidate);
+        return candidate;
+      }
+    }
+    const fallback = `${yearPrefix}${Date.now().toString().slice(-5)}`;
+    usedSet.add(fallback);
+    return fallback;
+  };
+
+  const formatFriendlyErrorString = (msg, santri) => {
+    if (!msg) return 'Gagal membuat akun login santri.';
+    const str = String(msg);
+    if (str.includes('DUPLICATE_NOMOR_INDUK') || str.includes('Nomor Induk Qiroati sudah digunakan')) {
+      return `Nomor Induk Qiroati (${santri.nomor_induk_qiroati || '-'}) sudah terdaftar pada santri lain.`;
+    }
+    if (str.includes('duplicate key') || str.includes('23505')) {
+      return `Data identitas santri (${santri.nomor_induk_qiroati || santri.nama_lengkap}) bentrok dengan data santri lain di database.`;
+    }
+    if (str.includes('Password minimal') || str.includes('Password awal')) {
+      return 'Password awal login santri minimal 4 karakter.';
+    }
+    if (str.includes('INVALID_SANTRI_CATEGORY')) {
+      return 'Kategori santri tidak sesuai (wajib TPQ, PTPT, atau Dewasa).';
+    }
+    if (str.includes('UNAUTHORIZED') || str.includes('Session')) {
+      return 'Sesi login Anda telah berakhir. Silakan login kembali.';
+    }
+    if (str.includes('PROFILE_CREATE_FAILED')) {
+      return 'Profil santri gagal disimpan ke database.';
+    }
+    if (str.includes('ALIAS_CREATE_FAILED')) {
+      return 'Identitas login (alias) santri gagal dibuat.';
+    }
+    if (str.includes('SANTRI_CREATE_FAILED')) {
+      return 'Detail data santri gagal disimpan.';
+    }
+    return str.replace(/([A-Z0-9_]{5,}:|errcode\s*=\s*['"]?[A-Z0-9]+['"]?|PostgREST error|SQLState\s*\w+)/gi, '').trim() || 'Gagal menyimpan data santri ke database.';
+  };
+
+  const getFriendlyFunctionErrorMessage = async (error, santri) => {
+    if (!error) return 'Gagal membuat akun login santri.';
+    try {
+      const response = error.context;
+      if (response && typeof response.clone === 'function') {
+        const payload = await response.clone().json();
+        const rawMsg = payload?.error?.message || payload?.message;
+        if (rawMsg) return formatFriendlyErrorString(rawMsg, santri);
+      }
+    } catch {
+      // fallback
+    }
+    return formatFriendlyErrorString(error.message, santri);
+  };
+
   const handleDataProcessing = (rawData, isExcel) => {
     const firstRow = rawData[0];
     const isHeader = firstRow && (
@@ -401,6 +511,11 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
     const dataRows = isHeader ? rawData.slice(1) : rawData;
     const validData = [];
     const errors = [];
+    const usedNiqSet = new Set();
+
+    santriList.forEach((s) => {
+      if (s.nomor_induk_qiroati) usedNiqSet.add(s.nomor_induk_qiroati);
+    });
 
     dataRows.forEach((row, idx) => {
         if (!row || row.length === 0 || row.every(c => !c)) return;
@@ -468,8 +583,15 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
             // 14. No NIK
             santri.no_nik = row[13];
 
-            // 15. No Induk Qiroati
-            santri.nomor_induk_qiroati = normalizeNomorIndukQiroati(row[14]);
+            // 15. No Induk Qiroati (Auto-generate jika kosong)
+            let rawNiq = normalizeNomorIndukQiroati(row[14]);
+            if (!rawNiq) {
+                rawNiq = generateAutoNomorInduk(usedNiqSet);
+                santri.is_auto_niq = true;
+            } else {
+                usedNiqSet.add(rawNiq);
+            }
+            santri.nomor_induk_qiroati = rawNiq;
 
             // 16. RFID
             santri.rfid_tag = row[15];
@@ -497,12 +619,78 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
   const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
   const [uploadReport, setUploadReport] = useState(null);
   const [isReportOpen, setIsReportOpen] = useState(false);
+  const [importResultReport, setImportResultReport] = useState({ open: false, successCount: 0, failures: [] });
   const [editingSantri, setEditingSantri] = useState(null);
   const [sortConfig, setSortConfig] = useState({ key: 'nama_lengkap', direction: 'ascending' });
   const [selectedSantri, setSelectedSantri] = useState(new Set());
   const [isUploading, setIsUploading] = useState(false);
   const photoInputRef = React.useRef(null);
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', description: '', onConfirm: () => {} });
+
+  const confirmBulkUpload = async () => {
+      if (!uploadReport?.validData || uploadReport.validData.length === 0) return;
+
+      setIsLoadingData(true);
+      let successCount = 0;
+      const batchFailures = [];
+
+      toast({
+          title: "Memproses Impor Massal...",
+          description: `Sedang membuat ${uploadReport.validData.length} akun santri. Mohon tunggu sejenak...`,
+      });
+
+      for (let i = 0; i < uploadReport.validData.length; i++) {
+          const santri = uploadReport.validData[i];
+          try {
+              const profilePayload = pickSantriProfileFields(santri);
+              const { data, error } = await supabase.functions.invoke('manage-user', {
+                  body: {
+                      action: 'create',
+                      role: 'santri',
+                      profile: profilePayload,
+                      initial_password: santri.password || santri.nomor_induk_qiroati,
+                  },
+              });
+
+              if (error) {
+                  const friendlyMsg = await getFriendlyFunctionErrorMessage(error, santri);
+                  throw new Error(friendlyMsg);
+              }
+              if (!data?.ok || !data?.data?.user_id) {
+                  const friendlyMsg = formatFriendlyErrorString(data?.error?.message, santri);
+                  throw new Error(friendlyMsg);
+              }
+
+              successCount++;
+          } catch (err) {
+              batchFailures.push({
+                  row: i + 1,
+                  name: santri.nama_lengkap,
+                  niq: santri.nomor_induk_qiroati,
+                  reason: err.message || 'Gagal menyimpan data santri ke database.'
+              });
+          }
+      }
+
+      setIsLoadingData(false);
+      setIsReportOpen(false);
+      await loadData(subCategory);
+      window.dispatchEvent(new CustomEvent('lpq:santri-data-changed'));
+
+      if (batchFailures.length === 0) {
+          toast({
+              title: "Impor Massal Berhasil!",
+              description: `Seluruh ${successCount} santri berhasil diimpor dan akun login telah dibuat.`,
+          });
+      } else {
+          setImportResultReport({
+              open: true,
+              successCount,
+              failures: batchFailures,
+          });
+      }
+  };
+
   const [previewImage, setPreviewImage] = useState(null);
   const [isBirthdayModalOpen, setIsBirthdayModalOpen] = useState(false);
   const [isArchiveOpen, setIsArchiveOpen] = useState(false);
@@ -644,14 +832,7 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
     }, {});
   }, [classesList]);
 
-  const confirmBulkUpload = async () => {
-      if (!uploadReport?.validData) return;
-      toast({
-          title: "Import massal ditunda",
-          description: "Pembuatan akun santri massal perlu operasi backend atomik agar Auth, profil, alias login, dan membership tetap konsisten.",
-          variant: "destructive"
-      });
-  };
+
 
   const handleDownloadData = async () => {
     try {
@@ -1445,6 +1626,7 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
 
       <BulkUploadModal isOpen={isBulkUploadOpen} onClose={() => setIsBulkUploadOpen(false)} onUpload={handleDataProcessing} category={subCategory === 'ptpt' ? 'PTPT' : 'Anak'} />
       <UploadReportModal isOpen={isReportOpen} onClose={() => setIsReportOpen(false)} report={uploadReport} onConfirm={confirmBulkUpload} />
+      <ImportResultReportModal isOpen={importResultReport.open} onClose={() => setImportResultReport({ ...importResultReport, open: false })} report={importResultReport} />
       <BirthdayNotificationModal isOpen={isBirthdayModalOpen} onClose={() => setIsBirthdayModalOpen(false)} students={birthdayStudents} />
       <SantriArchiveDialog
         open={isArchiveOpen}

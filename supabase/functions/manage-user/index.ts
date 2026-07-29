@@ -62,7 +62,7 @@ Deno.serve(async (req) => {
     const profile = body.profile ?? {};
     const admin = getServiceRoleClient();
 
-    if (!["create", "update", "deactivate", "archive", "restore"].includes(action)) {
+    if (!["create", "update", "deactivate", "archive", "restore", "hard_delete", "delete_permanent"].includes(action)) {
       return fail(req, "VALIDATION_ERROR", "Action tidak valid.", 400);
     }
 
@@ -270,6 +270,30 @@ Deno.serve(async (req) => {
         archived,
         current_class_id: archiveResult?.[0]?.current_class_id ?? null,
       });
+    }
+
+    if (["hard_delete", "delete_permanent"].includes(action)) {
+      if (role !== "santri") {
+        return fail(req, "VALIDATION_ERROR", "Hapus permanen hanya dapat dilakukan untuk akun santri.", 400);
+      }
+
+      const { error: deleteRpcError } = await admin.rpc("permanently_delete_santri", {
+        p_santri_id: targetUserId,
+        p_actor_id: user.id,
+      });
+
+      if (deleteRpcError) {
+        logSafe("error", "manage_user_hard_delete_rpc_failed", { request_id: rid, target_user_id: targetUserId, error: String(deleteRpcError) });
+        return fail(req, "SANTRI_HARD_DELETE_FAILED", `Data santri gagal dihapus permanen: ${deleteRpcError.message}`, 400);
+      }
+
+      const { error: authDeleteError } = await admin.auth.admin.deleteUser(targetUserId);
+      if (authDeleteError) {
+        logSafe("warn", "manage_user_hard_delete_auth_failed", { request_id: rid, target_user_id: targetUserId, error: String(authDeleteError) });
+      }
+
+      logSafe("info", "manage_user_hard_deleted", { request_id: rid, target_user_id: targetUserId });
+      return ok(req, { user_id: targetUserId, hard_deleted: true });
     }
 
     if (["archive", "restore"].includes(action)) {
