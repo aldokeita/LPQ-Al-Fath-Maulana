@@ -36,7 +36,6 @@ const HeroSection = ({ content, currentSlide, setCurrentSlide, stats }) => {
   const heroSubtext = activeSlide.author || 'Metode Qiroati, pembinaan adab, dan informasi lembaga yang mudah diikuti wali santri.';
   const logoUrl = content.logoUrl || LOCAL_LOGO;
   const quality = useMemo(getQuality, []);
-  const sessionCount = Math.max(safeArray(content.schedules).length, 0);
   const heroCards = useMemo(() => {
     const heroItems = slides.map((slide, index) => ({
       id: slide.id || `hero-${index}`,
@@ -178,7 +177,7 @@ const HeroSection = ({ content, currentSlide, setCurrentSlide, stats }) => {
               guru aktif
             </span>
             <span className="home-hero-stat">
-              <strong><CountUp from={0} to={sessionCount || 0} separator="." duration={2.2} delay={0.2} /></strong>
+              <strong><CountUp from={0} to={Number(stats.sessions || 0)} separator="." duration={2.2} delay={0.2} /></strong>
               sesi belajar
             </span>
           </div>

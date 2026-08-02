@@ -5,6 +5,7 @@ import { supabase, isSupabaseConfigured } from '@/lib/customSupabaseClient';
 import {
   fetchPublishedAnnouncements,
   fetchPublishedNews,
+  fetchPublicHomepageStats,
   getPublicContentErrorMessage,
   submitPublicFeedback,
 } from '@/lib/publicContentAdapters';
@@ -30,7 +31,7 @@ const HomePage = () => {
   const [content, setContent] = useState(defaultContent);
   const [news, setNews] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
-  const [stats, setStats] = useState({ santri: 0, guru: 0 });
+  const [stats, setStats] = useState({ santri: 0, guru: 0, sessions: 0 });
   const [currentSlide, setCurrentSlide] = useState(0);
   const [loading, setLoading] = useState(true);
   const [contentError, setContentError] = useState('');
@@ -51,9 +52,8 @@ const HomePage = () => {
           return;
         }
 
-        const [santriResult, guruResult, contentResult, newsResult, announcementResult] = await Promise.all([
-          supabase.from('santri').select('id', { count: 'exact', head: true }).eq('status', 'Aktif'),
-          supabase.from('guru').select('id', { count: 'exact', head: true }),
+        const [statsResult, contentResult, newsResult, announcementResult] = await Promise.all([
+          fetchPublicHomepageStats(),
           supabase.from('website_content').select('key, content').eq('is_public', true),
           fetchPublishedNews({ limit: 4 }),
           fetchPublishedAnnouncements({ limit: 4 }),
@@ -67,7 +67,7 @@ const HomePage = () => {
           return acc;
         }, {});
 
-        setStats({ santri: santriResult.count || 0, guru: guruResult.count || 0 });
+        setStats(statsResult);
         setContent(mergeHomepageContent(contentMap));
         setNews(newsResult);
         setAnnouncements(announcementResult);

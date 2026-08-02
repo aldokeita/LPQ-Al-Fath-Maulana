@@ -17,6 +17,17 @@ export const getPublicContentErrorMessage = (error) => {
   return error.message || String(error);
 };
 
+export const fetchPublicHomepageStats = async () => {
+  const { data, error } = await supabase.rpc('get_public_homepage_stats');
+  if (error) throw error;
+  const row = Array.isArray(data) ? data[0] : data;
+  return {
+    santri: Number(row?.santri || 0),
+    guru: Number(row?.guru || 0),
+    sessions: Number(row?.sessions || 0),
+  };
+};
+
 export const normalizeNewsRow = (row) => ({
   id: row.id,
   title: row.title || '',
