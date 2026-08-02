@@ -196,7 +196,7 @@ export const fetchClassesWithActiveSantriForTeacher = async (guruId) => {
     const classIds = classes.map((item) => item.id);
     const { data: memberships, error: membershipError } = await supabase
         .from('class_memberships')
-        .select('class_id,order_in_class,santri:santri_id(id,nama_lengkap,nomor_induk_qiroati,kategori,jilid,status,current_class_id,sesi_mengaji,foto_url,avatar_path,tanggal_lahir,no_hp_ortu,created_at)')
+        .select('class_id,order_in_class,santri:santri_id(id,nama_lengkap,nomor_induk_qiroati,kategori,jilid,points,status,current_class_id,sesi_mengaji,foto_url,avatar_path,tanggal_lahir,no_hp_ortu,created_at)')
         .in('class_id', classIds)
         .eq('status', 'active')
         .order('order_in_class', { ascending: true });
@@ -214,6 +214,12 @@ export const fetchClassesWithActiveSantriForTeacher = async (guruId) => {
                 order_in_class: membership.order_in_class
             }))
     }));
+};
+
+export const fetchMyClassmatesToday = async () => {
+    const { data, error } = await supabase.rpc('get_my_classmates_today');
+    if (error) throw error;
+    return data || [];
 };
 
 export const fetchHafalanProgress = async (santriIds = null) => {

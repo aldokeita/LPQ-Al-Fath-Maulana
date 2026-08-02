@@ -2,7 +2,7 @@
 import React, { lazy, Suspense, useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { BarChart3, BookOpen, CheckCircle as CheckCircleFull, Edit, Mic, PlayCircle, Send, Star, Upload, Users, Video } from 'lucide-react';
+import { BarChart3, BookOpen, CheckCircle as CheckCircleFull, Clock3, Edit, Mic, PlayCircle, Send, Star, Upload, Users, Video, XCircle } from 'lucide-react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -26,6 +26,7 @@ import {
   createMurojaahSubmission,
   DEVELOPMENT_SCORE_OPTIONS,
   fetchHafalanItems,
+  fetchMyClassmatesToday,
   getAcademicErrorMessage,
   getDevelopmentScoreMeta,
   getHafalanProgramScope,
@@ -233,51 +234,71 @@ const MurojaahRecorder = ({ santriId, hafalanItems, onSubmissionSuccess, isAdult
     return (<Card className={cn("lg:col-span-1", isAdult ? "bg-white/80 dark:bg-black/40 border-purple-500/30 backdrop-blur-sm text-gray-800 dark:text-white" : "")}><CardHeader><CardTitle className={cn("flex items-center gap-2", isAdult ? "text-purple-700 dark:text-purple-300" : "text-primary")}><Mic className="w-6 h-6"/> Pojok Muroja'ah</CardTitle></CardHeader><CardContent className="space-y-4"><Select value={selectedCategory} onValueChange={setSelectedCategory}><SelectTrigger className={isAdult ? "bg-white dark:bg-black/50 border-gray-300 dark:border-purple-500/30 text-gray-900 dark:text-white" : ""}><SelectValue placeholder="Pilih Kategori" /></SelectTrigger><SelectContent>{categories.map(cat => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}</SelectContent></Select><Select value={selectedItem} onValueChange={setSelectedItem}><SelectTrigger className={isAdult ? "bg-white dark:bg-black/50 border-gray-300 dark:border-purple-500/30 text-gray-900 dark:text-white" : ""}><SelectValue placeholder="Pilih Hafalan" /></SelectTrigger><SelectContent>{filteredItems.map(item => <SelectItem key={item} value={item}>{item}</SelectItem>)}</SelectContent></Select><div className="flex justify-center gap-4"><Button onClick={handleSend} size="lg" disabled={isUploading || !selectedItem} className={isAdult ? "bg-purple-600 hover:bg-purple-700 text-white" : ""}>{isUploading ? 'Mengirim...' : <><Send className="w-4 h-4 mr-2"/> Kirim Setoran</>}</Button></div></CardContent></Card>);
 };
 
-const ClassmatesList = ({ classmates, todayAttendance }) => {
-    return (
-        <Card className="bg-white dark:bg-slate-950/75 shadow-xl border-none dark:border dark:border-white/10">
-            <CardHeader className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-t-lg">
-                <CardTitle className="flex items-center gap-2 text-[#112D4E] dark:text-white text-lg">
-                    <Users className="w-5 h-5 text-blue-500" />
-                    Manajemen Kelas & Absensi Hari Ini
-                </CardTitle>
-            </CardHeader>
-            <CardContent className="p-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[300px] overflow-y-auto custom-scrollbar">
-                    {classmates.length > 0 ? classmates.map(friend => {
-                        const attendance = todayAttendance.find(a => a.user_id === friend.id);
-                        const isPresent = !!attendance;
+const classmateAttendanceMeta = (status) => {
+    if (status === 'Hadir') {
+        return { label: 'Hadir', Icon: CheckCircleFull, tone: 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-400/30 dark:bg-emerald-950/30 dark:text-emerald-200' };
+    }
+    if (status === 'Terlambat') {
+        return { label: 'Terlambat', Icon: Clock3, tone: 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-400/30 dark:bg-amber-950/30 dark:text-amber-200' };
+    }
+    if (status && status !== 'Belum Hadir') {
+        return { label: status, Icon: XCircle, tone: 'border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-400/30 dark:bg-rose-950/30 dark:text-rose-200' };
+    }
+    return { label: 'Belum Hadir', Icon: Clock3, tone: 'border-slate-200 bg-slate-50 text-slate-600 dark:border-white/10 dark:bg-slate-900/70 dark:text-slate-300' };
+};
+
+const ClassmatesList = ({ classmates, loading, error, onRetry }) => (
+    <Card className="overflow-hidden border border-white/70 bg-white/80 shadow-xl backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/75">
+        <CardHeader className="border-b border-blue-100/80 bg-gradient-to-r from-cyan-500/10 via-blue-500/10 to-violet-500/10 dark:border-white/10">
+            <CardTitle className="flex items-center gap-2 text-lg text-[#112D4E] dark:text-white">
+                <Users className="h-5 w-5 text-blue-500" />
+                Manajemen Kelas & Absensi Hari Ini
+            </CardTitle>
+        </CardHeader>
+        <CardContent className="p-4">
+            {loading ? (
+                <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3" aria-label="Memuat teman sekelas">
+                    {[0, 1, 2].map((item) => <div key={item} className="h-[72px] animate-pulse rounded-lg border border-slate-200/70 bg-slate-100/80 dark:border-white/10 dark:bg-slate-900/70" />)}
+                </div>
+            ) : error ? (
+                <div className="rounded-lg border border-rose-200 bg-rose-50/80 p-5 text-center dark:border-rose-400/25 dark:bg-rose-950/25" role="alert">
+                    <p className="font-semibold text-rose-800 dark:text-rose-200">Data teman sekelas belum dapat dimuat.</p>
+                    <p className="mt-1 text-sm text-rose-700/80 dark:text-rose-300/80">{error}</p>
+                    <Button type="button" variant="outline" size="sm" className="mt-3" onClick={onRetry}>Coba lagi</Button>
+                </div>
+            ) : (
+                <ul className="grid max-h-[300px] grid-cols-1 gap-3 overflow-y-auto pr-1 custom-scrollbar md:grid-cols-2 lg:grid-cols-3" aria-label="Teman satu kelas">
+                    {classmates.length > 0 ? classmates.map((friend) => {
+                        const attendance = classmateAttendanceMeta(friend.attendance_status);
+                        const StatusIcon = attendance.Icon;
                         return (
-                            <div key={friend.id} className={cn("flex items-center gap-3 p-3 rounded-lg border transition-all hover:shadow-sm", isPresent ? "bg-green-50 dark:bg-slate-900/75 border-green-200 dark:border-emerald-400/30" : "bg-gray-50 dark:bg-slate-900/60 border-gray-100 dark:border-white/10")}>
-                                <Avatar className="w-10 h-10 border-2 border-white shadow-sm">
+                            <li key={friend.id} className="flex min-w-0 items-center gap-3 rounded-lg border border-white/80 bg-white/75 p-3 shadow-[4px_4px_12px_rgba(15,23,42,0.08),-4px_-4px_12px_rgba(255,255,255,0.8)] transition-shadow hover:shadow-md dark:border-white/10 dark:bg-slate-900/70 dark:shadow-none">
+                                <Avatar className="h-10 w-10 border-2 border-white shadow-sm">
                                     <AvatarImage src={friend.foto_url} />
                                     <AvatarFallback>{friend?.nama_lengkap?.charAt(0) || 'S'}</AvatarFallback>
                                 </Avatar>
-                                <div className="flex-1 min-w-0">
-                                    <p className="font-semibold text-sm truncate text-gray-800 dark:text-gray-200">{friend.nama_lengkap}</p>
-                                    <p className="text-xs text-muted-foreground truncate">{friend.jilid}</p>
+                                <div className="min-w-0 flex-1">
+                                    <p className="truncate text-sm font-semibold text-gray-800 dark:text-gray-200">{friend.nama_lengkap}</p>
+                                    <p className="truncate text-xs text-muted-foreground">{friend.jilid}</p>
                                 </div>
-                                {isPresent ? (
-                                    <div className="flex flex-col items-center text-green-600">
-                                        <CheckCircleFull className="w-5 h-5" />
-                                        <span className="text-[10px] font-bold">Hadir</span>
-                                    </div>
-                                ) : (
-                                    <div className="flex flex-col items-center text-gray-400">
-                                        <div className="w-5 h-5 rounded-full border-2 border-dashed border-gray-300"></div>
-                                        <span className="text-[10px]">Alpha</span>
-                                    </div>
-                                )}
-                            </div>
+                                <span className={cn('inline-flex shrink-0 items-center gap-1 rounded-md border px-2 py-1 text-[10px] font-bold', attendance.tone)}>
+                                    <StatusIcon className="h-3.5 w-3.5" aria-hidden="true" />
+                                    {attendance.label}
+                                </span>
+                            </li>
                         );
                     }) : (
-                        <p className="col-span-full text-center py-4 text-muted-foreground">Belum ada teman sekelas.</p>
+                        <li className="col-span-full rounded-lg border border-dashed border-slate-300 bg-slate-50/70 px-4 py-8 text-center dark:border-white/15 dark:bg-slate-900/50">
+                            <Users className="mx-auto h-7 w-7 text-slate-400" aria-hidden="true" />
+                            <p className="mt-2 font-semibold text-foreground">Belum ada teman sekelas.</p>
+                            <p className="mt-1 text-sm text-muted-foreground">Teman yang aktif di kelas yang sama akan tampil di sini.</p>
+                        </li>
                     )}
-                </div>
-            </CardContent>
-        </Card>
-    );
-};
+                </ul>
+            )}
+        </CardContent>
+    </Card>
+);
 
 const EditProfileDialog = ({ isOpen, onOpenChange, santri, onUpdate }) => {
     const [formData, setFormData] = useState({});
@@ -374,7 +395,7 @@ const SantriDashboard = ({ isAdult = false }) => {
   const [isAvatarPreviewOpen, setIsAvatarPreviewOpen] = useState(false);
   const [dailyAttendance, setDailyAttendance] = useState([]);
   const [classmates, setClassmates] = useState([]);
-  const [classmatesAttendance, setClassmatesAttendance] = useState([]);
+  const [classmatesState, setClassmatesState] = useState({ loading: true, error: '' });
 
   // Own Attendance modal state
   const [myAttendanceRecord, setMyAttendanceRecord] = useState(null);
@@ -419,27 +440,28 @@ const SantriDashboard = ({ isAdult = false }) => {
             }
         }
 
+        setClassmatesState({ loading: true, error: '' });
         if (santri.current_class_id) {
-            const { data: classMemberships } = await supabase
-                .from('class_memberships')
-                .select('santri:santri_id(id,nama_lengkap,foto_url,avatar_path,jilid)')
-                .eq('class_id', santri.current_class_id)
-                .eq('status', 'active');
-            const { data: friendsAttendance } = await supabase.from('attendance').select('*').eq('attendance_date', todayStr).eq('class_id', santri.current_class_id);
-            if (classMemberships) {
-                const classmatesWithAvatars = await Promise.all(classMemberships.map(async (item) => {
-                    if (!item.santri) return null;
+            try {
+                const classmateRows = await fetchMyClassmatesToday();
+                const classmatesWithAvatars = await Promise.all(classmateRows.map(async (friend) => {
                     const friendAvatar = await resolveAvatarUrl({
                         ownerType: 'santri',
-                        ownerId: item.santri.id,
-                        avatarPath: item.santri.avatar_path,
-                        fallbackUrl: item.santri.foto_url,
+                        ownerId: friend.id,
+                        avatarPath: friend.avatar_path,
+                        fallbackUrl: friend.foto_url,
                     });
-                    return { ...item.santri, foto_url: friendAvatar };
+                    return { ...friend, foto_url: friendAvatar };
                 }));
-                setClassmates(classmatesWithAvatars.filter(Boolean));
+                setClassmates(classmatesWithAvatars);
+                setClassmatesState({ loading: false, error: '' });
+            } catch (classmatesError) {
+                setClassmates([]);
+                setClassmatesState({ loading: false, error: getAcademicErrorMessage(classmatesError) });
             }
-            if (friendsAttendance) setClassmatesAttendance(friendsAttendance);
+        } else {
+            setClassmates([]);
+            setClassmatesState({ loading: false, error: '' });
         }
     }
     if (Array.isArray(itemsResult)) {
@@ -557,7 +579,7 @@ const SantriDashboard = ({ isAdult = false }) => {
 
             <TabsContent value="overview">
                  <div className="space-y-6">
-                   <ClassmatesList classmates={classmates} todayAttendance={classmatesAttendance} />
+                   <ClassmatesList classmates={classmates} loading={classmatesState.loading} error={classmatesState.error} onRetry={initializeData} />
                    <div className="space-y-4">
                      <div className="flex items-end justify-between gap-4">
                        <div>

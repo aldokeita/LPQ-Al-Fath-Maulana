@@ -502,6 +502,7 @@ const GuruDashboard = () => {
                                         <th className="py-3 px-4 text-left font-semibold text-foreground/70">Nama Santri</th>
                                         <th className="py-3 px-4 text-center font-semibold text-foreground/70">Kehadiran</th>
                                         <th className="py-3 px-4 text-left font-semibold text-foreground/70">Jilid</th>
+                                        <th className="py-3 px-4 text-center font-semibold text-foreground/70">Poin</th>
                                         <th className="py-3 px-4 text-left font-semibold text-foreground/70">Hafalan</th>
                                         <th className="py-3 px-4 text-left font-semibold text-foreground/70">Aksi</th>
                                     </tr>
@@ -551,6 +552,15 @@ const GuruDashboard = () => {
                                                         <Button onClick={() => initiateJilidChange(santri, 'up')} size="sm" variant="ghost" className="h-6 w-6 p-0 hover:bg-green-100 rounded-full" title="Naik Jilid"><ChevronUp className="h-4 w-4 text-green-600" /></Button>
                                                         <Button onClick={() => initiateJilidChange(santri, 'down')} size="sm" variant="ghost" className="h-6 w-6 p-0 hover:bg-red-100 rounded-full" title="Turun Jilid"><ChevronDown className="h-4 w-4 text-red-600" /></Button>
                                                     </div>
+                                                </td>
+                                                <td className="py-3 px-4 text-center">
+                                                    <span
+                                                        className="inline-flex min-w-14 items-center justify-center gap-1 rounded-md border border-amber-300/60 bg-amber-50 px-2 py-1 font-outfit text-xs font-bold tabular-nums text-amber-700 shadow-sm dark:border-amber-400/25 dark:bg-amber-950/30 dark:text-amber-200"
+                                                        aria-label={`${santri.nama_lengkap} memiliki ${Number(santri.points || 0).toLocaleString('id-ID')} poin`}
+                                                    >
+                                                        <Star className="h-3.5 w-3.5" aria-hidden="true" />
+                                                        {Number(santri.points || 0).toLocaleString('id-ID')}
+                                                    </span>
                                                 </td>
                                                 <td className="py-3 px-4">
                                                     <div className="flex flex-wrap gap-1">
