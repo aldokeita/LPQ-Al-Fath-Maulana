@@ -8,7 +8,7 @@ import {
   Award, Edit, Clock, CalendarDays, History, ChevronUp, ChevronDown,
   ChevronLeft, ChevronRight, Check, X, FileText, Download, Loader2,
   BookOpen, Printer, Sparkles, Star, ShieldCheck, CheckCircle2,
-  TrendingUp, BarChart2, HeartHandshake, UserCheck, GraduationCap
+  TrendingUp, BarChart2, HeartHandshake, UserCheck, GraduationCap, FileCode2
 } from 'lucide-react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
@@ -27,6 +27,7 @@ import {
 import { getSessionName } from '@/utils/sessionMapping';
 import { fetchSantriNotes, getAcademicErrorMessage, saveSantriNote } from '@/lib/academicAdapters';
 import SantriDevelopmentProfile from '@/components/dashboard/shared/SantriDevelopmentProfile';
+import { downloadRaporHTML } from '@/utils/raporHtmlUtils';
 
 const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }) => {
     const { user, role } = useAuth();
@@ -39,6 +40,7 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
     // Rapor & Report State
     const [isReportViewOpen, setIsReportViewOpen] = useState(false);
     const [isGeneratingRapor, setIsGeneratingRapor] = useState(false);
+    const [isGeneratingHtml, setIsGeneratingHtml] = useState(false);
     const [isAttendanceRecapOpen, setIsAttendanceRecapOpen] = useState(false);
     const [attendanceMatrix, setAttendanceMatrix] = useState(null);
     const [isLoadingMatrix, setIsLoadingMatrix] = useState(false);
@@ -216,6 +218,30 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
             toast({ title: "Gagal mengunduh rapor PDF", description: error.message, variant: "destructive" });
         } finally {
             setIsGeneratingRapor(false);
+        }
+    };
+
+    const handleDownloadRaporHTML = async () => {
+        if (!attendanceSummary || !hafalanData) {
+            toast({ title: 'Menyiapkan Data Rapor', description: 'Mohon tunggu sampai data rapor selesai dimuat.' });
+            return;
+        }
+
+        setIsGeneratingHtml(true);
+        try {
+            await downloadRaporHTML({
+                santri: { ...santri, ...(santriFullData || {}) },
+                attendance: attendanceSummary,
+                hafalan: hafalanData,
+                period: dateRange.periodText,
+                character: characterData,
+                scores: scoresSummary
+            });
+            toast({ title: 'Rapor HTML Berhasil Diunduh', description: 'File HTML mandiri siap dibuka atau dicetak dari browser.' });
+        } catch (error) {
+            toast({ title: 'Gagal mengunduh rapor HTML', description: error.message, variant: 'destructive' });
+        } finally {
+            setIsGeneratingHtml(false);
         }
     };
 
@@ -504,6 +530,17 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
                                 className="bg-blue-50 dark:bg-blue-950/40 border-blue-200 text-blue-700 dark:text-blue-300 font-bold hover:bg-blue-100"
                             >
                                 <FileText className="w-4 h-4 mr-1.5 text-blue-600" /> Download DOCX
+                            </Button>
+
+                            <Button
+                                size="sm"
+                                onClick={handleDownloadRaporHTML}
+                                disabled={isGeneratingHtml || isLoadingReportData}
+                                variant="outline"
+                                className="border-cyan-300/80 bg-gradient-to-r from-teal-50 via-cyan-50 to-violet-50 text-cyan-800 shadow-sm hover:border-cyan-400 hover:from-teal-100 hover:via-cyan-100 hover:to-violet-100 dark:border-cyan-700/60 dark:from-teal-950/40 dark:via-cyan-950/40 dark:to-violet-950/40 dark:text-cyan-200 font-bold"
+                            >
+                                {isGeneratingHtml ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <FileCode2 className="w-4 h-4 mr-1.5 text-cyan-600 dark:text-cyan-400" />}
+                                Download HTML
                             </Button>
                         </div>
                     </div>
