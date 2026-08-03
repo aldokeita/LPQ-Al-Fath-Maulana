@@ -254,6 +254,7 @@ export const buildClassAttendanceHtml = ({
       --attendance-title-size: ${typography.titleSize}pt;
       --attendance-title-weight: ${typography.titleWeight};
       --attendance-header-offset-y: ${typography.headerOffsetY}mm;
+      --attendance-address-offset-y: ${typography.addressOffsetY}mm;
       --attendance-eyebrow-size: ${typography.eyebrowSize}pt;
       --attendance-address-size: ${typography.addressSize}pt;
       --attendance-category-size: ${typography.categorySize}pt;
@@ -262,6 +263,7 @@ export const buildClassAttendanceHtml = ({
       --attendance-body-size: ${typography.bodySize}pt;
       --attendance-body-weight: ${typography.bodyWeight};
       --attendance-accent: ${branding.accentColor};
+      --attendance-header-text: ${branding.headerTextColor};
       --attendance-table-head: ${branding.tableHeaderBackground};
       --attendance-table-head-text: ${branding.tableHeaderText};
     }
@@ -281,10 +283,10 @@ export const buildClassAttendanceHtml = ({
     .institution-logo--lpq { width: ${branding.lpqLogoSize}mm; height: ${branding.lpqLogoSize}mm; }
     .institution-logo--qiroati { width: ${branding.qiroatiLogoSize}mm; height: ${branding.qiroatiLogoSize}mm; }
     .institution-brand-right { display: flex; min-height: 23mm; flex-direction: column; align-items: flex-end; justify-content: center; gap: .7mm; }
-    .institution-copy { text-align: center; transform: translateY(var(--attendance-header-offset-y)); }
+    .institution-copy { color: var(--attendance-header-text); text-align: center; transform: translateY(var(--attendance-header-offset-y)); }
     .institution-copy p { margin: 0; font-family: var(--attendance-header-font); font-size: var(--attendance-eyebrow-size); font-weight: 800; letter-spacing: .08em; }
     .institution-copy h1 { margin: .4mm 0; font-family: var(--attendance-header-font); font-size: var(--attendance-title-size); font-weight: var(--attendance-title-weight); font-style: ${typography.titleItalic ? 'italic' : 'normal'}; line-height: 1; letter-spacing: -.03em; text-transform: ${titleTransform}; }
-    .institution-copy span { font-size: var(--attendance-address-size); }
+    .institution-copy span { display: block; font-size: var(--attendance-address-size); transform: translateY(var(--attendance-address-offset-y)); }
     .class-meta { display: grid; grid-template-columns: 1.3fr 1.2fr; gap: 1mm 8mm; margin: 2.5mm 0; font-size: 7pt; }
     .class-meta div { display: grid; grid-template-columns: 24mm 1fr; }
     .class-meta dt { font-weight: 800; }

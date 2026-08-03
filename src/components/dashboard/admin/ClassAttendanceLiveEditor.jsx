@@ -308,6 +308,8 @@ const ClassAttendanceLiveEditor = ({
                 <LabeledSwitch id="attendance-title-italic" label="Judul miring" checked={config.typography.titleItalic} onCheckedChange={(value) => updateSection('typography', 'titleItalic', value)} />
                 <LabeledSwitch id="attendance-title-uppercase" label="Judul huruf kapital" checked={config.typography.titleUppercase} onCheckedChange={(value) => updateSection('typography', 'titleUppercase', value)} />
                 <RangeControl label="Posisi vertikal teks header" value={config.typography.headerOffsetY} min={-12} max={12} unit="mm" onChange={(value) => updateSection('typography', 'headerOffsetY', value)} />
+                <RangeControl label="Posisi vertikal alamat" value={config.typography.addressOffsetY} min={-8} max={8} unit="mm" onChange={(value) => updateSection('typography', 'addressOffsetY', value)} />
+                <ColorControl label="Warna teks header" value={config.branding.headerTextColor} onChange={(value) => updateSection('branding', 'headerTextColor', value)} />
                 <RangeControl label="Ukuran kategori lembaga" value={config.typography.eyebrowSize} min={5} max={14} step={0.5} onChange={(value) => updateSection('typography', 'eyebrowSize', value)} />
                 <RangeControl label="Ukuran alamat" value={config.typography.addressSize} min={5} max={12} step={0.5} onChange={(value) => updateSection('typography', 'addressSize', value)} />
                 <RangeControl label="Ukuran nama dokumen" value={config.typography.categorySize} min={5} max={14} step={0.5} onChange={(value) => updateSection('typography', 'categorySize', value)} />
@@ -354,7 +356,7 @@ const ClassAttendanceLiveEditor = ({
               <div className="attendance-editor-section">
                 <div className="attendance-editor-section__title"><Palette aria-hidden="true" /><div><strong>Warna dokumen</strong><span>Warna aman dicetak dan tetap terbaca.</span></div></div>
                 <div className="attendance-editor-field-grid">
-                  <ColorControl label="Teks & garis header" value={config.branding.headerColor} onChange={(value) => updateSection('branding', 'headerColor', value)} />
+                  <ColorControl label="Garis header & teks metadata" value={config.branding.headerColor} onChange={(value) => updateSection('branding', 'headerColor', value)} />
                   <ColorControl label="Aksen kategori" value={config.branding.accentColor} onChange={(value) => updateSection('branding', 'accentColor', value)} />
                   <ColorControl label="Latar header kolom" value={config.branding.tableHeaderBackground} onChange={(value) => updateSection('branding', 'tableHeaderBackground', value)} />
                   <ColorControl label="Teks header kolom" value={config.branding.tableHeaderText} onChange={(value) => updateSection('branding', 'tableHeaderText', value)} />

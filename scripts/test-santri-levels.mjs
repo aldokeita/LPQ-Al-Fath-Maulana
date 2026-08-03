@@ -41,4 +41,17 @@ assert.equal(upgraded.male[0].name, 'Bronze I');
 assert.equal(upgraded.female.length, 1);
 assert.equal(upgraded.female[0].name, 'Custom Putri');
 
+const editedPreviousMale = normalizeLevelConfigShape({
+  male: [
+    { name: 'Bronze', min: 0, max: 75, color: '#010203' },
+    { name: 'Silver', min: 76, max: 225, color: '#040506' },
+    { name: 'Gold', min: 226, max: 450, color: '#070809' },
+  ],
+  female: defaults.female,
+});
+assert.equal(editedPreviousMale.male.length, 22);
+assert.equal(editedPreviousMale.male[0].name, 'Bronze I');
+assert.equal(editedPreviousMale.male[0].color, defaults.male[0].color);
+assert.equal(editedPreviousMale.female.length, 22);
+
 console.log('Santri level tests passed.');

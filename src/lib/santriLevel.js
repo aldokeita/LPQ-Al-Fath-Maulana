@@ -100,13 +100,18 @@ const isPreviousDefaultLevelCollection = (levels) => levels.length === PREVIOUS_
       && Number(level?.max) === stage.max;
   });
 
+const PREVIOUS_RANK_NAMES = new Set(PREVIOUS_DEFAULT_STAGES.map((stage) => stage.name.toLowerCase()));
+const isPreviousRankCollection = (levels) => levels.length > 0
+  && levels.length <= PREVIOUS_DEFAULT_STAGES.length
+  && levels.every((level) => PREVIOUS_RANK_NAMES.has(String(level.name || level.label || '').trim().toLowerCase()));
+
 export const normalizeLevelConfigShape = (config) => {
   const parsed = parseLevelConfig(config);
   if (!parsed || typeof parsed !== 'object') return { male: [], female: [] };
 
   if (Array.isArray(parsed)) {
     const sharedLevels = toLevelArray(parsed);
-    if (isLegacyLevelCollection(sharedLevels) || isPreviousDefaultLevelCollection(sharedLevels)) {
+    if (isLegacyLevelCollection(sharedLevels) || isPreviousDefaultLevelCollection(sharedLevels) || isPreviousRankCollection(sharedLevels)) {
       return createDefaultSantriLevelConfig();
     }
     return { male: sharedLevels, female: sharedLevels };
@@ -121,8 +126,8 @@ export const normalizeLevelConfigShape = (config) => {
   const defaults = createDefaultSantriLevelConfig();
 
   return {
-    male: isLegacyLevelCollection(male) || isPreviousDefaultLevelCollection(male) ? defaults.male : male,
-    female: isLegacyLevelCollection(female) || isPreviousDefaultLevelCollection(female) ? defaults.female : female,
+    male: isLegacyLevelCollection(male) || isPreviousDefaultLevelCollection(male) || isPreviousRankCollection(male) ? defaults.male : male,
+    female: isLegacyLevelCollection(female) || isPreviousDefaultLevelCollection(female) || isPreviousRankCollection(female) ? defaults.female : female,
   };
 };
 

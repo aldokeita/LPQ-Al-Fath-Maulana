@@ -7650,6 +7650,7 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
 }
 
 .class-attendance-paper__institution-copy {
+  color: var(--attendance-preview-header-text-color, #111827);
   text-align: center;
   transform: translateY(var(--attendance-preview-header-offset-y, 0mm));
 }
@@ -7674,7 +7675,9 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
 }
 
 .class-attendance-paper__institution-copy > span {
+  display: block;
   font-size: var(--attendance-preview-address-size, 6.5pt);
+  transform: translateY(var(--attendance-preview-address-offset-y, 0mm));
 }
 
 .class-attendance-paper__brand-right {
