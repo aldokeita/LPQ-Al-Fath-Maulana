@@ -30,6 +30,7 @@ import {
   createClassAttendancePages,
   getClassAttendanceDateSlots,
   getClassAttendanceMonthLabel,
+  formatClassAttendanceTeacherName,
   INDONESIAN_MONTHS,
   slugifyClassAttendanceFilename,
 } from '@/lib/classAttendanceSheet';
@@ -113,6 +114,7 @@ export const AttendancePaperPreview = ({
     '--attendance-preview-header-font': getClassAttendanceHeaderFontStack(typography.headerFont),
     '--attendance-preview-title-size': `${typography.titleSize}pt`,
     '--attendance-preview-title-weight': typography.titleWeight,
+    '--attendance-preview-header-offset-y': `${typography.headerOffsetY}mm`,
     '--attendance-preview-title-style': typography.titleItalic ? 'italic' : 'normal',
     '--attendance-preview-title-transform': typography.titleUppercase ? 'uppercase' : 'none',
     '--attendance-preview-eyebrow-size': `${typography.eyebrowSize}pt`,
@@ -146,15 +148,11 @@ export const AttendancePaperPreview = ({
           </div>
           <div className="class-attendance-paper__brand-right">
             {branding.showQiroatiLogo && appearance?.qiroatiLogoUrl && <img className="is-qiroati" src={appearance.qiroatiLogoUrl} alt="Logo Qiroati" />}
-            <div className="class-attendance-paper__document-meta">
-              <strong>{content.documentCategory}</strong>
-              <span>{content.pageLabel} 1/{createClassAttendancePages(classItem.roster).length}</span>
-            </div>
           </div>
         </header>
 
         <dl className="class-attendance-paper__meta">
-          <div><dt>{content.teacherLabel}</dt><dd>: {classItem.guru?.nama || 'Belum ditentukan'}</dd></div>
+          <div><dt>{content.teacherLabel}</dt><dd>: {formatClassAttendanceTeacherName(classItem.guru?.nama)}</dd></div>
           <div><dt>{content.classLabel}</dt><dd>: {classItem.nama_kelas}</dd></div>
           <div><dt>{content.sessionLabel}</dt><dd>: {classItem.sesi || 'Belum ditentukan'}</dd></div>
           <div><dt>{content.createdLabel}</dt><dd>: Pratinjau</dd></div>

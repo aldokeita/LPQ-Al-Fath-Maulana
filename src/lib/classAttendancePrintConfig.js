@@ -2,6 +2,10 @@ export const CLASS_ATTENDANCE_PRINT_CONFIG_KEY = 'classAttendancePrintConfig';
 export const CLASS_ATTENDANCE_QIROATI_LOGO_KEY = 'qiroatiLogoUrl';
 
 export const CLASS_ATTENDANCE_HEADER_FONTS = {
+  cinzel: {
+    label: 'Cinzel elegan',
+    stack: "'Cinzel', Georgia, 'Times New Roman', serif",
+  },
   serif: {
     label: 'Klasik institusional',
     stack: "Georgia, 'Times New Roman', serif",
@@ -51,6 +55,7 @@ export const DEFAULT_CLASS_ATTENDANCE_PRINT_CONFIG = {
     titleWeight: 700,
     titleItalic: false,
     titleUppercase: true,
+    headerOffsetY: 0,
     eyebrowSize: 8,
     addressSize: 6.5,
     categorySize: 7.5,
@@ -117,6 +122,7 @@ export const normalizeClassAttendancePrintConfig = (value) => {
       titleWeight: normalizeWeight(typography.titleWeight, defaults.typography.titleWeight),
       titleItalic: typography.titleItalic === true,
       titleUppercase: typography.titleUppercase !== false,
+      headerOffsetY: normalizeNumber(typography.headerOffsetY, defaults.typography.headerOffsetY, -12, 12),
       eyebrowSize: normalizeNumber(typography.eyebrowSize, defaults.typography.eyebrowSize, 5, 14),
       addressSize: normalizeNumber(typography.addressSize, defaults.typography.addressSize, 5, 12),
       categorySize: normalizeNumber(typography.categorySize, defaults.typography.categorySize, 5, 14),

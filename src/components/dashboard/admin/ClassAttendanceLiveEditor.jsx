@@ -43,7 +43,6 @@ const META_FIELDS = [
   ['classLabel', 'Label kelas'],
   ['sessionLabel', 'Label sesi'],
   ['createdLabel', 'Label waktu dibuat'],
-  ['pageLabel', 'Label halaman'],
 ];
 
 const COLUMN_FIELDS = [
@@ -76,7 +75,7 @@ const sampleClass = {
   id: 'live-preview',
   nama_kelas: 'TPQ Sore · Jilid 2A',
   sesi: 'Sore',
-  guru: { nama: 'Ustadzah Nabila' },
+  guru: { nama: 'Nabila' },
   roster: Array.from({ length: 15 }, (_, index) => ({
     id: `preview-${index + 1}`,
     nama_lengkap: `Santri Al-Fath ${index + 1}`,
@@ -308,6 +307,7 @@ const ClassAttendanceLiveEditor = ({
                 </Select>
                 <LabeledSwitch id="attendance-title-italic" label="Judul miring" checked={config.typography.titleItalic} onCheckedChange={(value) => updateSection('typography', 'titleItalic', value)} />
                 <LabeledSwitch id="attendance-title-uppercase" label="Judul huruf kapital" checked={config.typography.titleUppercase} onCheckedChange={(value) => updateSection('typography', 'titleUppercase', value)} />
+                <RangeControl label="Posisi vertikal teks header" value={config.typography.headerOffsetY} min={-12} max={12} unit="mm" onChange={(value) => updateSection('typography', 'headerOffsetY', value)} />
                 <RangeControl label="Ukuran kategori lembaga" value={config.typography.eyebrowSize} min={5} max={14} step={0.5} onChange={(value) => updateSection('typography', 'eyebrowSize', value)} />
                 <RangeControl label="Ukuran alamat" value={config.typography.addressSize} min={5} max={12} step={0.5} onChange={(value) => updateSection('typography', 'addressSize', value)} />
                 <RangeControl label="Ukuran nama dokumen" value={config.typography.categorySize} min={5} max={14} step={0.5} onChange={(value) => updateSection('typography', 'categorySize', value)} />

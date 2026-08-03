@@ -1,4 +1,19 @@
-const LEVEL_STAGES = [
+const LEVEL_NAMES = [
+  'Bronze I', 'Bronze II', 'Bronze III',
+  'Silver I', 'Silver II', 'Silver III',
+  'Gold I', 'Gold II', 'Gold III', 'Gold IV',
+  'Platinum I', 'Platinum II', 'Platinum III', 'Platinum IV',
+  'Diamond I', 'Diamond II', 'Diamond III', 'Diamond IV',
+  'Heroic', 'Elite Heroic', 'Master', 'Grandmaster',
+];
+
+const LEVEL_STAGES = LEVEL_NAMES.map((name, index) => ({
+  name,
+  min: index === 0 ? 0 : (index * 30) + 1,
+  max: index === LEVEL_NAMES.length - 1 ? 999999 : (index + 1) * 30,
+}));
+
+const PREVIOUS_DEFAULT_STAGES = [
   { name: 'Bronze', min: 0, max: 50 },
   { name: 'Silver', min: 51, max: 150 },
   { name: 'Gold', min: 151, max: 300 },
@@ -8,8 +23,22 @@ const LEVEL_STAGES = [
 ];
 
 const LEVEL_COLORS = {
-  male: ['#b7793f', '#64748b', '#d49a00', '#0891b2', '#2563eb', '#7c3aed'],
-  female: ['#c56b48', '#7c7f93', '#d89a16', '#0d9488', '#6366f1', '#db2777'],
+  male: [
+    '#a16207', '#b7791f', '#c58a32',
+    '#64748b', '#76869b', '#8b9aaf',
+    '#ca8a04', '#d49a0b', '#e0a814', '#eab308',
+    '#0f8fa6', '#0891b2', '#0284c7', '#0e7490',
+    '#2563eb', '#315fda', '#4f46e5', '#5b4fd6',
+    '#7c3aed', '#6d28d9', '#4338ca', '#1d4ed8',
+  ],
+  female: [
+    '#b76e4f', '#c97a5b', '#d58a6b',
+    '#7c7f93', '#8d879e', '#9d91aa',
+    '#c98b16', '#d59a22', '#dfa62d', '#e8b43b',
+    '#0d9488', '#149b91', '#20a49b', '#2aaba4',
+    '#6366f1', '#7c5ce7', '#9552dc', '#a94fcf',
+    '#c026d3', '#db2777', '#be185d', '#9d174d',
+  ],
 };
 
 export const createDefaultSantriLevelConfig = () => Object.fromEntries(
@@ -30,7 +59,8 @@ export const createDefaultSantriLevelConfig = () => Object.fromEntries(
   ]),
 );
 
-const FALLBACK_LEVELS = createDefaultSantriLevelConfig().male;
+const FALLBACK_LEVEL_CONFIG = createDefaultSantriLevelConfig();
+const FALLBACK_LEVELS = FALLBACK_LEVEL_CONFIG.male;
 
 const normalizeGenderKey = (gender) => {
   const value = String(gender || '').toLowerCase();
@@ -62,13 +92,23 @@ const isLegacyLevelCollection = (levels) => levels.length > 0
   && levels.length <= 4
   && levels.every((level) => LEGACY_LEVEL_NAMES.has(String(level.name || level.label || '').trim().toLowerCase()));
 
+const isPreviousDefaultLevelCollection = (levels) => levels.length === PREVIOUS_DEFAULT_STAGES.length
+  && PREVIOUS_DEFAULT_STAGES.every((stage, index) => {
+    const level = levels[index];
+    return String(level?.name || level?.label || '').trim().toLowerCase() === stage.name.toLowerCase()
+      && Number(level?.min) === stage.min
+      && Number(level?.max) === stage.max;
+  });
+
 export const normalizeLevelConfigShape = (config) => {
   const parsed = parseLevelConfig(config);
   if (!parsed || typeof parsed !== 'object') return { male: [], female: [] };
 
   if (Array.isArray(parsed)) {
     const sharedLevels = toLevelArray(parsed);
-    if (isLegacyLevelCollection(sharedLevels)) return createDefaultSantriLevelConfig();
+    if (isLegacyLevelCollection(sharedLevels) || isPreviousDefaultLevelCollection(sharedLevels)) {
+      return createDefaultSantriLevelConfig();
+    }
     return { male: sharedLevels, female: sharedLevels };
   }
 
@@ -78,25 +118,28 @@ export const normalizeLevelConfigShape = (config) => {
 
   const male = toLevelArray(parsed.male ?? parsed.putra ?? parsed.laki_laki ?? sharedLevels);
   const female = toLevelArray(parsed.female ?? parsed.putri ?? parsed.perempuan ?? sharedLevels);
-  if (isLegacyLevelCollection(male) || isLegacyLevelCollection(female)) {
-    return createDefaultSantriLevelConfig();
-  }
+  const defaults = createDefaultSantriLevelConfig();
 
-  return { male, female };
+  return {
+    male: isLegacyLevelCollection(male) || isPreviousDefaultLevelCollection(male) ? defaults.male : male,
+    female: isLegacyLevelCollection(female) || isPreviousDefaultLevelCollection(female) ? defaults.female : female,
+  };
 };
 
 export const resolveSantriLevel = ({ points = 0, gender, config }) => {
   const safePoints = Math.max(0, Number(points) || 0);
-  const configuredLevels = normalizeLevelConfigShape(config)[normalizeGenderKey(gender)];
+  const genderKey = normalizeGenderKey(gender);
+  const configuredLevels = normalizeLevelConfigShape(config)[genderKey];
+  const fallbackLevels = FALLBACK_LEVEL_CONFIG[genderKey];
   const levels = Array.isArray(configuredLevels) && configuredLevels.length > 0
     ? configuredLevels
-    : FALLBACK_LEVELS;
+    : fallbackLevels;
 
   const matched = levels.find((level) => {
     const min = Number(level.min ?? 0);
     const max = Number(level.max ?? Number.POSITIVE_INFINITY);
     return safePoints >= min && safePoints <= max;
-  }) || levels[levels.length - 1] || FALLBACK_LEVELS[0];
+  }) || levels[levels.length - 1] || fallbackLevels[0];
 
   const accentColor = matched.accentColor || matched.color || '#0ea5e9';
 

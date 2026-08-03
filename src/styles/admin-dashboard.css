@@ -7651,6 +7651,7 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
 
 .class-attendance-paper__institution-copy {
   text-align: center;
+  transform: translateY(var(--attendance-preview-header-offset-y, 0mm));
 }
 
 .class-attendance-paper__header p {
@@ -7683,24 +7684,6 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
   align-items: flex-end;
   justify-content: center;
   gap: 0.1rem;
-}
-
-.class-attendance-paper__document-meta {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  color: var(--attendance-preview-accent, #0369a1);
-  line-height: 1.1;
-  text-align: right;
-}
-
-.class-attendance-paper__document-meta strong {
-  max-width: 5.2rem;
-  font-size: var(--attendance-preview-category-size, 7.5pt);
-}
-
-.class-attendance-paper__document-meta span {
-  font-size: 0.45rem;
 }
 
 .class-attendance-paper__meta {

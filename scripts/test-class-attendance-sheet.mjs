@@ -40,7 +40,7 @@ const html = buildClassAttendanceHtml({
   classData: {
     nama_kelas: 'Kelas <Utama>',
     sesi: 'Pagi',
-    guru: { nama: 'Ustadz & Ustadzah' },
+    guru: { nama: 'Ustadzah Nabila & Rekan' },
     roster: nineteenRoster,
   },
   dateSlots: juneSlots,
@@ -54,7 +54,8 @@ const html = buildClassAttendanceHtml({
       nameColumn: 'NAMA SANTRI',
     },
     typography: {
-      headerFont: 'rounded',
+      headerFont: 'cinzel',
+      headerOffsetY: -4,
       titleItalic: true,
       titleSize: 22,
     },
@@ -69,23 +70,28 @@ const html = buildClassAttendanceHtml({
 assert.match(html, /@page \{ size: A4 landscape;/);
 assert.match(html, /window\.print\(\)/);
 assert.match(html, /Kelas &lt;Utama&gt;/);
-assert.match(html, /Ustadz &amp; Ustadzah/);
+assert.match(html, /Nabila &amp; Rekan/);
+assert.doesNotMatch(html, /Ustadzah Nabila/);
 assert.match(html, /LPQ &lt;Pilihan&gt;/);
 assert.match(html, /DAFTAR HADIR/);
 assert.match(html, /NAMA SANTRI/);
 assert.match(html, /Logo Qiroati/);
 assert.match(html, /--attendance-title-size: 22pt/);
+assert.match(html, /--attendance-header-font: 'Cinzel'/);
+assert.match(html, /--attendance-header-offset-y: -4mm/);
 assert.match(html, /--attendance-table-head: #123456/);
+assert.doesNotMatch(html, /Halaman 1\/1/);
 assert.doesNotMatch(html, /https?:\/\//);
 
 const normalizedConfig = normalizeClassAttendancePrintConfig({
   content: { address: '  ', documentCategory: 'Rekap Harian' },
-  typography: { headerFont: 'remote-font', titleSize: 200, bodyWeight: 750 },
+  typography: { headerFont: 'remote-font', headerOffsetY: 30, titleSize: 200, bodyWeight: 750 },
   branding: { accentColor: 'url(javascript:alert(1))', qiroatiLogoSize: 2 },
 });
 assert.equal(normalizedConfig.content.address, DEFAULT_CLASS_ATTENDANCE_PRINT_CONFIG.content.address);
 assert.equal(normalizedConfig.content.documentCategory, 'Rekap Harian');
 assert.equal(normalizedConfig.typography.headerFont, 'serif');
+assert.equal(normalizedConfig.typography.headerOffsetY, 12);
 assert.equal(normalizedConfig.typography.titleSize, 30);
 assert.equal(normalizedConfig.typography.bodyWeight, 800);
 assert.equal(normalizedConfig.branding.accentColor, '#0369a1');
