@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
-import { Users, DollarSign, BookOpen, TrendingDown, BookUser, Fingerprint, LogIn, FileText, CalendarCheck, Tv, Gamepad2, PieChart, Settings, GraduationCap, Briefcase, Calendar, Calculator, Shuffle, Database, Library } from 'lucide-react';
+import { Users, DollarSign, BookOpen, TrendingDown, BookUser, Fingerprint, LogIn, FileText, CalendarCheck, Tv, Gamepad2, PieChart, Settings, GraduationCap, Briefcase, Calendar, Calculator, Shuffle, Database, Library, FileSpreadsheet } from 'lucide-react';
 import SantriManagement from './admin/SantriManagement';
 import SantriDewasaManagement from './admin/SantriDewasaManagement';
 import GuruManagement from './admin/GuruManagement';
@@ -11,6 +11,7 @@ import ContentManagement from './admin/ContentManagement';
 import LoginLogs from './admin/LoginLogs';
 import ExpenseManagement from './admin/ExpenseManagement';
 import ClassManagement from './admin/ClassManagement';
+import ClassAttendanceSheets from './admin/ClassAttendanceSheets';
 import AttendanceRecap from './admin/AttendanceRecap';
 import GuruAttendanceRecap from './admin/GuruAttendanceRecap';
 import TvDisplaySettings from './admin/TvDisplaySettings';
@@ -154,6 +155,7 @@ const AdminDashboard = () => {
     { value: 'santri', label: 'Data Santri', icon: Users, group: 'data' },
     { value: 'guru', label: 'Data Guru', icon: BookUser, group: 'data' },
     { value: 'kelas', label: 'Manajemen Kelas', icon: BookOpen, group: 'akademik' },
+    { value: 'absensi-kelas', label: 'Absensi Kelas', icon: FileSpreadsheet, group: 'akademik' },
     { value: 'rekap-absensi', label: 'Rekap Santri', icon: CalendarCheck, group: 'akademik' },
     { value: 'rekap-guru', label: 'Rekap Guru', icon: GraduationCap, group: 'akademik' },
     { value: 'mmq', label: 'MMQ', icon: Library, group: 'akademik' },
@@ -327,6 +329,7 @@ const AdminDashboard = () => {
               )}
             </TabsContent>
             <TabsContent value="kelas"><ClassManagement /></TabsContent>
+            <TabsContent value="absensi-kelas"><ClassAttendanceSheets /></TabsContent>
             <TabsContent value="guru"><GuruManagement /></TabsContent>
             <TabsContent value="rekap-absensi"><AttendanceRecap /></TabsContent>
             <TabsContent value="rekap-guru"><GuruAttendanceRecap /></TabsContent>
