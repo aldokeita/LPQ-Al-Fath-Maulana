@@ -165,7 +165,7 @@ const HafalanItemManager = ({
 
 const ContentManagement = () => {
   const [content, setContent] = useState({
-    ...defaultContent, brochures: [], pustaka: [], news: [], announcements: [], qiroatiVideos: [], hafalanVideos: [], waliDiscussions: [], santriOfTheMonth: [], guruOfTheMonth: null, leaderboard: [], parentingArticles: [], model3dSettings: { autoRotate: false, autoRotateSpeed: 0.34, rotationX: 0, rotationY: 0, rotationZ: 0 }
+    ...defaultContent, qiroatiLogoUrl: '', brochures: [], pustaka: [], news: [], announcements: [], qiroatiVideos: [], hafalanVideos: [], waliDiscussions: [], santriOfTheMonth: [], guruOfTheMonth: null, leaderboard: [], parentingArticles: [], model3dSettings: { autoRotate: false, autoRotateSpeed: 0.34, rotationX: 0, rotationY: 0, rotationZ: 0 }
   });
 
   const [feedbacks, setFeedbacks] = useState([]);
@@ -253,12 +253,14 @@ const ContentManagement = () => {
     if (['news', 'announcements', 'parentingArticles'].includes(type)) folder = 'article-images';
     else if (type === 'facilities') folder = 'facilities-images';
     else if (['brochures', 'pustaka'].includes(type)) folder = type;
-    else if (type === 'logoUrl') folder = 'logos';
+    else if (['logoUrl', 'qiroatiLogoUrl'].includes(type)) folder = 'logos';
     else if (type === 'ctaBackgroundUrl') folder = 'backgrounds';
     else if (type === 'heroSlides') folder = 'hero-slides';
     else if (type === 'galleryPhotos') folder = 'gallery';
 
-    const assetKey = type === 'logoUrl' ? 'logo' : (type === 'ctaBackgroundUrl' ? 'cta-background' : null);
+    const assetKey = type === 'logoUrl'
+      ? 'logo'
+      : (type === 'qiroatiLogoUrl' ? 'qiroati-logo' : (type === 'ctaBackgroundUrl' ? 'cta-background' : null));
     let publicUrl = '';
     try {
       const result = await uploadWebsiteAsset({ folder, key: assetKey, file });
@@ -271,12 +273,15 @@ const ContentManagement = () => {
       return;
     }
 
-    if (type === 'logoUrl') {
+    if (['logoUrl', 'qiroatiLogoUrl'].includes(type)) {
       try {
-        const logoUrl = assertNonEmptyWebsiteContentString('logoUrl', publicUrl);
-        const saved = await saveWebsiteContentItem({ key: 'logoUrl', content: logoUrl, isPublic: true });
-        setContent(prev => ({ ...prev, logoUrl: saved.content || logoUrl }));
-        toast({ title: "Logo Disimpan!", description: "Logo berhasil diunggah dan disimpan ke database." });
+        const logoUrl = assertNonEmptyWebsiteContentString(type, publicUrl);
+        const saved = await saveWebsiteContentItem({ key: type, content: logoUrl, isPublic: true });
+        setContent(prev => ({ ...prev, [type]: saved.content || logoUrl }));
+        toast({
+          title: type === 'qiroatiLogoUrl' ? 'Logo Qiroati Disimpan!' : 'Logo Disimpan!',
+          description: 'Logo berhasil diunggah dan langsung tersedia untuk dokumen absensi.',
+        });
       } catch (error) {
         toast({ title: "Logo Gagal Disimpan", description: getPublicContentErrorMessage(error), variant: "destructive" });
       }
@@ -552,7 +557,22 @@ const ContentManagement = () => {
         </div>
 
         <TabsContent value="homepage" className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
-            <div className="admin-card p-4"><h3 className="font-bold text-xl mb-4">Logo Website</h3><Input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, 'logoUrl')} />{content.logoUrl && <img src={content.logoUrl} alt="Logo Preview" className="w-24 h-24 mt-2 bg-gray-200 p-2 rounded-md" />}</div>
+            <div className="grid gap-4 lg:grid-cols-2">
+              <div className="admin-card p-4">
+                <h3 className="font-bold text-xl mb-1">Logo LPQ</h3>
+                <p className="mb-4 text-sm text-muted-foreground">Dipakai pada website dan sisi kiri header absensi kelas.</p>
+                <Input type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => handleFileUpload(e, 'logoUrl')} />
+                {content.logoUrl && <img src={content.logoUrl} alt="Pratinjau logo LPQ" className="w-24 h-24 mt-3 bg-gray-100 p-2 rounded-xl object-contain" />}
+              </div>
+              <div className="admin-card p-4 border-cyan-200/70 dark:border-cyan-900/60">
+                <h3 className="font-bold text-xl mb-1">Logo Qiroati</h3>
+                <p className="mb-4 text-sm text-muted-foreground">Ditampilkan di sisi kanan header absensi. PNG atau WebP transparan memberikan hasil terbaik.</p>
+                <Input type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => handleFileUpload(e, 'qiroatiLogoUrl')} />
+                {content.qiroatiLogoUrl
+                  ? <img src={content.qiroatiLogoUrl} alt="Pratinjau logo Qiroati" className="w-24 h-24 mt-3 bg-gray-100 p-2 rounded-xl object-contain" />
+                  : <div className="mt-3 flex h-24 w-24 items-center justify-center rounded-xl border border-dashed text-center text-[10px] text-muted-foreground">Belum<br />diunggah</div>}
+              </div>
+            </div>
             <div className="admin-card p-4">
                 <div className="flex justify-between items-center mb-4"><h3 className="font-bold text-xl">Slideshow</h3><Button onClick={addHeroSlide} size="sm"><Plus className="w-4 h-4 mr-2" /> Tambah Slide</Button></div>
                 <div className="mb-4"><label className="block text-sm font-medium mb-1">Timer Slideshow (ms)</label><Input type="number" value={content.slideshowTimer} onChange={e => setContent(p => ({...p, slideshowTimer: parseInt(e.target.value, 10)}))} /></div>
