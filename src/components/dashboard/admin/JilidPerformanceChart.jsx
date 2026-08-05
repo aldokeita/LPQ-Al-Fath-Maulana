@@ -1,12 +1,9 @@
 import React, { useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { normalizeQiroatiJilid, QIROATI_JILID_OPTIONS } from '@/lib/qiroatiJilid';
 
-const jilidOptions = [
-  'Pra TK A', 'Pra TK B', 'Pra TK C', 'Jilid 1A', 'Jilid 1B', 'Jilid 1C', 'Jilid 2A', 'Jilid 2B',
-  'Jilid 3A', 'Jilid 3B', 'Jilid 4A', 'Jilid 4B', 'Jilid 5A', 'Jilid 5B', 'Jilid 6A', 'Jilid 6B',
-  'Al-Qur\'an', 'Ghorib Tajwid', 'Finishing'
-];
+const jilidOptions = QIROATI_JILID_OPTIONS;
 
 const JilidPerformanceChart = ({ data }) => {
     const chartData = useMemo(() => {
@@ -15,7 +12,7 @@ const JilidPerformanceChart = ({ data }) => {
         const monthlyCounts = data.reduce((acc, entry) => {
             const date = new Date(entry.changed_at);
             // Only count "naik jilid" (promotions) for the chart
-            if (jilidOptions.indexOf(entry.to_jilid) <= jilidOptions.indexOf(entry.from_jilid)) {
+            if (jilidOptions.indexOf(normalizeQiroatiJilid(entry.to_jilid)) <= jilidOptions.indexOf(normalizeQiroatiJilid(entry.from_jilid))) {
                 return acc;
             }
 

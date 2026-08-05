@@ -74,7 +74,7 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
         if (!santri?.id) return;
         const { data } = await supabase
             .from('santri')
-            .select('id, nama_ibu, nama_ayah, nama_wali, no_hp_ortu')
+            .select('id, nama_ibu, nama_ayah, no_hp_ortu')
             .eq('id', santri.id)
             .maybeSingle();
         if (data) setSantriFullData(data);

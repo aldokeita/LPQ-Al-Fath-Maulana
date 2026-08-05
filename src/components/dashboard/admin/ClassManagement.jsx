@@ -23,6 +23,7 @@ import AdultClassManagement from './AdultClassManagement';
 import { getSessionName, getSessionNumber, getAllSessions } from '@/utils/sessionMapping';
 import { mapClassForLegacyUi, mapSantriForLegacyUi } from '@/lib/dataMasterAdapters';
 import { resolveAvatarRecord, resolveAvatarRecords } from '@/lib/storageAdapters';
+import { getAdjacentQiroatiJilid, QIROATI_JILID_OPTIONS } from '@/lib/qiroatiJilid';
 
 const ItemTypes = {
   SANTRI: 'santri',
@@ -31,11 +32,7 @@ const ItemTypes = {
   CLASS_ORDER: 'class_order'
 };
 
-const jilidOptions = [
-  'Pra TK A', 'Pra TK B', 'Pra TK C', 'Jilid 1A', 'Jilid 1B', 'Jilid 1C', 'Jilid 2A', 'Jilid 2B',
-  'Jilid 3A', 'Jilid 3B', 'Jilid 4A', 'Jilid 4B', 'Jilid 5A', 'Jilid 5B', 'Jilid Juz 27', 'Jilid 6A', 'Jilid 6B',
-  'Al-Qur\'an', 'Ghorib Tajwid', 'Finishing'
-];
+const jilidOptions = QIROATI_JILID_OPTIONS;
 
 // Draggable Session Item for Config
 const DraggableSessionItem = ({ name, time, index, moveSession, onDelete, onUpdate }) => {
@@ -410,7 +407,7 @@ const GenericClassManagement = ({ userRole, kategori = 'Anak', configKey = 'anak
           supabase.from('guru').select('id, nama, foto_url, no_hp, roles, status'),
           supabase
             .from('santri')
-            .select('id, nomor_induk_qiroati, nama_lengkap, nama_panggilan, nama_ibu, nama_ayah, nama_wali, kategori, jenis_kelamin, tanggal_lahir, tempat_lahir, alamat, no_hp_ortu, foto_url, avatar_path, rfid_tag, current_class_id, sesi_mengaji, jilid, status, points, order_in_class, created_at')
+            .select('id, nomor_induk_qiroati, nama_lengkap, nama_panggilan, nama_ibu, nama_ayah, kategori, jenis_kelamin, tanggal_lahir, tempat_lahir, alamat, no_hp_ortu, foto_url, avatar_path, rfid_tag, current_class_id, sesi_mengaji, jilid, status, points, order_in_class, created_at')
             .order('order_in_class', { ascending: true, nullsFirst: false }),
           supabase.from('attendance').select('*').eq('attendance_date', today),
           supabase.from('website_content').select('content').eq('key', configKey).maybeSingle(),
@@ -656,14 +653,15 @@ const GenericClassManagement = ({ userRole, kategori = 'Anak', configKey = 'anak
   };
 
   const initiateJilidChange = (santri, direction) => {
-      const currentIndex = jilidOptions.indexOf(santri.jilid);
-      if (direction === 'up') {
-        if (currentIndex >= jilidOptions.length - 1) { toast({ title: 'Info', description: 'Santri sudah di jilid terakhir.' }); return; }
-        setJilidChangeData({ santri, direction: 'up', currentJilid: santri.jilid, nextJilid: jilidOptions[currentIndex + 1] });
-      } else {
-        if (currentIndex <= 0) { toast({ title: 'Info', description: 'Santri sudah di jilid pertama.' }); return; }
-        setJilidChangeData({ santri, direction: 'down', currentJilid: santri.jilid, nextJilid: jilidOptions[currentIndex - 1] });
+      const nextJilid = getAdjacentQiroatiJilid(santri.jilid, direction);
+      if (!nextJilid) {
+        toast({
+          title: 'Info',
+          description: direction === 'up' ? 'Santri sudah di jilid terakhir.' : 'Santri sudah di jilid pertama.',
+        });
+        return;
       }
+      setJilidChangeData({ santri, direction, currentJilid: santri.jilid, nextJilid });
       setIsJilidModalOpen(true);
   };
 
