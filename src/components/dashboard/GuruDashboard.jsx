@@ -44,6 +44,7 @@ import StudentTransferModal from '@/components/dashboard/guru/StudentTransferMod
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useTheme } from '@/contexts/ThemeContext';
 import { getAdjacentQiroatiJilid, QIROATI_JILID_OPTIONS } from '@/lib/qiroatiJilid';
+import { changeSantriJilid, getJilidChangeErrorMessage } from '@/lib/jilidChangeAdapters';
 
 const ProfileConstellationScene = lazy(() => import('@/components/dashboard/santri/SantriLevelScene'));
 
@@ -195,6 +196,7 @@ const GuruDashboard = () => {
   const [isManualMurojaahActive, setIsManualMurojaahActive] = useState(false);
   const [manualMurojaahForm, setManualMurojaahForm] = useState({ santri_id: '', category: 'Surat', item_name: '', feedback: '' });
   const [isSubmittingManual, setIsSubmittingManual] = useState(false);
+  const [isSavingJilid, setIsSavingJilid] = useState(false);
 
   const fetchGuruData = useCallback(async () => {
     if (user?.id) {
@@ -368,12 +370,29 @@ const GuruDashboard = () => {
   const confirmJilidChange = async () => {
       if (!jilidChangeData) return;
       const { santri, currentJilid, nextJilid } = jilidChangeData;
-      const { error: updateError } = await supabase.from('santri').update({ jilid: nextJilid }).eq('id', santri.id);
-      if (updateError) { toast({ title: 'Gagal!', description: updateError.message, variant: 'destructive' }); return; }
-      await supabase.from('jilid_history').insert({ santri_id: santri.id, from_jilid: currentJilid, to_jilid: nextJilid, changed_by: user.id });
-      toast({ title: 'Berhasil!', description: `Jilid santri diubah ke ${nextJilid}.` });
-      setMyClasses(prev => prev.map(cls => ({ ...cls, santri: cls.santri.map(s => s.id === santri.id ? {...s, jilid: nextJilid} : s) })));
-      setIsJilidModalOpen(false); setJilidChangeData(null);
+      setIsSavingJilid(true);
+      try {
+        const savedChange = await changeSantriJilid({
+          santriId: santri.id,
+          currentJilid,
+          nextJilid,
+        });
+        toast({ title: 'Berhasil!', description: `Jilid santri diubah ke ${savedChange.to_jilid}.` });
+        setMyClasses(prev => prev.map(cls => ({
+          ...cls,
+          santri: cls.santri.map(s => s.id === santri.id ? { ...s, jilid: savedChange.to_jilid } : s),
+        })));
+        setIsJilidModalOpen(false);
+        setJilidChangeData(null);
+      } catch (error) {
+        toast({
+          title: 'Gagal menyimpan jilid',
+          description: getJilidChangeErrorMessage(error),
+          variant: 'destructive',
+        });
+      } finally {
+        setIsSavingJilid(false);
+      }
   };
 
   const openAttendanceModal = (santri, cls, attendanceRecord) => {
@@ -771,7 +790,7 @@ const GuruDashboard = () => {
       />
       <BirthdayNotificationModal isOpen={isBirthdayModalOpen} onClose={() => setIsBirthdayModalOpen(false)} students={allMySantri} />
       <ConfirmationDialog isOpen={confirmDialog.isOpen} onClose={() => setConfirmDialog({ ...confirmDialog, isOpen: false })} onConfirm={confirmDialog.onConfirm} title={confirmDialog.title} description={confirmDialog.description} variant={confirmDialog.variant || "destructive"} confirmText={confirmDialog.confirmText || "Ya, Lanjutkan"} />
-      <JilidChangeModal isOpen={isJilidModalOpen} onClose={() => setIsJilidModalOpen(false)} onConfirm={confirmJilidChange} {...jilidChangeData} kategori="Anak" />
+      <JilidChangeModal isOpen={isJilidModalOpen} onClose={() => setIsJilidModalOpen(false)} onConfirm={confirmJilidChange} isSaving={isSavingJilid} {...jilidChangeData} kategori="Anak" />
     </>
   );
 };

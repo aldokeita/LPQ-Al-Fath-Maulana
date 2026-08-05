@@ -4,13 +4,13 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/lib/customSupabaseClient';
-import { MessageCircle, ChevronRight, Check, AlertTriangle } from 'lucide-react';
+import { MessageCircle, ChevronRight, Check, AlertTriangle, Loader2 } from 'lucide-react';
 import { generateWhatsAppLink, resolveWhatsAppGroupLink } from '@/utils/whatsappMessages';
 import { toast } from '@/components/ui/use-toast';
 import { fetchWhatsAppTemplates, renderWhatsAppTemplate } from '@/lib/whatsappTemplateAdapters';
 import { fetchWhatsAppGroupLink } from '@/lib/whatsappGroupLinksAdapters';
 
-const JilidChangeModal = ({ isOpen, onClose, santri, direction, currentJilid, nextJilid, onConfirm, kategori = 'Anak' }) => {
+const JilidChangeModal = ({ isOpen, onClose, santri, direction, currentJilid, nextJilid, onConfirm, kategori = 'Anak', isSaving = false }) => {
     const [message, setMessage] = useState('');
     const [hasSiblings, setHasSiblings] = useState(false);
     const [isLoadingLink, setIsLoadingLink] = useState(false);
@@ -73,7 +73,9 @@ const JilidChangeModal = ({ isOpen, onClose, santri, direction, currentJilid, ne
     };
 
     return (
-        <Dialog open={isOpen} onOpenChange={onClose}>
+        <Dialog open={isOpen} onOpenChange={(open) => {
+            if (!open && !isSaving) onClose();
+        }}>
             <DialogContent className="max-w-lg">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
@@ -102,19 +104,19 @@ const JilidChangeModal = ({ isOpen, onClose, santri, direction, currentJilid, ne
                 </div>
 
                 <DialogFooter className="flex-col sm:flex-row gap-2">
-                    <Button variant="secondary" onClick={onClose} className="w-full sm:w-auto">Batal</Button>
+                    <Button variant="secondary" onClick={onClose} className="w-full sm:w-auto" disabled={isSaving}>Batal</Button>
                     <Button
                         variant="outline"
                         className="w-full sm:w-auto border-green-600 text-green-600 hover:bg-green-50"
                         onClick={handleSendWA}
-                        disabled={!santri?.no_hp_ortu || isLoadingLink}
+                        disabled={!santri?.no_hp_ortu || isLoadingLink || isSaving}
                     >
                         <MessageCircle className="w-4 h-4 mr-2"/>
                         {santri?.no_hp_ortu ? 'Kirim WA' : 'No. HP Kosong'}
                     </Button>
-                    <Button onClick={onConfirm} className="w-full sm:w-auto">
-                        <Check className="w-4 h-4 mr-2"/>
-                        Konfirmasi & Simpan
+                    <Button onClick={onConfirm} className="w-full sm:w-auto" disabled={isSaving}>
+                        {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin"/> : <Check className="w-4 h-4 mr-2"/>}
+                        {isSaving ? 'Menyimpan...' : 'Konfirmasi & Simpan'}
                     </Button>
                 </DialogFooter>
             </DialogContent>
