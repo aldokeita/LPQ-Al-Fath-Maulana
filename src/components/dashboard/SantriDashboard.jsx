@@ -478,7 +478,7 @@ const SantriDashboard = ({ isAdult = false }) => {
       attendance_date: new Date().toLocaleDateString('en-CA'),
       sesi: sessionName,
       attended_session: attendanceSessionName,
-      class_id: santriData.id_kelas,
+      class_id: santriData.current_class_id ?? santriData.id_kelas ?? null,
       checkInTimestamp: myAttendanceRecord?.check_in_timestamp,
       sessionStartTime: attendanceSessionStart,
       lateMinutes: myAttendanceRecord ? calculateTimeDifference(myAttendanceRecord.check_in_timestamp, attendanceSessionStart) : 0

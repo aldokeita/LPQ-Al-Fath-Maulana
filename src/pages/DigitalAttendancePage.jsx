@@ -744,8 +744,12 @@ const DigitalAttendancePage = () => {
         else {
           let newPoints = user.points || 0;
           if (userRole === 'santri' && !isAdult && attendanceStatusText === 'Hadir' && !shouldRestoreAbsentAttendance) {
-            await supabase.rpc('increment_santri_points', { p_santri_id: user.id, p_amount: 1 });
-            newPoints += 1;
+            const { data: updatedPoints, error: pointsError } = await supabase.rpc('increment_santri_points', { p_santri_id: user.id, p_amount: 1 });
+            if (pointsError) {
+              console.error('[Absensi] Gagal menambah poin santri:', pointsError.message);
+            } else if (typeof updatedPoints === 'number') {
+              newPoints = updatedPoints;
+            }
           }
           const levelInfo = (userRole === 'santri' && !isAdult) ? getLevelInfo(newPoints, user.jenis_kelamin) : null;
           const [monthlyStats, learningHighlights] = userRole === 'santri'

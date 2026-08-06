@@ -108,7 +108,7 @@ const TopScorePage = () => {
                 check_in_time: new Date().toTimeString().split(' ')[0],
                 status: 'Hadir',
                 sesi: student.sesi_mengaji || 'Pagi',
-                class_id: student.id_kelas
+                class_id: student.current_class_id ?? student.id_kelas ?? null
             });
 
             if (insertError) throw insertError;

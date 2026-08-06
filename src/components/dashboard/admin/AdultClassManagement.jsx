@@ -487,9 +487,20 @@ const AdultClassManagement = () => {
     const [draggedItem] = santriInClass.splice(dragIndex, 1);
     santriInClass.splice(hoverIndex, 0, draggedItem);
     const updatedSantriInClass = santriInClass.map((s, i) => ({ ...s, order_in_class: i + 1 }));
+    const previousSantriList = santriList;
     setSantriList([...otherSantri, ...updatedSantriInClass]);
-    const updates = updatedSantriInClass.map(s => supabase.from('santri').update({ order_in_class: s.order_in_class }).eq('id', s.id));
-    await Promise.all(updates);
+    const results = await Promise.all(
+      updatedSantriInClass.map(s => supabase.from('santri').update({ order_in_class: s.order_in_class }).eq('id', s.id).select('id'))
+    );
+    const failure = results.find(result => result.error) || results.find(result => !result.data?.length);
+    if (failure) {
+      setSantriList(previousSantriList);
+      toast({
+        title: 'Gagal menyimpan urutan',
+        description: failure.error?.message || 'Urutan santri tidak tersimpan. Periksa kembali akses Anda.',
+        variant: 'destructive',
+      });
+    }
   }, [santriList]);
 
   const handleDropSantri = async (item, toClassId) => {
