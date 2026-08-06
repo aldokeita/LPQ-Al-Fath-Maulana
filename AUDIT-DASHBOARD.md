@@ -41,7 +41,10 @@ Artinya: **tidak ada satu pun policy tulis untuk guru maupun santri.** Setiap `u
 
 ## Prioritas Tinggi
 
-### [ ] F1 — Edit profil santri gagal diam-diam, notifikasi palsu
+### [x] F1 — Edit profil santri gagal diam-diam, notifikasi palsu — **SELESAI**
+
+> **Catatan verifikasi.** Sempat dianggap keliru karena pemilik proyek berhasil mengubah alamat dan no HP. Ternyata pengujian itu dilakukan **dari dashboard Admin**, dan admin memang berwenang menulis (`santri_admin_all`). Kondisi RLS di database sudah dicek langsung lewat `pg_policies` dan **identik** dengan isi migration. Temuan ini tetap berlaku untuk santri yang mengedit profilnya sendiri.
+
 
 **Berkas:** `src/components/dashboard/SantriDashboard.jsx:324-331`
 
@@ -87,7 +90,7 @@ Daftar putih ditegakkan di server, bukan di klien (lihat F10).
 
 ---
 
-### [ ] F2 — Fallback poin menembus otorisasi lalu gagal diam-diam
+### [x] F2 — [SELESAI]  Fallback poin menembus otorisasi lalu gagal diam-diam
 
 **Berkas:** `src/pages/GatchaGamePage.jsx:148-160`, `src/pages/QuizHafalanPage.jsx:304-321`
 
@@ -122,7 +125,7 @@ setCurrentPlayer(prev => ({ ...prev, points: newPoints }));
 
 ---
 
-### [ ] F3 — Absensi dari TopScorePage tidak terlihat oleh guru
+### [x] F3 — [SELESAI]  Absensi dari TopScorePage tidak terlihat oleh guru
 
 **Berkas:** `src/pages/TopScorePage.jsx:70-71` dan `:111`
 
@@ -158,7 +161,7 @@ or (class_id is not null and public.guru_has_class_access(class_id))
 
 ## Prioritas Menengah
 
-### [ ] F4 — Perubahan absensi dilaporkan berhasil tanpa verifikasi
+### [x] F4 — [SELESAI]  Perubahan absensi dilaporkan berhasil tanpa verifikasi
 
 **Berkas:** `src/components/dashboard/shared/AttendanceDetailsModal.jsx:62-68`, `:99-111`
 
@@ -177,7 +180,7 @@ if (!data?.length) throw new Error('Tidak ada data absensi yang berubah. Periksa
 
 ---
 
-### [ ] F5 — Urutan hasil drag tidak tersimpan saat gagal
+### [x] F5 — [SELESAI]  Urutan hasil drag tidak tersimpan saat gagal
 
 **Berkas:** `src/components/dashboard/admin/AdultClassManagement.jsx:489-492` (ada padanannya di `ClassManagement.jsx`)
 
@@ -193,7 +196,7 @@ Layar ini khusus admin sehingga RLS tidak memblokir, namun kegagalan jaringan at
 
 ---
 
-### [ ] F6 — Hasil `increment_santri_points` diabaikan di kiosk absensi
+### [x] F6 — [SELESAI]  Hasil `increment_santri_points` diabaikan di kiosk absensi
 
 **Berkas:** `src/pages/DigitalAttendancePage.jsx:747-748`
 
@@ -259,7 +262,7 @@ Keluhan UX yang sama seperti pada dashboard guru/santri (sudah diperbaiki di `Su
 
 ---
 
-### [ ] F10 — Penyaringan field hanya di sisi klien
+### [x] F10 — [SELESAI lewat F1]  Penyaringan field hanya di sisi klien
 
 **Berkas:** `src/components/dashboard/SantriDashboard.jsx:326`
 
