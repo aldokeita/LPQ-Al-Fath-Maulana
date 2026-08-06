@@ -322,8 +322,8 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
                         <SantriDevelopmentProfile
                             santriId={santri.id}
                             userId={user?.id}
-                            editable={role === 'guru'}
-                            showBehavior={role === 'guru'}
+                            editable={role === 'guru' || role === 'admin'}
+                            showBehavior={role === 'guru' || role === 'admin'}
                             collapsible={true}
                         />
                     </div>

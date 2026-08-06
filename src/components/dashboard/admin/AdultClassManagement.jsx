@@ -416,11 +416,12 @@ const AdultClassManagement = () => {
 
   useEffect(() => {
     fetchAllData();
+    // Deliberately no 'focus' listener: refetching whenever the tab regains
+    // focus reads as an unwanted auto-refresh. Data still refreshes on demand
+    // through the explicit lpq:santri-data-changed event.
     const refresh = () => fetchAllData();
-    window.addEventListener('focus', refresh);
     window.addEventListener('lpq:santri-data-changed', refresh);
     return () => {
-      window.removeEventListener('focus', refresh);
       window.removeEventListener('lpq:santri-data-changed', refresh);
     };
   }, [fetchAllData]);

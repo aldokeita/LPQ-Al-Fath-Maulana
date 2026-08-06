@@ -211,7 +211,7 @@ Tanpa pemeriksaan error. Poin dan badge level yang ditampilkan ke santri dihitun
 
 ---
 
-### [ ] F7 — Admin tidak bisa menyunting profil perkembangan santri
+### [x] F7 — [SELESAI]  Admin tidak bisa menyunting profil perkembangan santri
 
 **Berkas:** `src/components/dashboard/shared/SantriDetailModal.jsx:325-326`
 
@@ -226,7 +226,7 @@ Admin dan pentashih mendapat mode baca-saja, padahal policy `santri_character_sc
 
 ---
 
-### [ ] F8 — Ketidakcocokan model peran: guru berperan admin/pentashih
+### [x] F8 — [SELESAI]  Ketidakcocokan model peran: guru berperan admin/pentashih
 
 **Berkas:** `supabase/migrations/20260624001500_rls_helper_functions.sql` (definisi `is_guru`), `20260723000200_enable_guru_admin_roles.sql`
 
@@ -248,7 +248,7 @@ Lalu sesuaikan gerbangnya menjadi `is_admin() OR (is_teaching_staff() AND guru_h
 
 ## Prioritas Rendah
 
-### [ ] F9 — Dashboard admin masih auto-refresh saat tab difokuskan
+### [x] F9 — [SELESAI]  Dashboard admin masih auto-refresh saat tab difokuskan
 
 **Berkas:** `src/components/dashboard/admin/AdultClassManagement.jsx:417-426`
 
