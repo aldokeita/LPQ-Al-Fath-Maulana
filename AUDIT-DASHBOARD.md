@@ -331,3 +331,67 @@ Diurutkan agar tiap langkah tidak membatalkan langkah berikutnya:
 3. **Duplikasi `confirmJilidChange` di empat berkas** adalah alasan mengapa perbaikan pertama saya tidak lengkap. Logika mutasi yang sama disalin ke `ClassManagement`, `AdultClassManagement`, `GuruDashboard`. Satu hook bersama, misalnya `useJilidChange()`, akan membuat perbaikan cukup sekali.
 
 4. **Ketidakcocokan `id_kelas` dan `current_class_id`** (akar F3) berpotensi muncul di tempat lain. `mapSantriForLegacyUi` ada untuk menjembatani keduanya, tetapi tidak dipakai konsisten. Layak dilakukan penyisiran khusus untuk seluruh pembacaan `.id_kelas` pada data yang berasal dari `select('*')`.
+
+---
+
+## Temuan Baru dari Verifikasi Langsung (6 Agustus 2026)
+
+Ditemukan saat menjalankan aplikasi dengan akun Administrator sungguhan di server lokal — bukan dari analisis statik.
+
+### [x] F11 — Manajemen Kelas TPQ gagal memuat total — **SELESAI, TERVERIFIKASI**
+
+**Berkas:** `src/components/dashboard/admin/ClassManagement.jsx:413`, `src/components/dashboard/shared/SantriDetailModal.jsx:77`
+
+Query santri menyertakan kolom `nama_wali`, padahal kolom itu **tidak pernah dibuat di migration mana pun**. PostgREST menolak seluruh query:
+
+```
+400  {"code":"42703","message":"column santri.nama_wali does not exist"}
+```
+
+Di `ClassManagement.jsx:420-422`, kegagalan itu memicu `return` lebih awal, sehingga `setSantriList` tidak pernah dipanggil — **seluruh layar Manajemen Kelas TPQ kosong**. Dashboard Pentashih ikut terdampak karena merender komponen yang sama.
+
+Pada `SantriDetailModal.jsx:75`, error tidak di-destructure sama sekali (`const { data } = ...`), sehingga kegagalan yang sama tertelan diam-diam dan nama wali jatuh ke `-`.
+
+**Bukti sebelum:** HTTP 400, toast "Gagal memuat data", layar kosong.
+**Bukti sesudah:** HTTP 200, tanpa error console, data termuat.
+
+**Perbaikan:** `nama_wali` dihapus dari kedua SELECT, dan error kini diperiksa di SantriDetailModal. Pembacaan `santriData.nama_wali` di `reportUtils.js` dibiarkan — itu akses properti biasa yang aman jatuh ke nilai berikutnya.
+
+---
+
+### [ ] F12 — Pencatatan keamanan login mati di domain produksi
+
+**Berkas:** `supabase/functions/_shared/cors.ts:4-14`, `src/lib/loginSecurityAdapters.js:38`
+
+Edge function `record-login-attempt` menolak permintaan dari domain produksi:
+
+```
+CORS policy: 'Access-Control-Allow-Origin' bernilai 'https://lpq-al-fath-maulana.vercel.app'
+yang tidak sama dengan origin yang diminta
+```
+
+Variabel `ALLOWED_ORIGINS` di Supabase memuat URL Vercel lama, **bukan** `https://www.lpqalfathmaulana.id`. Karena origin tidak cocok dan bukan domain `*.vercel.app`, fungsi mengembalikan `allowed[0]` dan browser menolaknya.
+
+Dampaknya tidak terlihat karena `loginSecurityAdapters.js:38` menelan error (`catch { return false; }`). Login tetap berhasil, tetapi **catatan percobaan login tidak pernah tersimpan** — termasuk percobaan yang gagal.
+
+**Solusi:** ini perubahan konfigurasi, bukan kode. Di Supabase → Edge Functions → Secrets, ubah `ALLOWED_ORIGINS` menjadi:
+
+```
+https://www.lpqalfathmaulana.id,https://lpqalfathmaulana.id,https://lpq-al-fath-maulana.vercel.app,http://localhost:5173,http://localhost:3000
+```
+
+Disarankan juga mengganti `catch { return false; }` menjadi mencatat error ke console, agar kegagalan serupa tidak tersembunyi lagi.
+
+---
+
+## Status Verifikasi Langsung
+
+| Diuji | Hasil |
+|---|---|
+| Login sebagai Administrator | Berhasil, peran terbaca `admin` |
+| Manajemen Kelas memuat santri | **Terbukti** — 400 menjadi 200 |
+| Pindah tab tidak memicu refresh | **Belum konklusif** — lihat catatan |
+| Santri edit profil sendiri (F1) | Belum diuji — butuh akun santri |
+| Guru ubah jilid | Belum diuji — butuh akun guru |
+
+**Catatan soal pindah tab.** Pengujian mencatat nol permintaan data setelah kembali ke tab. Namun log menunjukkan **tidak ada event autentikasi yang terpicu** selama perpindahan tab singkat itu, karena token masih baru. Artinya pengujian ini belum membuktikan apa pun — kode lama pun akan lolos. Pembuktian sesungguhnya memerlukan jeda yang cukup lama hingga Supabase memulihkan sesi.
