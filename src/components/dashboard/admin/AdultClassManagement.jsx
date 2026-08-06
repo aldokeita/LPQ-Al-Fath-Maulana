@@ -538,9 +538,21 @@ const AdultClassManagement = () => {
   const confirmJilidChange = async () => {
       if (!jilidChangeData) return;
       const { santri, currentJilid, nextJilid } = jilidChangeData;
-      await supabase.from('santri').update({ jilid: nextJilid }).eq('id', santri.id);
-      await supabase.from('jilid_history').insert({ santri_id: santri.id, from_jilid: currentJilid, to_jilid: nextJilid, changed_by: user.id });
-      toast({ title: 'Berhasil' }); fetchAllData(); setIsJilidModalOpen(false); setJilidChangeData(null);
+      const { data, error } = await supabase.rpc('change_santri_jilid', {
+        p_santri_id: santri.id,
+        p_new_jilid: nextJilid,
+        p_old_jilid: currentJilid,
+      });
+      if (error) {
+        toast({ title: 'Gagal!', description: error.message, variant: 'destructive' });
+        return;
+      }
+      if (!data) {
+        toast({ title: 'Gagal!', description: 'Jilid santri tidak berubah. Periksa kembali akses Anda.', variant: 'destructive' });
+        return;
+      }
+      toast({ title: 'Berhasil', description: `Jilid santri diubah ke ${nextJilid}.` });
+      fetchAllData(); setIsJilidModalOpen(false); setJilidChangeData(null);
   };
 
   const handleSubmit = async (e) => {
