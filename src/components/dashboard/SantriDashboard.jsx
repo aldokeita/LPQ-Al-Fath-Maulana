@@ -323,11 +323,33 @@ const EditProfileDialog = ({ isOpen, onOpenChange, santri, onUpdate }) => {
 
     const handleSave = async () => {
         setIsSaving(true);
-        const { nama_panggilan, password, points, jilid, sesi_mengaji, nomor_induk_qiroati, class: classObj, id_kelas, ...allowedData } = formData;
-        const { error } = await supabase.from('santri').update(allowedData).eq('id', santri.id);
+        // The column allow-list is enforced inside update_santri_self_profile;
+        // sending only these keys keeps the payload honest but is not the control.
+        const { data, error } = await supabase.rpc('update_santri_self_profile', {
+            p_profile: {
+                nama_lengkap: formData.nama_lengkap,
+                tempat_lahir: formData.tempat_lahir,
+                tanggal_lahir: formData.tanggal_lahir,
+                nama_ayah: formData.nama_ayah,
+                nama_ibu: formData.nama_ibu,
+                no_hp_ortu: formData.no_hp_ortu,
+                alamat: formData.alamat,
+                avatar_path: formData.avatar_path ?? null,
+                foto_url: formData.foto_url ?? null,
+            },
+        });
         setIsSaving(false);
-        if (error) toast({ title: "Gagal", description: error.message, variant: "destructive" });
-        else { toast({ title: "Berhasil", description: "Profil berhasil diperbarui." }); onUpdate(); onOpenChange(false); }
+        if (error) {
+            toast({ title: "Gagal", description: error.message, variant: "destructive" });
+            return;
+        }
+        if (!data) {
+            toast({ title: "Gagal", description: "Profil tidak tersimpan. Silakan coba lagi.", variant: "destructive" });
+            return;
+        }
+        toast({ title: "Berhasil", description: "Profil berhasil diperbarui." });
+        onUpdate();
+        onOpenChange(false);
     };
 
     return (
@@ -478,7 +500,7 @@ const SantriDashboard = ({ isAdult = false }) => {
       attendance_date: new Date().toLocaleDateString('en-CA'),
       sesi: sessionName,
       attended_session: attendanceSessionName,
-      class_id: santriData.id_kelas,
+      class_id: santriData.current_class_id ?? santriData.id_kelas ?? null,
       checkInTimestamp: myAttendanceRecord?.check_in_timestamp,
       sessionStartTime: attendanceSessionStart,
       lateMinutes: myAttendanceRecord ? calculateTimeDifference(myAttendanceRecord.check_in_timestamp, attendanceSessionStart) : 0

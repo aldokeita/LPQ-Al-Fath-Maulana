@@ -72,11 +72,15 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
     const [santriFullData, setSantriFullData] = useState(null);
     const fetchSantriFullData = useCallback(async () => {
         if (!santri?.id) return;
-        const { data } = await supabase
+        const { data, error } = await supabase
             .from('santri')
-            .select('id, nama_ibu, nama_ayah, nama_wali, no_hp_ortu')
+            .select('id, nama_ibu, nama_ayah, no_hp_ortu')
             .eq('id', santri.id)
             .maybeSingle();
+        if (error) {
+            console.error('[SantriDetailModal] Gagal memuat data wali santri:', error.message);
+            return;
+        }
         if (data) setSantriFullData(data);
     }, [santri?.id]);
 
@@ -322,8 +326,8 @@ const SantriDetailModal = ({ santri, isOpen, onOpenChange, onPromote, onDemote }
                         <SantriDevelopmentProfile
                             santriId={santri.id}
                             userId={user?.id}
-                            editable={role === 'guru'}
-                            showBehavior={role === 'guru'}
+                            editable={role === 'guru' || role === 'admin'}
+                            showBehavior={role === 'guru' || role === 'admin'}
                             collapsible={true}
                         />
                     </div>

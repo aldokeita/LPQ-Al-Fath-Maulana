@@ -416,11 +416,12 @@ const AdultClassManagement = () => {
 
   useEffect(() => {
     fetchAllData();
+    // Deliberately no 'focus' listener: refetching whenever the tab regains
+    // focus reads as an unwanted auto-refresh. Data still refreshes on demand
+    // through the explicit lpq:santri-data-changed event.
     const refresh = () => fetchAllData();
-    window.addEventListener('focus', refresh);
     window.addEventListener('lpq:santri-data-changed', refresh);
     return () => {
-      window.removeEventListener('focus', refresh);
       window.removeEventListener('lpq:santri-data-changed', refresh);
     };
   }, [fetchAllData]);
@@ -487,9 +488,20 @@ const AdultClassManagement = () => {
     const [draggedItem] = santriInClass.splice(dragIndex, 1);
     santriInClass.splice(hoverIndex, 0, draggedItem);
     const updatedSantriInClass = santriInClass.map((s, i) => ({ ...s, order_in_class: i + 1 }));
+    const previousSantriList = santriList;
     setSantriList([...otherSantri, ...updatedSantriInClass]);
-    const updates = updatedSantriInClass.map(s => supabase.from('santri').update({ order_in_class: s.order_in_class }).eq('id', s.id));
-    await Promise.all(updates);
+    const results = await Promise.all(
+      updatedSantriInClass.map(s => supabase.from('santri').update({ order_in_class: s.order_in_class }).eq('id', s.id).select('id'))
+    );
+    const failure = results.find(result => result.error) || results.find(result => !result.data?.length);
+    if (failure) {
+      setSantriList(previousSantriList);
+      toast({
+        title: 'Gagal menyimpan urutan',
+        description: failure.error?.message || 'Urutan santri tidak tersimpan. Periksa kembali akses Anda.',
+        variant: 'destructive',
+      });
+    }
   }, [santriList]);
 
   const handleDropSantri = async (item, toClassId) => {
@@ -538,9 +550,21 @@ const AdultClassManagement = () => {
   const confirmJilidChange = async () => {
       if (!jilidChangeData) return;
       const { santri, currentJilid, nextJilid } = jilidChangeData;
-      await supabase.from('santri').update({ jilid: nextJilid }).eq('id', santri.id);
-      await supabase.from('jilid_history').insert({ santri_id: santri.id, from_jilid: currentJilid, to_jilid: nextJilid, changed_by: user.id });
-      toast({ title: 'Berhasil' }); fetchAllData(); setIsJilidModalOpen(false); setJilidChangeData(null);
+      const { data, error } = await supabase.rpc('change_santri_jilid', {
+        p_santri_id: santri.id,
+        p_new_jilid: nextJilid,
+        p_old_jilid: currentJilid,
+      });
+      if (error) {
+        toast({ title: 'Gagal!', description: error.message, variant: 'destructive' });
+        return;
+      }
+      if (!data) {
+        toast({ title: 'Gagal!', description: 'Jilid santri tidak berubah. Periksa kembali akses Anda.', variant: 'destructive' });
+        return;
+      }
+      toast({ title: 'Berhasil', description: `Jilid santri diubah ke ${nextJilid}.` });
+      fetchAllData(); setIsJilidModalOpen(false); setJilidChangeData(null);
   };
 
   const handleSubmit = async (e) => {

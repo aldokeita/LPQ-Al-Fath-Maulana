@@ -410,7 +410,7 @@ const GenericClassManagement = ({ userRole, kategori = 'Anak', configKey = 'anak
           supabase.from('guru').select('id, nama, foto_url, no_hp, roles, status'),
           supabase
             .from('santri')
-            .select('id, nomor_induk_qiroati, nama_lengkap, nama_panggilan, nama_ibu, nama_ayah, nama_wali, kategori, jenis_kelamin, tanggal_lahir, tempat_lahir, alamat, no_hp_ortu, foto_url, avatar_path, rfid_tag, current_class_id, sesi_mengaji, jilid, status, points, order_in_class, created_at')
+            .select('id, nomor_induk_qiroati, nama_lengkap, nama_panggilan, nama_ibu, nama_ayah, kategori, jenis_kelamin, tanggal_lahir, tempat_lahir, alamat, no_hp_ortu, foto_url, avatar_path, rfid_tag, current_class_id, sesi_mengaji, jilid, status, points, order_in_class, created_at')
             .order('order_in_class', { ascending: true, nullsFirst: false }),
           supabase.from('attendance').select('*').eq('attendance_date', today),
           supabase.from('website_content').select('content').eq('key', configKey).maybeSingle(),
@@ -670,9 +670,19 @@ const GenericClassManagement = ({ userRole, kategori = 'Anak', configKey = 'anak
   const confirmJilidChange = async () => {
       if (!jilidChangeData) return;
       const { santri, currentJilid, nextJilid } = jilidChangeData;
-      const { error: updateError } = await supabase.from('santri').update({ jilid: nextJilid }).eq('id', santri.id);
-      if (updateError) { toast({ title: 'Gagal!', description: updateError.message, variant: 'destructive' }); return; }
-      await supabase.from('jilid_history').insert({ santri_id: santri.id, from_jilid: currentJilid, to_jilid: nextJilid, changed_by: user.id });
+      const { data, error } = await supabase.rpc('change_santri_jilid', {
+        p_santri_id: santri.id,
+        p_new_jilid: nextJilid,
+        p_old_jilid: currentJilid,
+      });
+      if (error) {
+        toast({ title: 'Gagal!', description: error.message, variant: 'destructive' });
+        return;
+      }
+      if (!data) {
+        toast({ title: 'Gagal!', description: 'Jilid santri tidak berubah. Periksa kembali akses Anda.', variant: 'destructive' });
+        return;
+      }
       toast({ title: 'Berhasil!', description: `Jilid santri diubah ke ${nextJilid}.` });
       fetchAllData(); setIsJilidModalOpen(false); setJilidChangeData(null);
   };
