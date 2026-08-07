@@ -160,11 +160,14 @@ const GatchaGamePage = () => {
             description: rpcError.message,
             variant: 'destructive'
           });
-        } else if (typeof updatedPoints === 'number') {
-          setCurrentPlayer(prev => ({
-            ...prev,
-            points: updatedPoints
-          }));
+        } else if (updatedPoints != null) {
+          const newPointValue = Number(updatedPoints);
+          if (Number.isFinite(newPointValue)) {
+            setCurrentPlayer(prev => ({
+              ...prev,
+              points: newPointValue
+            }));
+          }
         }
       }
       setGameState('REWARD_SHOW');
