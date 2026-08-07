@@ -1,40 +1,43 @@
-import React, { useEffect, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { Toaster } from '@/components/ui/toaster';
 import { AuthProvider, useAuth } from '@/contexts/SupabaseAuthContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
+// HomePage stays eager: it is the landing page and its chunk is small.
+// Everything else is split per route so public visitors never download the
+// dashboard, admin, xlsx, jspdf or game code.
 import HomePage from '@/pages/HomePage';
-import LoginPage from '@/pages/LoginPage';
-import DashboardPage from '@/pages/DashboardPage';
-import ProfilePage from '@/pages/ProfilePage';
-import RegistrationInfoPage from '@/pages/RegistrationInfoPage';
-import BrochurePage from '@/pages/BrochurePage';
-import ContactPage from '@/pages/ContactPage';
-import PaymentStatusPage from '@/pages/PaymentStatusPage';
+const LoginPage = lazy(() => import('@/pages/LoginPage'));
+const DashboardPage = lazy(() => import('@/pages/DashboardPage'));
+const ProfilePage = lazy(() => import('@/pages/ProfilePage'));
+const RegistrationInfoPage = lazy(() => import('@/pages/RegistrationInfoPage'));
+const BrochurePage = lazy(() => import('@/pages/BrochurePage'));
+const ContactPage = lazy(() => import('@/pages/ContactPage'));
+const PaymentStatusPage = lazy(() => import('@/pages/PaymentStatusPage'));
 import ProtectedRoute from '@/components/ProtectedRoute';
 import ScrollToTopButton from '@/components/ScrollToTopButton';
-import NewsPage from '@/pages/NewsPage';
-import NewsDetailPage from '@/pages/NewsDetailPage';
-import AnnouncementPage from '@/pages/AnnouncementPage';
-import AnnouncementDetailPage from '@/pages/AnnouncementDetailPage';
-import QiroatiMethodPage from '@/pages/QiroatiMethodPage';
-import FacilitiesPage from '@/pages/FacilitiesPage';
-import ParentingPage from '@/pages/ParentingPage';
-import ParentingArticlePage from '@/pages/ParentingArticlePage';
-import ForumPage from '@/pages/ForumPage';
-import ForumTopicPage from '@/pages/ForumTopicPage';
-import EduMediaPage from '@/pages/EduMediaPage';
-import SystemPage from '@/pages/SystemPage';
-import WaliDiscussionPage from '@/pages/WaliDiscussionPage';
-import DigitalAttendancePage from '@/pages/DigitalAttendancePage';
-import TvDisplayPage from '@/pages/TvDisplayPage';
-import QuizHafalanPage from '@/pages/QuizHafalanPage';
-import GatchaGamePage from '@/pages/GatchaGamePage';
-import GalleryPage from '@/pages/GalleryPage';
-import RandomNamePage from '@/pages/RandomNamePage';
-import TopScorePage from '@/pages/TopScorePage';
+const NewsPage = lazy(() => import('@/pages/NewsPage'));
+const NewsDetailPage = lazy(() => import('@/pages/NewsDetailPage'));
+const AnnouncementPage = lazy(() => import('@/pages/AnnouncementPage'));
+const AnnouncementDetailPage = lazy(() => import('@/pages/AnnouncementDetailPage'));
+const QiroatiMethodPage = lazy(() => import('@/pages/QiroatiMethodPage'));
+const FacilitiesPage = lazy(() => import('@/pages/FacilitiesPage'));
+const ParentingPage = lazy(() => import('@/pages/ParentingPage'));
+const ParentingArticlePage = lazy(() => import('@/pages/ParentingArticlePage'));
+const ForumPage = lazy(() => import('@/pages/ForumPage'));
+const ForumTopicPage = lazy(() => import('@/pages/ForumTopicPage'));
+const EduMediaPage = lazy(() => import('@/pages/EduMediaPage'));
+const SystemPage = lazy(() => import('@/pages/SystemPage'));
+const WaliDiscussionPage = lazy(() => import('@/pages/WaliDiscussionPage'));
+const DigitalAttendancePage = lazy(() => import('@/pages/DigitalAttendancePage'));
+const TvDisplayPage = lazy(() => import('@/pages/TvDisplayPage'));
+const QuizHafalanPage = lazy(() => import('@/pages/QuizHafalanPage'));
+const GatchaGamePage = lazy(() => import('@/pages/GatchaGamePage'));
+const GalleryPage = lazy(() => import('@/pages/GalleryPage'));
+const RandomNamePage = lazy(() => import('@/pages/RandomNamePage'));
+const TopScorePage = lazy(() => import('@/pages/TopScorePage'));
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { verifyDatabaseSchema } from '@/utils/verifyDatabaseSchema';
@@ -169,6 +172,16 @@ const DeferredFeaturePage = () => (
   </div>
 );
 
+// Shown briefly while a route chunk downloads after code splitting.
+const RouteFallback = () => (
+  <div className="min-h-screen flex items-center justify-center bg-background" role="status" aria-live="polite">
+    <div className="flex flex-col items-center gap-3 text-muted-foreground">
+      <div className="h-8 w-8 animate-spin rounded-full border-2 border-foreground/20 border-t-foreground" aria-hidden="true" />
+      <p className="text-sm">Memuat halaman...</p>
+    </div>
+  </div>
+);
+
 const allDashboardRoles = ['admin', 'guru', 'santri', 'pentashih'];
 const operationalDisplayRoles = ['admin', 'guru', 'pentashih'];
 
@@ -203,6 +216,7 @@ function App() {
             <DatabaseHealthCheck />
             <RouteLogger />
             <div className="min-h-screen flex flex-col bg-background text-foreground transition-colors duration-300">
+              <Suspense fallback={<RouteFallback />}>
               <Routes>
                 <Route path="/absensi-digital" element={<ProtectedRoute allowedRoles={operationalDisplayRoles}><DigitalAttendancePage /></ProtectedRoute>} />
                 <Route path="/tv-display-mode" element={<ProtectedRoute allowedRoles={operationalDisplayRoles}><TvDisplayPage /></ProtectedRoute>} />
@@ -264,6 +278,7 @@ function App() {
                   </>
                 } />
               </Routes>
+              </Suspense>
               <Toaster />
               <ScrollToTopButton />
             </div>
