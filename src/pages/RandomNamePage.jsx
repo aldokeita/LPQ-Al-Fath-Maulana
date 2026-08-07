@@ -234,7 +234,7 @@ const RandomNamePage = () => {
             if (error) throw error;
 
             const updatedPoints = Number(data);
-            if (!Number.isInteger(updatedPoints) || updatedPoints < 0) {
+            if (!Number.isFinite(updatedPoints) || updatedPoints < 0) {
                 throw new Error('Nilai poin terbaru tidak valid. Silakan muat ulang halaman.');
             }
             const appliedAmount = updatedPoints - previousPoints;

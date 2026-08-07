@@ -314,8 +314,11 @@ const QuizHafalanPage = () => {
       return;
     }
 
-    if (typeof updatedPoints === 'number') {
-      setCurrentSantri(prev => ({ ...prev, points: updatedPoints }));
+    if (updatedPoints != null) {
+      const newPointValue = Number(updatedPoints);
+      if (Number.isFinite(newPointValue)) {
+        setCurrentSantri(prev => ({ ...prev, points: newPointValue }));
+      }
     }
   };
 

@@ -1391,7 +1391,7 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
                         </div>
                         <div className="admin-edit-field">
                             <label className="flex items-center gap-1"><Star className="w-3 h-3 text-yellow-500"/> Poin Gamifikasi</label>
-                            <Input type="number" min="0" value={formData.points || 0} onChange={(e) => setFormData({ ...formData, points: parseInt(e.target.value) || 0 })} />
+                            <Input type="number" min="0" step="0.5" value={formData.points ?? 0} onChange={(e) => setFormData({ ...formData, points: Number(e.target.value) })} />
                         </div>
                     </div>
 

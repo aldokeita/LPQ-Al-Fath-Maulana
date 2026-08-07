@@ -259,6 +259,34 @@ const canCheckIn = (sesi, userRole, isPentashih = false, timestamp = new Date(),
     return { can: windowState.canRecord, ...windowState };
 };
 
+// --- Attendance point award rules ---
+// Early (>= EARLY_BONUS_MINUTES before session start) earns 2 points.
+// On time earns 1. Terlambat earns 0.5. Non-attending statuses earn 0.
+// Only child santri are eligible; the restore-from-absent case is included
+// because the santri did show up and study.
+const EARLY_BONUS_MINUTES = 30;
+const NON_ATTENDING_STATUSES = new Set(['tidak hadir', 'alpha', 'ghaib', 'absen', 'izin', 'sakit']);
+
+const isNonAttendingStatus = (status) => (
+    NON_ATTENDING_STATUSES.has(String(status || '').trim().toLowerCase())
+);
+
+const computeAttendancePointAward = ({ role, isAdult, status, timestamp, dateStr, sesi, sessionTimes }) => {
+    if (role !== 'santri' || isAdult) return 0;
+    if (isNonAttendingStatus(status)) return 0;
+
+    const startTimestamp = buildSessionStartTimestamp(dateStr, sesi, sessionTimes);
+    const startMs = startTimestamp ? new Date(startTimestamp).getTime() : Number.NaN;
+    const arrivalMs = timestamp instanceof Date ? timestamp.getTime() : new Date(timestamp).getTime();
+
+    if (Number.isFinite(startMs) && Number.isFinite(arrivalMs)) {
+        const minutesBeforeStart = Math.floor((startMs - arrivalMs) / 60000);
+        if (minutesBeforeStart >= EARLY_BONUS_MINUTES) return 2;
+    }
+
+    return status === 'Terlambat' ? 0.5 : 1;
+};
+
 // --- Digital Clock Component ---
 const DigitalClock = ({ showSeconds = true }) => {
   const [time, setTime] = useState(new Date());
@@ -742,13 +770,22 @@ const DigitalAttendancePage = () => {
 
         if (insertError) { setLastScan({ type: 'error', message: getAttendanceErrorMessage(insertError), name: user.nama || user.nama_lengkap, photo: user.foto_url }); }
         else {
-          let newPoints = user.points || 0;
-          if (userRole === 'santri' && !isAdult && attendanceStatusText === 'Hadir' && !shouldRestoreAbsentAttendance) {
-            const { data: updatedPoints, error: pointsError } = await supabase.rpc('increment_santri_points', { p_santri_id: user.id, p_amount: 1 });
+          let newPoints = Number(user.points) || 0;
+          const award = computeAttendancePointAward({
+            role: userRole,
+            isAdult,
+            status: attendanceStatusText,
+            timestamp: todayDate,
+            dateStr: todayStr,
+            sesi: checkInStatus.attendedSession || sesiUser,
+            sessionTimes,
+          });
+          if (award > 0) {
+            const { data: updatedPoints, error: pointsError } = await supabase.rpc('increment_santri_points', { p_santri_id: user.id, p_amount: award });
             if (pointsError) {
               console.error('[Absensi] Gagal menambah poin santri:', pointsError.message);
-            } else if (typeof updatedPoints === 'number') {
-              newPoints = updatedPoints;
+            } else if (updatedPoints != null) {
+              newPoints = Number(updatedPoints);
             }
           }
           const levelInfo = (userRole === 'santri' && !isAdult) ? getLevelInfo(newPoints, user.jenis_kelamin) : null;
