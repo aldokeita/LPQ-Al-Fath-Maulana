@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { toast } from '@/components/ui/use-toast';
 import { Download, Calendar, BarChart, TrendingUp, Search, User, Users, RefreshCw, X as XIcon } from 'lucide-react';
-import * as XLSX from 'xlsx';
+import { loadXlsx } from '@/lib/xlsxLoader';
 import { ResponsiveContainer, BarChart as RechartsBarChart, LineChart, Line, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent } from '@/components/ui/tabs';
@@ -59,7 +59,8 @@ export const SantriRecapDetailModal = ({ santri, isOpen, onClose }) => {
         setChartData(months.map((name, index) => ({ name: name.substring(0,3), Kehadiran: monthlyData[index] })));
     }, [year, attendance, santri]);
 
-    const handleExportDetail = () => {
+    const handleExportDetail = async () => {
+        const XLSX = await loadXlsx();
         const dataToExport = chartData.map(d => ({ 'Bulan': d.name, 'Jumlah Kehadiran': d.Kehadiran }));
         const ws = XLSX.utils.json_to_sheet(dataToExport);
         const wb = XLSX.utils.book_new();
@@ -404,9 +405,10 @@ const AttendanceRecap = () => {
         });
     }, [recapData]);
 
-    const handleExport = () => {
+    const handleExport = async () => {
         toast({ title: 'Membuat File Excel...', description: 'Mohon tunggu sebentar.' });
         try {
+            const XLSX = await loadXlsx();
             const { userRecap, weekdaysInMonth } = recapData;
             const headers = ['No', 'Nama', 'Peran', ...weekdaysInMonth, 'Total Hadir', '% Kehadiran'];
             const data = userRecap.map((user, index) => {

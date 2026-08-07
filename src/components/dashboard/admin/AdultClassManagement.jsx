@@ -14,7 +14,7 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import SantriDetailModal from '../shared/SantriDetailModal';
 import JilidChangeModal from './JilidChangeModal';
 import ClassPerformanceModal from './ClassPerformanceModal';
-import * as XLSX from 'xlsx';
+import { loadXlsx } from '@/lib/xlsxLoader';
 import ConfirmationDialog from '@/components/ui/confirmation-dialog';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -633,7 +633,8 @@ const AdultClassManagement = () => {
   const attendanceById = useMemo(() => new Set(dailyAttendance.map(a => a.user_id)), [dailyAttendance]);
   const filteredUnassignedSantri = useMemo(() => santriList.filter(s => !s.id_kelas && (unassignedFilterJilid === 'all' || s.jilid === unassignedFilterJilid) && (!santriSearch || s.nama_lengkap.toLowerCase().includes(santriSearch.toLowerCase()))), [santriList, santriSearch, unassignedFilterJilid]);
 
-  const handleExportToExcel = () => {
+  const handleExportToExcel = async () => {
+    const XLSX = await loadXlsx();
     const data = [];
     Object.keys(sessionTimes).forEach(session => {
         const classGroup = classesBySession[session] || [];

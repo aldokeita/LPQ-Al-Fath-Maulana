@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from '@/components/ui/use-toast';
 import { Download, UserCheck, Search, Eye, Lock, Unlock, RefreshCw, Edit, BarChart, CheckCircle2, Clock, XCircle, Calendar } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
-import * as XLSX from 'xlsx';
+import { loadXlsx } from '@/lib/xlsxLoader';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -298,7 +298,8 @@ const GuruAttendanceRecap = ({ isReadOnly = false }) => {
         return processedData;
     }, [attendanceData, gurus, classes, selectedYear, selectedMonth, searchTerm, selectedGuruDetail, holidays, overriddenSessions]);
 
-    const handleExport = () => {
+    const handleExport = async () => {
+        const XLSX = await loadXlsx();
         const exportData = [];
         recapData.forEach(guru => {
             const row = {

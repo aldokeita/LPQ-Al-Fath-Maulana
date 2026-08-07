@@ -15,7 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import SantriDetailModal from '../shared/SantriDetailModal';
 import JilidChangeModal from './JilidChangeModal';
 import ClassPerformanceModal from './ClassPerformanceModal';
-import * as XLSX from 'xlsx';
+import { loadXlsx } from '@/lib/xlsxLoader';
 import ConfirmationDialog from '@/components/ui/confirmation-dialog';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { motion } from 'framer-motion';
@@ -769,8 +769,9 @@ const GenericClassManagement = ({ userRole, kategori = 'Anak', configKey = 'anak
 
   const attendanceById = useMemo(() => new Set(dailyAttendance.map(a => a.user_id)), [dailyAttendance]);
   const filteredUnassignedSantri = useMemo(() => santriList.filter(s => !(s.current_class_id || s.id_kelas) && (unassignedFilterJilid === 'all' || s.jilid === unassignedFilterJilid) && (!santriSearch || s.nama_lengkap.toLowerCase().includes(santriSearch.toLowerCase()))), [santriList, santriSearch, unassignedFilterJilid]);
-  const handleExportToExcel = () => {
+  const handleExportToExcel = async () => {
     try {
+        const XLSX = await loadXlsx();
         const data = [];
         if (!sessionTimes || Object.keys(sessionTimes).length === 0) {
             toast({ title: 'Data Kosong', description: 'Tidak ada sesi terdaftar untuk diekspor.', variant: 'destructive' });

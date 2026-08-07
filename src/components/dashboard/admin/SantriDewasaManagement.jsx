@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/lib/customSupabaseClient';
 import { enableEdgeFunctions, edgeFunctionDisabledMessage } from '@/lib/featureFlags';
-import * as XLSX from 'xlsx';
+import { loadXlsx } from '@/lib/xlsxLoader';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import ConfirmationDialog from '@/components/ui/confirmation-dialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -48,7 +48,8 @@ const BulkUploadModal = ({ isOpen, onClose, onUpload, category = 'Dewasa' }) => 
     if (selectedFile) setFile(selectedFile);
   };
 
-  const downloadTemplate = () => {
+  const downloadTemplate = async () => {
+    const XLSX = await loadXlsx();
     const headers = [
       "Nama Lengkap", "Username (Panggilan)", "Password", "Jilid", "Tempat Lahir", "Tgl Lahir (YYYY-MM-DD)",
       "Jenis Kelamin (L/P)", "Alamat", "Sesi", "Tgl Masuk (YYYY-MM-DD)", "No HP WA"
@@ -60,6 +61,7 @@ const BulkUploadModal = ({ isOpen, onClose, onUpload, category = 'Dewasa' }) => 
   };
 
   const processExcel = async (file) => {
+    const XLSX = await loadXlsx();
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -392,7 +394,8 @@ const SantriDewasaManagement = () => {
       }
   };
 
-  const handleDownloadData = () => {
+  const handleDownloadData = async () => {
+    const XLSX = await loadXlsx();
     const dataToExport = santriList.map(s => ({
         'Nama Lengkap': s.nama_lengkap, 'Username': s.nama_panggilan, 'Jilid': s.jilid,
         'Tempat Lahir': s.tempat_lahir, 'Tanggal Lahir': s.tanggal_lahir, 'Jenis Kelamin': s.jenis_kelamin,
