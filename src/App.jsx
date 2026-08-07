@@ -161,9 +161,9 @@ const DatabaseHealthCheck = () => {
 const DeferredFeaturePage = () => (
   <div className="min-h-screen flex items-center justify-center bg-background px-4">
     <div className="max-w-md text-center space-y-3">
-      <h1 className="text-2xl font-bold text-foreground">Fitur belum diaktifkan</h1>
+      <h1 className="text-2xl font-bold text-foreground">Fitur sedang dipersiapkan</h1>
       <p className="text-muted-foreground">
-        Fitur ini akan diaktifkan setelah Supabase baru dan Edge Function tersedia.
+        Forum diskusi wali santri sedang kami siapkan. Sementara ini, silakan hubungi kami melalui halaman Kontak.
       </p>
     </div>
   </div>

@@ -216,6 +216,9 @@
   grid-template-columns: 1fr;
   gap: 2.5rem;
   align-items: center;
+  /* Prevent grid children (e.g. the image) from forcing horizontal
+     overflow on narrow screens. */
+  min-width: 0;
 }
 
 @media (min-width: 768px) {
@@ -248,6 +251,7 @@
   aspect-ratio: 4 / 3;
   background: var(--prof-linen);
   box-shadow: var(--prof-shadow-lg);
+  max-width: 100%;
 }
 
 .prof-intro__image img {

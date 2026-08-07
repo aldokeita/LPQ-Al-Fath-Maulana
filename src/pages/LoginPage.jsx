@@ -262,7 +262,7 @@ const LoginPage = () => {
         </div>
 
         {/* ===== Content Layer ===== */}
-        <main className="login-content" role="main">
+        <div className="login-content">
           {/* Brand */}
           <motion.div
             className="login-brand"
@@ -451,7 +451,7 @@ const LoginPage = () => {
               <p>Metode Qiroati</p>
             </div>
           </motion.div>
-        </main>
+        </div>
 
         {!securityNoticeAccepted && (
           <div className="login-privacy-overlay" role="presentation">
