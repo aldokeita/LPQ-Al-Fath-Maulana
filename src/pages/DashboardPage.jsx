@@ -1,16 +1,29 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { lazy, Suspense, useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import useAdminBodyClass from '@/hooks/useAdminBodyClass';
-import AdminDashboard from '@/components/dashboard/AdminDashboard';
-import GuruDashboard from '@/components/dashboard/GuruDashboard';
-import SantriDashboard from '@/components/dashboard/SantriDashboard';
-import PentashihDashboard from '@/components/dashboard/PentashihDashboard';
+// Each role dashboard is its own chunk: a guru must not download the
+// admin, santri or pentashih code (and their xlsx/jspdf deps).
+const AdminDashboard = lazy(() => import('@/components/dashboard/AdminDashboard'));
+const GuruDashboard = lazy(() => import('@/components/dashboard/GuruDashboard'));
+const SantriDashboard = lazy(() => import('@/components/dashboard/SantriDashboard'));
+const PentashihDashboard = lazy(() => import('@/components/dashboard/PentashihDashboard'));
 import SideRays from '@/components/reactbits/SideRays/SideRays';
 import { supabase } from '@/lib/customSupabaseClient';
 import '@/styles/admin-dashboard.css';
+
+// Shown briefly while the role dashboard chunk downloads.
+const RoleLoading = () => (
+  <div className="admin-loading-container" role="status" aria-live="polite">
+    <div className="admin-loading-spinner">
+      <div className="admin-loading-spinner-ring" />
+      <div className="admin-loading-spinner-ring admin-loading-spinner-ring--delay" />
+    </div>
+    <h2 className="admin-loading-title">Memuat Dashboard…</h2>
+  </div>
+);
 
 const DashboardPage = () => {
   const { role, user } = useAuth();
@@ -70,13 +83,13 @@ const DashboardPage = () => {
     }
 
     if (role === 'admin') {
-      return <AdminDashboard />;
+      return <Suspense fallback={<RoleLoading />}><AdminDashboard /></Suspense>;
     } else if (role === 'guru') {
-      return <GuruDashboard />;
+      return <Suspense fallback={<RoleLoading />}><GuruDashboard /></Suspense>;
     } else if (role === 'santri') {
-      return <SantriDashboard isAdult={santriProfile?.kategori === 'Dewasa'} />;
+      return <Suspense fallback={<RoleLoading />}><SantriDashboard isAdult={santriProfile?.kategori === 'Dewasa'} /></Suspense>;
     } else if (role === 'pentashih') {
-      return <PentashihDashboard />;
+      return <Suspense fallback={<RoleLoading />}><PentashihDashboard /></Suspense>;
     } else if (user && !role) {
       return (
         <div className="flex justify-center items-center h-[60vh] flex-col max-w-md mx-auto text-center">

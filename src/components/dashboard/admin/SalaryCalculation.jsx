@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/components/ui/use-toast';
 import { Download, Calculator, DollarSign, Wallet, Search, Edit3, Save, Calendar } from 'lucide-react';
-import * as XLSX from 'xlsx';
+import { loadXlsx } from '@/lib/xlsxLoader';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
@@ -218,7 +218,8 @@ const SalaryCalculation = () => {
         }));
     };
 
-    const handleExport = () => {
+    const handleExport = async () => {
+        const XLSX = await loadXlsx();
         const data = salaryData.map(d => ({
             'Nama Guru': d.nama,
             'Status': d.status_guru || 'Non-Syahadah',

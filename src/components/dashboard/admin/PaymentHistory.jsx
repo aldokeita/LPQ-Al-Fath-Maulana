@@ -13,7 +13,7 @@ import PaymentProofModal from './PaymentProofModal';
 import { AnimatePresence, motion } from 'framer-motion';
 import { PAYMENT_DETAIL_SELECT, getPaymentErrorMessage, monthNumberToName } from '@/lib/paymentAdapters';
 import DataPagination from '@/components/dashboard/shared/DataPagination';
-import * as XLSX from 'xlsx';
+import { loadXlsx } from '@/lib/xlsxLoader';
 
 const PAGE_SIZE = 50;
 const BACKUP_PAGE_SIZE = 1000;
@@ -170,6 +170,7 @@ const PaymentHistory = () => {
     const handleBackup = async () => {
         setIsBackingUp(true);
         try {
+            const XLSX = await loadXlsx();
             const allPayments = [];
             let page = 0;
 
