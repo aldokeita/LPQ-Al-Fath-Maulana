@@ -34,8 +34,15 @@ export const recordLoginAttempt = async ({ username, status, device }) => {
       }),
     });
     const body = await parseSafeResponse(response);
-    return response.ok && body?.ok !== false;
-  } catch {
+    if (!response.ok) {
+      // Do not swallow the failure silently: a dead recorder means failed login
+      // attempts go unlogged. Surfacing it in the console keeps this diagnosable.
+      console.warn('[record-login-attempt] Ditolak server:', response.status, body);
+      return false;
+    }
+    return body?.ok !== false;
+  } catch (error) {
+    console.warn('[record-login-attempt] Gagal mencatat percobaan login:', error?.message || error);
     return false;
   }
 };
