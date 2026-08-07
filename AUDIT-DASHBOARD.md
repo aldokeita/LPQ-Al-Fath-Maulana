@@ -374,13 +374,12 @@ Variabel `ALLOWED_ORIGINS` di Supabase memuat URL Vercel lama, **bukan** `https:
 
 Dampaknya tidak terlihat karena `loginSecurityAdapters.js:38` menelan error (`catch { return false; }`). Login tetap berhasil, tetapi **catatan percobaan login tidak pernah tersimpan** — termasuk percobaan yang gagal.
 
-**Solusi:** ini perubahan konfigurasi, bukan kode. Di Supabase → Edge Functions → Secrets, ubah `ALLOWED_ORIGINS` menjadi:
+**Bagian kode — SELESAI.** `loginSecurityAdapters.js` kini mencatat kegagalan ke console (status server + isi respons pada non-OK, dan pesan error pada kegagalan jaringan) alih-alih menelannya. Branch `fix/login-security-recording`, commit `f38d09c` — belum di-merge ke master.
 
+**Bagian konfigurasi — SELESAI & TERVERIFIKASI.** `ALLOWED_ORIGINS` diubah lewat dashboard dan diverifikasi langsung: origin `https://www.lpqalfathmaulana.id`, `https://lpqalfathmaulana.id`, dan `http://localhost:3000` kini diterima; origin asing tetap ditolak browser karena header tidak cocok. Nilai yang diterapkan:
 ```
 https://www.lpqalfathmaulana.id,https://lpqalfathmaulana.id,https://lpq-al-fath-maulana.vercel.app,http://localhost:5173,http://localhost:3000
 ```
-
-Disarankan juga mengganti `catch { return false; }` menjadi mencatat error ke console, agar kegagalan serupa tidak tersembunyi lagi.
 
 ---
 

@@ -228,7 +228,7 @@ const HeroSection = ({ content, currentSlide, setCurrentSlide, stats }) => {
                   <div className="home-hero-swap-card__veil" />
                   <div className="home-hero-swap-card__content">
                     <span>{index === 0 ? 'Sorotan utama' : card.source}</span>
-                    <h3>{card.title}</h3>
+                    <h2>{card.title}</h2>
                     <p>{card.description}</p>
                   </div>
                 </Card>

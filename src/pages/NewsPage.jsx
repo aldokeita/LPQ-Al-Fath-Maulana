@@ -71,7 +71,7 @@ const GridSkeleton = () => (
 const EmptyState = () => (
   <div className="news-empty">
     <Newspaper className="h-12 w-12" />
-    <h3>Belum ada berita</h3>
+    <h2>Belum ada berita</h2>
     <p>Berita dan cerita dari LPQ Al-Fath Maulana akan tampil di sini setelah diterbitkan.</p>
   </div>
 );
@@ -79,7 +79,7 @@ const EmptyState = () => (
 const ErrorState = ({ message, onRetry }) => (
   <div className="news-error">
     <Newspaper className="h-12 w-12" />
-    <h3>Gagal memuat berita</h3>
+    <h2>Gagal memuat berita</h2>
     <p>{message}</p>
     {onRetry && (
       <button className="news-retry-btn" onClick={onRetry} type="button">
@@ -93,7 +93,7 @@ const ErrorState = ({ message, onRetry }) => (
 const SearchResultEmpty = ({ query }) => (
   <div className="news-empty">
     <Search className="h-10 w-10" />
-    <h3>Tidak ada hasil</h3>
+    <h2>Tidak ada hasil</h2>
     <p>Tidak ditemukan berita yang cocok dengan pencarian "{query}".</p>
   </div>
 );

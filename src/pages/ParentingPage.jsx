@@ -153,7 +153,7 @@ const LoadingState = () => (
 const EmptyState = () => (
   <div className="par-empty">
     <BookOpen className="par-empty__icon" />
-    <h3 className="par-empty__title">Belum Ada Artikel</h3>
+    <h2 className="par-empty__title">Belum Ada Artikel</h2>
     <p className="par-empty__text">Artikel parenting akan tampil di sini setelah tersedia.</p>
   </div>
 );
@@ -162,7 +162,7 @@ const EmptyState = () => (
 const ErrorState = ({ message, onRetry }) => (
   <div className="par-error">
     <AlertCircle className="par-error__icon" />
-    <h3 className="par-error__title">Gagal Memuat</h3>
+    <h2 className="par-error__title">Gagal Memuat</h2>
     <p className="par-error__text">{message || 'Terjadi kesalahan saat memuat artikel.'}</p>
     {onRetry && (
       <button className="par-retry-btn" onClick={onRetry}>
