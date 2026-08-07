@@ -498,24 +498,30 @@
 
 .home-hero__dots button {
   position: relative;
-  height: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 44px;
+  width: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  cursor: pointer;
+}
+
+/* The visible dot is a 8px disc; the 44px button above is the touch target. */
+.home-hero__dots button::before {
+  content: '';
   width: 0.5rem;
+  height: 0.5rem;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.38);
-  cursor: pointer;
   transition: width 200ms ease, background 200ms ease;
 }
 
-/* Expand the hit area to ~44px without enlarging the visible dot. */
-.home-hero__dots button::after {
-  content: '';
-  position: absolute;
-  inset: -18px;
-  border-radius: inherit;
-}
-
-.home-hero__dots button[aria-current='true'] {
-  width: 2.5rem;
+.home-hero__dots button[aria-current='true']::before {
+  width: 24px;
   background: var(--home-cyan);
 }
 
