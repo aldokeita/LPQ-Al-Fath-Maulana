@@ -1,4 +1,13 @@
 import { supabase } from '@/lib/customSupabaseClient';
+import {
+  normalizeWhatsAppGroupLinkEntries,
+  validateWhatsAppGroupLinks,
+} from '@/lib/whatsappGroupLinksValidation';
+
+export {
+  isValidWhatsAppGroupLink,
+  validateWhatsAppGroupLinks,
+} from '@/lib/whatsappGroupLinksValidation';
 
 export const WHATSAPP_JILID_OPTIONS = Object.freeze([
   'Pra TK A', 'Pra TK B', 'Pra TK C',
@@ -12,24 +21,11 @@ export const WHATSAPP_JILID_OPTIONS = Object.freeze([
   "Al-Qur'an", 'Ghorib Tajwid', 'Finishing',
 ]);
 
-const WHATSAPP_INVITE_PATTERN = /^https:\/\/chat\.whatsapp\.com\/[A-Za-z0-9_-]+$/;
-
-export const isValidWhatsAppGroupLink = (link) => WHATSAPP_INVITE_PATTERN.test(String(link || '').trim());
-
 export const normalizeWhatsAppGroupLinks = (rows = []) => Object.fromEntries(
   rows
     .filter((row) => row?.jilid && row?.is_active !== false)
     .map((row) => [row.jilid, row.whatsapp_link || '']),
 );
-
-export const validateWhatsAppGroupLinks = (links = {}) => {
-  for (const [jilid, rawLink] of Object.entries(links)) {
-    const link = String(rawLink || '').trim();
-    if (link && !isValidWhatsAppGroupLink(link)) {
-      throw new Error(`Link grup ${jilid} harus menggunakan format https://chat.whatsapp.com/...`);
-    }
-  }
-};
 
 export const fetchWhatsAppGroupLinks = async () => {
   const { data, error } = await supabase
@@ -59,7 +55,7 @@ export const saveWhatsAppGroupLinks = async (links = {}) => {
   validateWhatsAppGroupLinks(links);
 
   const { data: { user } } = await supabase.auth.getUser();
-  const normalizedEntries = Object.entries(links).map(([jilid, rawLink]) => [jilid, String(rawLink || '').trim()]);
+  const normalizedEntries = normalizeWhatsAppGroupLinkEntries(links);
   const activeRows = normalizedEntries
     .filter(([, link]) => Boolean(link))
     .map(([jilid, whatsappLink]) => ({

@@ -707,7 +707,7 @@ const WhatsAppTemplateSettings = () => {
                     <div>
                         <h4 id="whatsapp-group-links-title" className="font-black text-foreground">Link grup per jilid</h4>
                         <p className="text-xs leading-relaxed text-muted-foreground">
-                            <code>{'{{link_grup}}'}</code> mengikuti <code>{'{{jilid_baru}}'}</code>. Kosongkan kolom jika grup belum tersedia.
+                            <code>{'{{link_grup}}'}</code> mengikuti <code>{'{{jilid_baru}}'}</code>. Link yang sama boleh dipakai untuk beberapa jilid; parameter tambahan dari WhatsApp akan dirapikan otomatis.
                         </p>
                     </div>
                     <div className="whatsapp-links-glass__privacy">
