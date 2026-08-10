@@ -132,7 +132,9 @@ export const normalizeLevelConfigShape = (config) => {
 };
 
 export const resolveSantriLevel = ({ points = 0, gender, config }) => {
-  const safePoints = Math.max(0, Number(points) || 0);
+  // Level thresholds are whole-point boundaries. A half point remains in the
+  // current tier until the student reaches the next whole point.
+  const safePoints = Math.floor(Math.max(0, Number(points) || 0));
   const genderKey = normalizeGenderKey(gender);
   const configuredLevels = normalizeLevelConfigShape(config)[genderKey];
   const fallbackLevels = FALLBACK_LEVEL_CONFIG[genderKey];

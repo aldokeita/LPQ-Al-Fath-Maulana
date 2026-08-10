@@ -59,6 +59,7 @@ $expectedNames = @(
   "20260806000300_pentashih_jilid_change.sql",
   "20260807000100_santri_points_fractional.sql",
   "20260807000200_attendance_session_config.sql",
+  "20260810000100_finalize_fractional_santri_points.sql",
   "20260810000200_change_santri_jilid_v2.sql"
 )
 
