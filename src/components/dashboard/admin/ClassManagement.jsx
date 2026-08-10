@@ -23,6 +23,8 @@ import AdultClassManagement from './AdultClassManagement';
 import { getSessionName, getSessionNumber, getAllSessions } from '@/utils/sessionMapping';
 import { mapClassForLegacyUi, mapSantriForLegacyUi } from '@/lib/dataMasterAdapters';
 import { resolveAvatarRecord, resolveAvatarRecords } from '@/lib/storageAdapters';
+import { getAdjacentQiroatiJilid, QIROATI_JILID_OPTIONS } from '@/lib/qiroatiJilid';
+import { changeSantriJilid, getJilidChangeErrorMessage } from '@/lib/jilidChangeAdapters';
 
 const ItemTypes = {
   SANTRI: 'santri',
@@ -31,11 +33,7 @@ const ItemTypes = {
   CLASS_ORDER: 'class_order'
 };
 
-const jilidOptions = [
-  'Pra TK A', 'Pra TK B', 'Pra TK C', 'Jilid 1A', 'Jilid 1B', 'Jilid 1C', 'Jilid 2A', 'Jilid 2B',
-  'Jilid 3A', 'Jilid 3B', 'Jilid 4A', 'Jilid 4B', 'Jilid 5A', 'Jilid 5B', 'Jilid Juz 27', 'Jilid 6A', 'Jilid 6B',
-  'Al-Qur\'an', 'Ghorib Tajwid', 'Finishing'
-];
+const jilidOptions = QIROATI_JILID_OPTIONS;
 
 // Draggable Session Item for Config
 const DraggableSessionItem = ({ name, time, index, moveSession, onDelete, onUpdate }) => {
@@ -377,6 +375,7 @@ const GenericClassManagement = ({ userRole, kategori = 'Anak', configKey = 'anak
   const [isPerformanceOpen, setIsPerformanceOpen] = useState(false);
   const [isSantriDetailOpen, setIsSantriDetailOpen] = useState(false);
   const [isJilidModalOpen, setIsJilidModalOpen] = useState(false);
+  const [isSavingJilid, setIsSavingJilid] = useState(false);
   const [isReorderOpen, setIsReorderOpen] = useState(false);
   const [selectedClass, setSelectedClass] = useState(null);
   const [selectedSantri, setSelectedSantri] = useState(null);
@@ -656,35 +655,37 @@ const GenericClassManagement = ({ userRole, kategori = 'Anak', configKey = 'anak
   };
 
   const initiateJilidChange = (santri, direction) => {
-      const currentIndex = jilidOptions.indexOf(santri.jilid);
-      if (direction === 'up') {
-        if (currentIndex >= jilidOptions.length - 1) { toast({ title: 'Info', description: 'Santri sudah di jilid terakhir.' }); return; }
-        setJilidChangeData({ santri, direction: 'up', currentJilid: santri.jilid, nextJilid: jilidOptions[currentIndex + 1] });
-      } else {
-        if (currentIndex <= 0) { toast({ title: 'Info', description: 'Santri sudah di jilid pertama.' }); return; }
-        setJilidChangeData({ santri, direction: 'down', currentJilid: santri.jilid, nextJilid: jilidOptions[currentIndex - 1] });
+      const nextJilid = getAdjacentQiroatiJilid(santri.jilid, direction);
+      if (!nextJilid) {
+        toast({
+          title: 'Info',
+          description: direction === 'up' ? 'Santri sudah di jilid terakhir.' : 'Santri sudah di jilid pertama.',
+        });
+        return;
       }
+      setJilidChangeData({ santri, direction, currentJilid: santri.jilid, nextJilid });
       setIsJilidModalOpen(true);
   };
 
   const confirmJilidChange = async () => {
       if (!jilidChangeData) return;
       const { santri, currentJilid, nextJilid } = jilidChangeData;
-      const { data, error } = await supabase.rpc('change_santri_jilid', {
-        p_santri_id: santri.id,
-        p_new_jilid: nextJilid,
-        p_old_jilid: currentJilid,
-      });
-      if (error) {
-        toast({ title: 'Gagal!', description: error.message, variant: 'destructive' });
-        return;
+      setIsSavingJilid(true);
+      try {
+        const savedChange = await changeSantriJilid({
+          santriId: santri.id,
+          currentJilid,
+          nextJilid,
+        });
+        toast({ title: 'Berhasil!', description: `Jilid santri diubah ke ${savedChange.to_jilid}.` });
+        await fetchAllData();
+        setIsJilidModalOpen(false);
+        setJilidChangeData(null);
+      } catch (error) {
+        toast({ title: 'Gagal menyimpan jilid', description: getJilidChangeErrorMessage(error), variant: 'destructive' });
+      } finally {
+        setIsSavingJilid(false);
       }
-      if (!data) {
-        toast({ title: 'Gagal!', description: 'Jilid santri tidak berubah. Periksa kembali akses Anda.', variant: 'destructive' });
-        return;
-      }
-      toast({ title: 'Berhasil!', description: `Jilid santri diubah ke ${nextJilid}.` });
-      fetchAllData(); setIsJilidModalOpen(false); setJilidChangeData(null);
   };
 
   const handleSubmit = async (e) => {
@@ -991,7 +992,7 @@ const GenericClassManagement = ({ userRole, kategori = 'Anak', configKey = 'anak
         </Dialog>
 
         <SantriDetailModal santri={selectedSantri} isOpen={isSantriDetailOpen} onOpenChange={setIsSantriDetailOpen} onPromote={() => initiateJilidChange(selectedSantri, 'up')} onDemote={() => initiateJilidChange(selectedSantri, 'down')} />
-        <JilidChangeModal isOpen={isJilidModalOpen} onClose={() => setIsJilidModalOpen(false)} onConfirm={confirmJilidChange} {...jilidChangeData} kategori={kategori} />
+        <JilidChangeModal isOpen={isJilidModalOpen} onClose={() => setIsJilidModalOpen(false)} onConfirm={confirmJilidChange} isSaving={isSavingJilid} {...jilidChangeData} kategori={kategori} />
         <ClassPerformanceModal isOpen={isPerformanceOpen} onClose={() => setIsPerformanceOpen(false)} classItem={selectedClass} />
         <ConfirmationDialog isOpen={confirmDialog.isOpen} onClose={() => setConfirmDialog({ ...confirmDialog, isOpen: false })} onConfirm={confirmDialog.onConfirm} title={confirmDialog.title} description={confirmDialog.description} />
 
