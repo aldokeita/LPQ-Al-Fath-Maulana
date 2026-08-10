@@ -18,6 +18,7 @@ import { resolveAvatarUrl } from '@/lib/storageAdapters';
 import { buildSantriAttendancePayload, getLocalDateString, getLocalTimeString, isExplicitAbsentAttendance } from '@/lib/attendanceAdapters';
 import { resolveSantriAttendanceSession } from '@/utils/AttendanceStatusLogic';
 import { useAttendanceSessionConfiguration } from '@/hooks/useAttendanceSessionConfiguration';
+import { resolveSantriLevel } from '@/lib/santriLevel';
 
 const registrationSessionTimes = {
   'Pagi': { start: 'Belum diisi', end: 'Belum diisi', defaultQuota: 0 },
@@ -178,18 +179,8 @@ const TvDisplayPage = () => {
             textColor: '#333333'
         };
 
-        if (!levelConfig) return defaultInfo;
-
-        const isFemale = gender === 'Perempuan';
-        const levels = isFemale ? levelConfig.female : levelConfig.male;
-
-        // Ensure levels is an array and not empty before executing .find()
-        if (!Array.isArray(levels) || levels.length === 0) return defaultInfo;
-
-        // Find matching level with safe boundaries
-        const normalizedPoints = Math.floor(Math.max(0, Number(points) || 0));
-        const matchedLevel = levels.find(l => normalizedPoints >= (l.min || 0) && normalizedPoints <= (l.max || 9999)) || levels[0];
-        if (!matchedLevel) return defaultInfo;
+        const resolvedLevel = resolveSantriLevel({ points, gender, config: levelConfig });
+        const matchedLevel = { ...resolvedLevel, color: resolvedLevel.accentColor };
 
         // Determine icon based on name keyword (flexible fallback)
         let icon = <BookCopy className="w-8 h-8" style={{ color: matchedLevel.color }} />;

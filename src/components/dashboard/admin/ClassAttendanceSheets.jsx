@@ -20,18 +20,24 @@ import AdminEmptyState from '@/components/dashboard/shared/AdminEmptyState';
 import AdminErrorState from '@/components/dashboard/shared/AdminErrorState';
 import { toast } from '@/components/ui/use-toast';
 import { fetchClassAttendanceSource } from '@/lib/classAttendanceAdapters';
+import { fetchClassAttendanceAppearance } from '@/lib/classAttendancePrintAdapters';
+import {
+  getClassAttendanceHeaderFontStack,
+  normalizeClassAttendancePrintConfig,
+} from '@/lib/classAttendancePrintConfig';
 import {
   buildClassAttendanceHtml,
   createClassAttendancePages,
   getClassAttendanceDateSlots,
   getClassAttendanceMonthLabel,
+  formatClassAttendanceTeacherName,
   INDONESIAN_MONTHS,
   slugifyClassAttendanceFilename,
 } from '@/lib/classAttendanceSheet';
 
 const SESSION_ORDER = ['Pagi', 'Siang', 'Sore', 'Malam'];
 
-let logoDataUrlPromise;
+const embeddedAssetPromises = new Map();
 
 const blobToDataUrl = (blob) => new Promise((resolve, reject) => {
   const reader = new FileReader();
@@ -40,21 +46,24 @@ const blobToDataUrl = (blob) => new Promise((resolve, reject) => {
   reader.readAsDataURL(blob);
 });
 
-const getEmbeddedLogo = async () => {
-  if (!logoDataUrlPromise) {
-    logoDataUrlPromise = fetch('/logo-lpq-al-fath-maulana.webp')
+const getEmbeddedAsset = async (url) => {
+  if (!url) return '';
+  if (url.startsWith('data:')) return url;
+
+  if (!embeddedAssetPromises.has(url)) {
+    embeddedAssetPromises.set(url, fetch(url)
       .then((response) => {
-        if (!response.ok) throw new Error('Logo LPQ tidak dapat dimuat.');
+        if (!response.ok) throw new Error('Aset logo tidak dapat dimuat.');
         return response.blob();
       })
       .then(blobToDataUrl)
       .catch((error) => {
-        logoDataUrlPromise = undefined;
+        embeddedAssetPromises.delete(url);
         throw error;
-      });
+      }));
   }
 
-  return logoDataUrlPromise;
+  return embeddedAssetPromises.get(url);
 };
 
 const downloadHtmlFile = ({ filename, html }) => {
@@ -88,38 +97,78 @@ const getClassReadiness = (classItem) => {
   return { label: 'Siap dicetak', tone: 'ready', icon: CheckCircle2 };
 };
 
-const AttendancePaperPreview = ({ classItem, dateSlots, monthLabel }) => {
+const MultilineText = ({ value }) => String(value || '').split('\n').map((part, index) => (
+  <React.Fragment key={`${part}-${index}`}>{index > 0 && <br />}{part}</React.Fragment>
+));
+
+export const AttendancePaperPreview = ({
+  appearance,
+  classItem,
+  dateSlots,
+  monthLabel,
+}) => {
   const [firstPage] = createClassAttendancePages(classItem.roster);
+  const config = normalizeClassAttendancePrintConfig(appearance?.config);
+  const { branding, content, typography } = config;
+  const previewStyle = {
+    '--attendance-preview-header-font': getClassAttendanceHeaderFontStack(typography.headerFont),
+    '--attendance-preview-title-size': `${typography.titleSize}pt`,
+    '--attendance-preview-title-weight': typography.titleWeight,
+    '--attendance-preview-header-offset-y': `${typography.headerOffsetY}mm`,
+    '--attendance-preview-address-offset-y': `${typography.addressOffsetY}mm`,
+    '--attendance-preview-title-style': typography.titleItalic ? 'italic' : 'normal',
+    '--attendance-preview-title-transform': typography.titleUppercase ? 'uppercase' : 'none',
+    '--attendance-preview-eyebrow-size': `${typography.eyebrowSize}pt`,
+    '--attendance-preview-address-size': `${typography.addressSize}pt`,
+    '--attendance-preview-category-size': `${typography.categorySize}pt`,
+    '--attendance-preview-table-header-size': `${typography.tableHeaderSize}pt`,
+    '--attendance-preview-table-header-weight': typography.tableHeaderWeight,
+    '--attendance-preview-table-header-style': typography.tableHeaderItalic ? 'italic' : 'normal',
+    '--attendance-preview-table-header-transform': typography.tableHeaderUppercase ? 'uppercase' : 'none',
+    '--attendance-preview-body-size': `${typography.bodySize}pt`,
+    '--attendance-preview-body-weight': typography.bodyWeight,
+    '--attendance-preview-header-color': branding.headerColor,
+    '--attendance-preview-header-text-color': branding.headerTextColor,
+    '--attendance-preview-accent': branding.accentColor,
+    '--attendance-preview-table-head': branding.tableHeaderBackground,
+    '--attendance-preview-table-head-text': branding.tableHeaderText,
+    '--attendance-preview-lpq-logo-size': `${branding.lpqLogoSize}mm`,
+    '--attendance-preview-qiroati-logo-size': `${branding.qiroatiLogoSize}mm`,
+  };
 
   return (
     <div className="class-attendance-preview-scroll" tabIndex="0" aria-label="Pratinjau lembar absensi, dapat digulir secara horizontal">
-      <article className={`class-attendance-paper ${firstPage.rows.length >= 18 ? 'is-compact' : ''}`}>
+      <article className={`class-attendance-paper ${firstPage.rows.length >= 18 ? 'is-compact' : ''}`} style={previewStyle}>
         <header className="class-attendance-paper__header">
-          <img src="/logo-lpq-al-fath-maulana.webp" alt="Logo LPQ Al-Fath Maulana" />
-          <div>
-            <p>LEMBAGA PENDIDIKAN QURAN</p>
-            <h3>AL-FATH MAULANA</h3>
-            <span>Alamat: Lrg. Kemang Kampung Baru, Kel. Sukaraya, Kec. Baturaja Timur</span>
+          <div className="class-attendance-paper__logo-slot class-attendance-paper__logo-slot--left">
+            {branding.showLpqLogo && appearance?.lpqLogoUrl && <img className="is-lpq" src={appearance.lpqLogoUrl} alt="Logo LPQ Al-Fath Maulana" />}
           </div>
-          <strong>ABSENSI KELAS</strong>
+          <div className="class-attendance-paper__institution-copy">
+            <p>{content.institutionEyebrow}</p>
+            <h3>{content.institutionName}</h3>
+            <span>{content.address}</span>
+          </div>
+          <div className="class-attendance-paper__brand-right">
+            {branding.showQiroatiLogo && appearance?.qiroatiLogoUrl && <img className="is-qiroati" src={appearance.qiroatiLogoUrl} alt="Logo Qiroati" />}
+          </div>
         </header>
 
         <dl className="class-attendance-paper__meta">
-          <div><dt>NAMA GURU</dt><dd>: {classItem.guru?.nama || 'Belum ditentukan'}</dd></div>
-          <div><dt>KELAS</dt><dd>: {classItem.nama_kelas}</dd></div>
-          <div><dt>SESI</dt><dd>: {classItem.sesi || 'Belum ditentukan'}</dd></div>
-          <div><dt>HALAMAN</dt><dd>: 1/{createClassAttendancePages(classItem.roster).length}</dd></div>
+          <div><dt>{content.teacherLabel}</dt><dd>: {formatClassAttendanceTeacherName(classItem.guru?.nama)}</dd></div>
+          <div><dt>{content.classLabel}</dt><dd>: {classItem.nama_kelas}</dd></div>
+          <div><dt>{content.sessionLabel}</dt><dd>: {classItem.sesi || 'Belum ditentukan'}</dd></div>
+          <div><dt>{content.createdLabel}</dt><dd>: Pratinjau</dd></div>
         </dl>
 
         <table>
           <thead>
             <tr>
-              <th rowSpan="2">NO</th>
-              <th rowSpan="2" className="name-column">NAMA</th>
-              <th rowSpan="2">JILID</th>
-              <th rowSpan="2" className="phone-column">NO HP</th>
-              <th colSpan="23">BULAN: {monthLabel.toUpperCase()}</th>
-              <th rowSpan="2" className="progress-column">JILID &amp; HAL<br />AWAL–AKHIR</th>
+              <th rowSpan="2"><MultilineText value={content.numberColumn} /></th>
+              <th rowSpan="2" className="name-column"><MultilineText value={content.nameColumn} /></th>
+              <th rowSpan="2"><MultilineText value={content.levelColumn} /></th>
+              <th rowSpan="2" className="phone-column"><MultilineText value={content.phoneColumn} /></th>
+              <th colSpan="23">{content.monthColumn}: {monthLabel}</th>
+              <th rowSpan="2" className="progress-column"><MultilineText value={content.progressColumn} /></th>
             </tr>
             <tr>
               {dateSlots.map((slot, index) => <th key={`${slot?.dateKey || 'blank'}-${index}`} className="date-column">{slot?.day || ''}</th>)}
@@ -138,25 +187,33 @@ const AttendancePaperPreview = ({ classItem, dateSlots, monthLabel }) => {
             ))}
           </tbody>
           <tfoot>
-            <tr><th colSpan="4">ABSEN GURU</th>{dateSlots.map((_, index) => <td key={index} />)}<td /></tr>
+            <tr><th colSpan="4"><MultilineText value={content.teacherAttendanceLabel} /></th>{dateSlots.map((_, index) => <td key={index} />)}<td /></tr>
           </tfoot>
         </table>
 
         <footer>
-          <span><strong>Catatan:</strong></span>
-          <span><strong>Absen:</strong></span>
-          <span><strong>Menggantikan:</strong></span>
+          <span><strong>{content.notesLabel}</strong></span>
+          <span><strong>{content.absenceLabel}</strong></span>
+          <span><strong>{content.substituteLabel}</strong></span>
         </footer>
       </article>
     </div>
   );
 };
 
-const ClassAttendanceSheets = ({ sourceLoader = fetchClassAttendanceSource }) => {
+const ClassAttendanceSheets = ({
+  appearanceLoader = fetchClassAttendanceAppearance,
+  sourceLoader = fetchClassAttendanceSource,
+}) => {
   const now = new Date();
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth());
   const [selectedYear, setSelectedYear] = useState(now.getFullYear());
   const [source, setSource] = useState({ classes: [], holidays: new Set(), fetchedAt: null });
+  const [appearance, setAppearance] = useState(() => ({
+    config: normalizeClassAttendancePrintConfig(),
+    lpqLogoUrl: '/logo-lpq-al-fath-maulana.webp',
+    qiroatiLogoUrl: '',
+  }));
   const [selectedClassId, setSelectedClassId] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -168,8 +225,15 @@ const ClassAttendanceSheets = ({ sourceLoader = fetchClassAttendanceSource }) =>
     setError('');
 
     try {
-      const nextSource = await sourceLoader({ year: selectedYear });
+      const [nextSource, nextAppearance] = await Promise.all([
+        sourceLoader({ year: selectedYear }),
+        appearanceLoader().catch((appearanceError) => {
+          console.warn('Class attendance appearance could not be loaded:', appearanceError);
+          return null;
+        }),
+      ]);
       setSource(nextSource);
+      if (nextAppearance) setAppearance(nextAppearance);
       setSelectedClassId((currentId) => {
         if (preserveSelection && nextSource.classes.some((item) => item.id === currentId)) return currentId;
         return nextSource.classes[0]?.id || '';
@@ -182,7 +246,7 @@ const ClassAttendanceSheets = ({ sourceLoader = fetchClassAttendanceSource }) =>
     } finally {
       setIsLoading(false);
     }
-  }, [selectedYear, sourceLoader]);
+  }, [appearanceLoader, selectedYear, sourceLoader]);
 
   useEffect(() => {
     loadSource({ preserveSelection: true });
@@ -238,7 +302,13 @@ const ClassAttendanceSheets = ({ sourceLoader = fetchClassAttendanceSource }) =>
 
     setIsDownloading(true);
     try {
-      const latestSource = await sourceLoader({ year: selectedYear });
+      const [latestSource, latestAppearance] = await Promise.all([
+        sourceLoader({ year: selectedYear }),
+        appearanceLoader().catch((appearanceError) => {
+          console.warn('Latest class attendance appearance could not be loaded:', appearanceError);
+          return appearance;
+        }),
+      ]);
       const latestClass = latestSource.classes.find((classItem) => classItem.id === selectedClass.id);
 
       if (!latestClass) {
@@ -250,18 +320,32 @@ const ClassAttendanceSheets = ({ sourceLoader = fetchClassAttendanceSource }) =>
         monthIndex: selectedMonth,
         holidays: latestSource.holidays,
       });
-      const logoDataUrl = await getEmbeddedLogo();
+      const [lpqLogoDataUrl, qiroatiLogoDataUrl] = await Promise.all([
+        latestAppearance.config.branding.showLpqLogo
+          ? getEmbeddedAsset(latestAppearance.lpqLogoUrl)
+            .catch(() => getEmbeddedAsset('/logo-lpq-al-fath-maulana.webp'))
+          : Promise.resolve(''),
+        latestAppearance.config.branding.showQiroatiLogo
+          ? getEmbeddedAsset(latestAppearance.qiroatiLogoUrl).catch((logoError) => {
+            console.warn('Qiroati logo could not be embedded:', logoError);
+            return '';
+          })
+          : Promise.resolve(''),
+      ]);
       const html = buildClassAttendanceHtml({
         classData: latestClass,
         dateSlots: latestDateSlots,
         generatedAt: latestSource.fetchedAt,
-        logoDataUrl,
+        lpqLogoDataUrl,
         monthIndex: selectedMonth,
+        printConfig: latestAppearance.config,
+        qiroatiLogoDataUrl,
         year: selectedYear,
       });
       const filename = `absensi-${slugifyClassAttendanceFilename(latestClass.nama_kelas)}-${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}.html`;
 
       setSource(latestSource);
+      setAppearance(latestAppearance);
       downloadHtmlFile({ filename, html });
       toast({
         title: 'HTML absensi siap',
@@ -408,7 +492,7 @@ const ClassAttendanceSheets = ({ sourceLoader = fetchClassAttendanceSource }) =>
                   </div>
                 )}
 
-                <AttendancePaperPreview classItem={selectedClass} dateSlots={dateSlots} monthLabel={monthLabel} />
+                <AttendancePaperPreview appearance={appearance} classItem={selectedClass} dateSlots={dateSlots} monthLabel={monthLabel} />
                 <p className="class-attendance-preview-note"><ShieldCheck aria-hidden="true" />HTML akan mengambil snapshot terbaru sekali lagi sebelum diunduh dan dapat dicetak tanpa koneksi internet.</p>
               </>
             ) : (
