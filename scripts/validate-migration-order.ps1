@@ -50,7 +50,16 @@ $expectedNames = @(
   "20260722000300_atomic_guru_account_update.sql",
   "20260723000100_guru_student_class_transfer.sql",
   "20260723000200_enable_guru_admin_roles.sql",
-  "20260723000300_increment_santri_points.sql"
+  "20260723000300_increment_santri_points.sql",
+  "20260724000100_whatsapp_group_links_guru_read.sql",
+  "20260725000100_pentashih_full_read_access_rls.sql",
+  "20260725000200_jilid_history_pentashih_rls.sql",
+  "20260806000100_change_santri_jilid_rpc.sql",
+  "20260806000200_santri_self_profile_rpc.sql",
+  "20260806000300_pentashih_jilid_change.sql",
+  "20260807000100_santri_points_fractional.sql",
+  "20260807000200_attendance_session_config.sql",
+  "20260810000100_finalize_fractional_santri_points.sql"
 )
 
 $actualNames = $files | ForEach-Object { $_.Name }
