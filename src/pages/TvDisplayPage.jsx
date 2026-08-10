@@ -187,7 +187,8 @@ const TvDisplayPage = () => {
         if (!Array.isArray(levels) || levels.length === 0) return defaultInfo;
 
         // Find matching level with safe boundaries
-        const matchedLevel = levels.find(l => points >= (l.min || 0) && points <= (l.max || 9999)) || levels[0];
+        const normalizedPoints = Math.floor(Math.max(0, Number(points) || 0));
+        const matchedLevel = levels.find(l => normalizedPoints >= (l.min || 0) && normalizedPoints <= (l.max || 9999)) || levels[0];
         if (!matchedLevel) return defaultInfo;
 
         // Determine icon based on name keyword (flexible fallback)

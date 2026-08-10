@@ -35,7 +35,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import MediaPlayerWidget from '@/components/MediaPlayerWidget';
 import {
   DEFAULT_SESSION_TIMES,
-  buildSessionStartTimestamp,
   calculateTimeDifference,
   determineAttendanceStatus,
   evaluateAttendanceWindow,
@@ -58,6 +57,7 @@ import { resolveAvatarUrl } from '@/lib/storageAdapters';
 import AttendanceProfileCard from '@/components/dashboard/shared/AttendanceProfileCard';
 import { useAttendanceSessionConfiguration } from '@/hooks/useAttendanceSessionConfiguration';
 import { resolveSantriLevel } from '@/lib/santriLevel';
+import { computeAttendancePointAward } from '@/lib/attendancePointRules';
 
 // --- Data (unchanged) ---
 const guruQuotes = [
@@ -257,34 +257,6 @@ const canCheckIn = (sesi, userRole, isPentashih = false, timestamp = new Date(),
 
     const windowState = evaluateAttendanceWindow({ timestamp, sesi, sessionTimes });
     return { can: windowState.canRecord, ...windowState };
-};
-
-// --- Attendance point award rules ---
-// Early (>= EARLY_BONUS_MINUTES before session start) earns 2 points.
-// On time earns 1. Terlambat earns 0.5. Non-attending statuses earn 0.
-// Only child santri are eligible; the restore-from-absent case is included
-// because the santri did show up and study.
-const EARLY_BONUS_MINUTES = 30;
-const NON_ATTENDING_STATUSES = new Set(['tidak hadir', 'alpha', 'ghaib', 'absen', 'izin', 'sakit']);
-
-const isNonAttendingStatus = (status) => (
-    NON_ATTENDING_STATUSES.has(String(status || '').trim().toLowerCase())
-);
-
-const computeAttendancePointAward = ({ role, isAdult, status, timestamp, dateStr, sesi, sessionTimes }) => {
-    if (role !== 'santri' || isAdult) return 0;
-    if (isNonAttendingStatus(status)) return 0;
-
-    const startTimestamp = buildSessionStartTimestamp(dateStr, sesi, sessionTimes);
-    const startMs = startTimestamp ? new Date(startTimestamp).getTime() : Number.NaN;
-    const arrivalMs = timestamp instanceof Date ? timestamp.getTime() : new Date(timestamp).getTime();
-
-    if (Number.isFinite(startMs) && Number.isFinite(arrivalMs)) {
-        const minutesBeforeStart = Math.floor((startMs - arrivalMs) / 60000);
-        if (minutesBeforeStart >= EARLY_BONUS_MINUTES) return 2;
-    }
-
-    return status === 'Terlambat' ? 0.5 : 1;
 };
 
 // --- Digital Clock Component ---
