@@ -7,11 +7,12 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/customSupabaseClient';
-import { Save, Plus, Trash2, Percent, Gamepad2, Trophy, X, RefreshCw, BarChart2, User, UserCheck, Sparkles, Clock3, Settings2, MessageSquare, Link2, ExternalLink, ShieldCheck } from 'lucide-react';
+import { Save, Plus, Trash2, Percent, Gamepad2, Trophy, X, RefreshCw, BarChart2, User, UserCheck, Sparkles, Clock3, Settings2, MessageSquare, Link2, ExternalLink, ShieldCheck, Eye } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { doaHarian, bacaanShalat, suratPendek } from '@/data/islamicContent';
 import { motion } from 'framer-motion';
 import AttendanceConfiguration from './AttendanceConfiguration';
+import ClassAttendanceLiveEditor from './ClassAttendanceLiveEditor';
 import { enableGameFeatures } from '@/lib/featureFlags';
 import { saveWebsiteContentItem } from '@/lib/publicContentAdapters';
 import { createDefaultSantriLevelConfig, normalizeLevelConfigShape } from '@/lib/santriLevel';
@@ -22,6 +23,7 @@ const GameConfiguration = () => {
     const [activeTab, setActiveTab] = useState('attendance');
     const tabs = [
         { id: 'attendance', label: 'Waktu Absensi', icon: Clock3 },
+        { id: 'attendance-editor', label: 'Live Editor Absensi', icon: Eye },
         { id: 'levels', label: 'Konfigurasi Level', icon: BarChart2 },
         { id: 'whatsapp', label: 'Pesan WhatsApp', icon: MessageSquare },
         ...(enableGameFeatures ? [
@@ -70,6 +72,10 @@ const GameConfiguration = () => {
 
                 <TabsContent value="attendance" className="animate-in fade-in slide-in-from-bottom-2">
                     <AttendanceConfiguration />
+                </TabsContent>
+
+                <TabsContent value="attendance-editor" className="animate-in fade-in slide-in-from-bottom-2">
+                    <ClassAttendanceLiveEditor />
                 </TabsContent>
 
                 <TabsContent value="gatcha" className="animate-in fade-in slide-in-from-bottom-2">

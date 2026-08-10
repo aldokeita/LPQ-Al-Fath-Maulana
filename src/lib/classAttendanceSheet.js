@@ -1,3 +1,8 @@
+import {
+  getClassAttendanceHeaderFontStack,
+  normalizeClassAttendancePrintConfig,
+} from './classAttendancePrintConfig.js';
+
 const INDONESIAN_MONTHS = [
   'Januari',
   'Februari',
@@ -25,6 +30,14 @@ export const escapeAttendanceHtml = (value) => String(value ?? '')
   .replaceAll('>', '&gt;')
   .replaceAll('"', '&quot;')
   .replaceAll("'", '&#039;');
+
+export const formatClassAttendanceTeacherName = (value) => {
+  const name = String(value || '').trim();
+  if (!name) return 'Belum ditentukan';
+  return name.replace(/^(?:ustadzah|ustadz|usth?\.?)(?:\s+|$)/i, '').trim() || name;
+};
+
+const renderMultilineLabel = (value) => escapeAttendanceHtml(value).replaceAll('\n', '<br />');
 
 export const getClassAttendanceMonthLabel = (monthIndex, year) => (
   `${INDONESIAN_MONTHS[monthIndex] || INDONESIAN_MONTHS[0]} ${year}`
@@ -115,32 +128,41 @@ const renderRosterRows = ({ page, dateSlots }) => page.rows.map((santri, rowInde
 
 const renderPrintPage = ({
   classData,
+  config,
   dateSlots,
   generatedAtLabel,
-  logoDataUrl,
+  lpqLogoDataUrl,
   monthLabel,
   page,
-  totalPages,
-}) => `
+  qiroatiLogoDataUrl,
+}) => {
+  const { branding, content } = config;
+  const lpqLogo = branding.showLpqLogo && lpqLogoDataUrl
+    ? `<img class="institution-logo institution-logo--lpq" src="${escapeAttendanceHtml(lpqLogoDataUrl)}" alt="Logo LPQ Al-Fath Maulana" />`
+    : '';
+  const qiroatiLogo = branding.showQiroatiLogo && qiroatiLogoDataUrl
+    ? `<img class="institution-logo institution-logo--qiroati" src="${escapeAttendanceHtml(qiroatiLogoDataUrl)}" alt="Logo Qiroati" />`
+    : '';
+
+  return `
   <section class="attendance-page ${page.rows.length >= 18 ? 'is-compact' : ''}">
     <header class="institution-header">
-      <img class="institution-logo" src="${escapeAttendanceHtml(logoDataUrl)}" alt="Logo LPQ Al-Fath Maulana" />
+      <div class="institution-logo-slot institution-logo-slot--left">${lpqLogo}</div>
       <div class="institution-copy">
-        <p>LEMBAGA PENDIDIKAN QURAN</p>
-        <h1>AL-FATH MAULANA</h1>
-        <span>Alamat: Lrg. Kemang Kampung Baru, Kel. Sukaraya, Kec. Baturaja Timur</span>
+        <p>${escapeAttendanceHtml(content.institutionEyebrow)}</p>
+        <h1>${escapeAttendanceHtml(content.institutionName)}</h1>
+        <span>${escapeAttendanceHtml(content.address)}</span>
       </div>
-      <div class="document-meta">
-        <strong>ABSENSI KELAS</strong>
-        <span>Halaman ${page.pageNumber}/${totalPages}</span>
+      <div class="institution-brand-right">
+        ${qiroatiLogo}
       </div>
     </header>
 
     <dl class="class-meta">
-      <div><dt>NAMA GURU</dt><dd>: ${escapeAttendanceHtml(classData.guru?.nama || 'Belum ditentukan')}</dd></div>
-      <div><dt>KELAS</dt><dd>: ${escapeAttendanceHtml(classData.nama_kelas || 'Tanpa nama')}</dd></div>
-      <div><dt>SESI</dt><dd>: ${escapeAttendanceHtml(classData.sesi || 'Belum ditentukan')}</dd></div>
-      <div><dt>DIBUAT</dt><dd>: ${escapeAttendanceHtml(generatedAtLabel)}</dd></div>
+      <div><dt>${escapeAttendanceHtml(content.teacherLabel)}</dt><dd>: ${escapeAttendanceHtml(formatClassAttendanceTeacherName(classData.guru?.nama))}</dd></div>
+      <div><dt>${escapeAttendanceHtml(content.classLabel)}</dt><dd>: ${escapeAttendanceHtml(classData.nama_kelas || 'Tanpa nama')}</dd></div>
+      <div><dt>${escapeAttendanceHtml(content.sessionLabel)}</dt><dd>: ${escapeAttendanceHtml(classData.sesi || 'Belum ditentukan')}</dd></div>
+      <div><dt>${escapeAttendanceHtml(content.createdLabel)}</dt><dd>: ${escapeAttendanceHtml(generatedAtLabel)}</dd></div>
     </dl>
 
     <table class="attendance-table">
@@ -154,19 +176,19 @@ const renderPrintPage = ({
       </colgroup>
       <thead>
         <tr class="month-row">
-          <th rowspan="2" scope="col">NO</th>
-          <th rowspan="2" scope="col">NAMA</th>
-          <th rowspan="2" scope="col">JILID</th>
-          <th rowspan="2" scope="col">NO HP</th>
-          <th colspan="${CLASS_ATTENDANCE_DATE_SLOTS}" scope="colgroup">BULAN: ${escapeAttendanceHtml(monthLabel).toUpperCase()}</th>
-          <th rowspan="2" scope="col">JILID &amp; HAL<br />AWAL–AKHIR</th>
+          <th rowspan="2" scope="col">${renderMultilineLabel(content.numberColumn)}</th>
+          <th rowspan="2" scope="col">${renderMultilineLabel(content.nameColumn)}</th>
+          <th rowspan="2" scope="col">${renderMultilineLabel(content.levelColumn)}</th>
+          <th rowspan="2" scope="col">${renderMultilineLabel(content.phoneColumn)}</th>
+          <th colspan="${CLASS_ATTENDANCE_DATE_SLOTS}" scope="colgroup">${escapeAttendanceHtml(content.monthColumn)}: ${escapeAttendanceHtml(monthLabel)}</th>
+          <th rowspan="2" scope="col">${renderMultilineLabel(content.progressColumn)}</th>
         </tr>
         <tr class="date-row">${renderDateHeaders(dateSlots)}</tr>
       </thead>
       <tbody>${renderRosterRows({ page, dateSlots })}</tbody>
       <tfoot>
         <tr>
-          <th colspan="4" scope="row">ABSEN GURU</th>
+          <th colspan="4" scope="row">${renderMultilineLabel(content.teacherAttendanceLabel)}</th>
           ${dateSlots.map(() => '<td></td>').join('')}
           <td></td>
         </tr>
@@ -174,20 +196,25 @@ const renderPrintPage = ({
     </table>
 
     <footer class="attendance-notes">
-      <div><strong>Catatan:</strong><span></span></div>
-      <div><strong>Absen:</strong><span></span></div>
-      <div><strong>Menggantikan:</strong><span></span></div>
+      <div><strong>${escapeAttendanceHtml(content.notesLabel)}</strong><span></span></div>
+      <div><strong>${escapeAttendanceHtml(content.absenceLabel)}</strong><span></span></div>
+      <div><strong>${escapeAttendanceHtml(content.substituteLabel)}</strong><span></span></div>
     </footer>
   </section>`;
+};
 
 export const buildClassAttendanceHtml = ({
   classData,
   dateSlots,
   generatedAt = new Date(),
   logoDataUrl,
+  lpqLogoDataUrl = logoDataUrl,
   monthIndex,
+  printConfig,
+  qiroatiLogoDataUrl = '',
   year,
 }) => {
+  const config = normalizeClassAttendancePrintConfig(printConfig);
   const monthLabel = getClassAttendanceMonthLabel(monthIndex, year);
   const generatedAtLabel = new Intl.DateTimeFormat('id-ID', {
     dateStyle: 'medium',
@@ -196,13 +223,19 @@ export const buildClassAttendanceHtml = ({
   const pages = createClassAttendancePages(classData.roster);
   const pageMarkup = pages.map((page) => renderPrintPage({
     classData,
+    config,
     dateSlots,
     generatedAtLabel,
-    logoDataUrl,
+    lpqLogoDataUrl,
     monthLabel,
     page,
-    totalPages: pages.length,
+    qiroatiLogoDataUrl,
   })).join('');
+
+  const { branding, content, typography } = config;
+  const headerFont = getClassAttendanceHeaderFontStack(typography.headerFont);
+  const titleTransform = typography.titleUppercase ? 'uppercase' : 'none';
+  const tableHeaderTransform = typography.tableHeaderUppercase ? 'uppercase' : 'none';
 
   return `<!doctype html>
 <html lang="id">
@@ -210,9 +243,30 @@ export const buildClassAttendanceHtml = ({
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="robots" content="noindex,nofollow" />
-  <title>Absensi ${escapeAttendanceHtml(classData.nama_kelas)} — ${escapeAttendanceHtml(monthLabel)}</title>
+  <title>${escapeAttendanceHtml(content.documentCategory)} ${escapeAttendanceHtml(classData.nama_kelas)} — ${escapeAttendanceHtml(monthLabel)}</title>
   <style>
-    :root { color-scheme: light; font-family: Arial, Helvetica, sans-serif; color: #111827; background: #e5e7eb; }
+    :root {
+      color-scheme: light;
+      font-family: Arial, Helvetica, sans-serif;
+      color: ${branding.headerColor};
+      background: #e5e7eb;
+      --attendance-header-font: ${headerFont};
+      --attendance-title-size: ${typography.titleSize}pt;
+      --attendance-title-weight: ${typography.titleWeight};
+      --attendance-header-offset-y: ${typography.headerOffsetY}mm;
+      --attendance-address-offset-y: ${typography.addressOffsetY}mm;
+      --attendance-eyebrow-size: ${typography.eyebrowSize}pt;
+      --attendance-address-size: ${typography.addressSize}pt;
+      --attendance-category-size: ${typography.categorySize}pt;
+      --attendance-table-header-size: ${typography.tableHeaderSize}pt;
+      --attendance-table-header-weight: ${typography.tableHeaderWeight};
+      --attendance-body-size: ${typography.bodySize}pt;
+      --attendance-body-weight: ${typography.bodyWeight};
+      --attendance-accent: ${branding.accentColor};
+      --attendance-header-text: ${branding.headerTextColor};
+      --attendance-table-head: ${branding.tableHeaderBackground};
+      --attendance-table-head-text: ${branding.tableHeaderText};
+    }
     * { box-sizing: border-box; }
     body { margin: 0; padding: 18px; }
     .print-toolbar { position: sticky; z-index: 10; top: 12px; display: flex; align-items: center; justify-content: space-between; gap: 16px; max-width: 285mm; margin: 0 auto 16px; padding: 12px 14px; border: 1px solid #bae6fd; border-radius: 14px; background: rgba(255,255,255,.94); box-shadow: 0 12px 30px rgba(15,23,42,.16); backdrop-filter: blur(16px); }
@@ -222,22 +276,25 @@ export const buildClassAttendanceHtml = ({
     .privacy-note { max-width: 285mm; margin: 0 auto 14px; color: #475569; font-size: 11px; text-align: center; }
     .attendance-page { width: 285mm; min-height: 198mm; margin: 0 auto 18px; padding: 4mm 5mm; overflow: hidden; background: #fff; box-shadow: 0 20px 50px rgba(15,23,42,.18); break-after: page; page-break-after: always; }
     .attendance-page:last-child { break-after: auto; page-break-after: auto; }
-    .institution-header { display: grid; grid-template-columns: 25mm 1fr 32mm; align-items: center; min-height: 26mm; border-bottom: 1.5px solid #0f172a; }
-    .institution-logo { display: block; width: 21mm; height: 21mm; object-fit: contain; }
-    .institution-copy { text-align: center; }
-    .institution-copy p { margin: 0; font-size: 8pt; font-weight: 800; letter-spacing: .08em; }
-    .institution-copy h1 { margin: .4mm 0; font-family: Georgia, 'Times New Roman', serif; font-size: 19pt; line-height: 1; letter-spacing: -.03em; }
-    .institution-copy span { font-size: 6.5pt; }
-    .document-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 1.5mm; color: #0369a1; font-size: 6.5pt; text-align: right; }
-    .document-meta strong { font-size: 7.5pt; }
+    .institution-header { display: grid; grid-template-columns: 27mm 1fr 27mm; align-items: center; min-height: 26mm; border-bottom: 1.5px solid ${branding.headerColor}; }
+    .institution-logo-slot { display: flex; align-items: center; min-height: 23mm; }
+    .institution-logo-slot--left { justify-content: flex-start; }
+    .institution-logo { display: block; object-fit: contain; }
+    .institution-logo--lpq { width: ${branding.lpqLogoSize}mm; height: ${branding.lpqLogoSize}mm; }
+    .institution-logo--qiroati { width: ${branding.qiroatiLogoSize}mm; height: ${branding.qiroatiLogoSize}mm; }
+    .institution-brand-right { display: flex; min-height: 23mm; flex-direction: column; align-items: flex-end; justify-content: center; gap: .7mm; }
+    .institution-copy { color: var(--attendance-header-text); text-align: center; transform: translateY(var(--attendance-header-offset-y)); }
+    .institution-copy p { margin: 0; font-family: var(--attendance-header-font); font-size: var(--attendance-eyebrow-size); font-weight: 800; letter-spacing: .08em; }
+    .institution-copy h1 { margin: .4mm 0; font-family: var(--attendance-header-font); font-size: var(--attendance-title-size); font-weight: var(--attendance-title-weight); font-style: ${typography.titleItalic ? 'italic' : 'normal'}; line-height: 1; letter-spacing: -.03em; text-transform: ${titleTransform}; }
+    .institution-copy span { display: block; font-size: var(--attendance-address-size); transform: translateY(var(--attendance-address-offset-y)); }
     .class-meta { display: grid; grid-template-columns: 1.3fr 1.2fr; gap: 1mm 8mm; margin: 2.5mm 0; font-size: 7pt; }
     .class-meta div { display: grid; grid-template-columns: 24mm 1fr; }
     .class-meta dt { font-weight: 800; }
     .class-meta dd { margin: 0; font-weight: 600; }
-    .attendance-table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 6.5pt; }
+    .attendance-table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: var(--attendance-body-size); font-weight: var(--attendance-body-weight); }
     .attendance-table th, .attendance-table td { height: 6.6mm; padding: .6mm 1mm; border: .25mm solid #111827; vertical-align: middle; }
     .attendance-page.is-compact .attendance-table th, .attendance-page.is-compact .attendance-table td { height: 5.7mm; }
-    .attendance-table thead th { color: #082f49; background: #22b8e6; text-align: center; font-size: 6pt; font-weight: 800; }
+    .attendance-table thead th { color: var(--attendance-table-head-text); background: var(--attendance-table-head); text-align: center; font-size: var(--attendance-table-header-size); font-weight: var(--attendance-table-header-weight); font-style: ${typography.tableHeaderItalic ? 'italic' : 'normal'}; text-transform: ${tableHeaderTransform}; }
     .attendance-table .month-row th { height: 5.5mm; }
     .attendance-table .date-row th { height: 5mm; padding: 0; }
     .attendance-table tfoot th, .attendance-table tfoot td { height: 5.5mm; background: #f8fafc; }
@@ -269,10 +326,10 @@ export const buildClassAttendanceHtml = ({
 </head>
 <body>
   <div class="print-toolbar">
-    <div><strong>Absensi ${escapeAttendanceHtml(classData.nama_kelas)}</strong><span>${escapeAttendanceHtml(monthLabel)} · ${classData.roster.length} santri</span></div>
-    <button type="button" onclick="window.print()">Cetak A4</button>
+    <div><strong>${escapeAttendanceHtml(content.documentCategory)} ${escapeAttendanceHtml(classData.nama_kelas)}</strong><span>${escapeAttendanceHtml(monthLabel)} · ${classData.roster.length} santri</span></div>
+    <button type="button" onclick="window.print()">${escapeAttendanceHtml(content.printButtonLabel)}</button>
   </div>
-  <p class="privacy-note">Dokumen ini memuat data pribadi santri. Simpan dan bagikan hanya untuk kebutuhan resmi LPQ Al-Fath Maulana.</p>
+  <p class="privacy-note">${escapeAttendanceHtml(content.privacyNotice)}</p>
   ${pageMarkup}
 </body>
 </html>`;

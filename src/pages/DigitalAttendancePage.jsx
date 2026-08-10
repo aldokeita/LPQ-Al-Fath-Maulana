@@ -343,7 +343,7 @@ const DigitalAttendancePage = () => {
 
   const getLevelInfo = (points = 0, gender) => {
       const defaultInfo = {
-          label: 'Bronze',
+          label: 'Bronze I',
           color: '#b7793f',
           badgeIcon: <Book className="w-8 h-8 text-[#b7793f]" />,
           enableGradient: true,
@@ -353,8 +353,6 @@ const DigitalAttendancePage = () => {
           avatarBorderThickness: 4,
           textGradient: true
       };
-
-      if (!levelConfig) return defaultInfo;
 
       const resolvedLevel = resolveSantriLevel({ points, gender, config: levelConfig });
       const accentColor = resolvedLevel.accentColor || defaultInfo.color;
