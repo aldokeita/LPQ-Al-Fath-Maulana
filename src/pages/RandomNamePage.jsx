@@ -87,10 +87,7 @@ const RandomNamePage = () => {
             try {
                 // 1. Fetch Santri
                 const { data: santriData, error: santriError } = await supabase
-                    .from('santri')
-                    .select('id, nama_lengkap, foto_url, avatar_path, points, jilid, jenis_kelamin')
-                    .eq('status', 'Aktif')
-                    .eq('kategori', 'Anak');
+                    .rpc('list_random_name_santri');
 
                 if (santriError) throw santriError;
                 const resolvedSantri = await resolveAvatarRecords(santriData || [], {

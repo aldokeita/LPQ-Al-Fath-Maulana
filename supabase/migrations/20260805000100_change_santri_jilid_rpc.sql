@@ -2,6 +2,11 @@
 -- Dependencies: 20260716000400_jilid_history.sql and guru_has_santri_access(uuid).
 -- Safety: gurus can only change the jilid of active santri assigned to their class.
 
+-- The staging database may already contain an older function with the same
+-- arguments but a different return shape. Drop that legacy signature before
+-- recreating the atomic RPC so PostgreSQL does not reject the return type.
+drop function if exists public.change_santri_jilid(uuid, text, text);
+
 create or replace function public.change_santri_jilid(
   p_santri_id uuid,
   p_expected_from_jilid text,
