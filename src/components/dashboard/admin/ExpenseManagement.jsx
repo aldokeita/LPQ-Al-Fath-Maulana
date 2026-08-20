@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Edit, Trash2, Download, RefreshCw, TrendingDown } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import * as XLSX from 'xlsx';
+import { loadXlsx } from '@/lib/xlsxLoader';
 import {
     createExpense,
     expenseCategories,
@@ -142,7 +142,8 @@ const ExpenseManagement = () => {
         }
     };
 
-    const handleExport = () => {
+    const handleExport = async () => {
+        const XLSX = await loadXlsx();
         const dataToExport = expenses.map((expense) => ({
             Tanggal: expense.tanggal_pengeluaran,
             Kategori: expense.kategori,

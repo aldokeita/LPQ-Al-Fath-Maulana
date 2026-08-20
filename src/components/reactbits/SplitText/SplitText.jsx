@@ -67,7 +67,11 @@ const SplitText = ({
   let animatedIndex = 0;
 
   return (
-    <Tag className={`split-parent rb-split-text ${className}`} style={{ textAlign }} aria-label={text}>
+    <Tag className={`split-parent rb-split-text ${className}`} style={{ textAlign }}>
+      {/* Screen readers get the full text once; the animated pieces below
+          are aria-hidden and decorative. aria-label on this generic element
+          would trip Lighthouse's aria-prohibited-attr audit. */}
+      <span className="sr-only">{text}</span>
       {pieces.map((piece) => {
         if (piece.className === 'rb-split-space') {
           return <span key={piece.id} aria-hidden="true" className="rb-split-space">&nbsp;</span>;

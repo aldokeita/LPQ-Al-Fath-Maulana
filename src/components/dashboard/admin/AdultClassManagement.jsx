@@ -14,14 +14,17 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import SantriDetailModal from '../shared/SantriDetailModal';
 import JilidChangeModal from './JilidChangeModal';
 import ClassPerformanceModal from './ClassPerformanceModal';
-import * as XLSX from 'xlsx';
+import { loadXlsx } from '@/lib/xlsxLoader';
 import ConfirmationDialog from '@/components/ui/confirmation-dialog';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { mapSantriForLegacyUi } from '@/lib/dataMasterAdapters';
+import { getAdjacentQiroatiJilid, QIROATI_JILID_OPTIONS } from '@/lib/qiroatiJilid';
+import { changeSantriJilid, getJilidChangeErrorMessage } from '@/lib/jilidChangeAdapters';
+import { getSessionName } from '@/utils/sessionMapping';
 
 const ItemTypes = { SANTRI: 'santri', CLASS: 'class', SESSION: 'session', CLASS_ORDER: 'class_order' };
-const jilidOptions = ['Pra TK A', 'Pra TK B', 'Pra TK C', 'Jilid 1A', 'Jilid 1B', 'Jilid 1C', 'Jilid 2A', 'Jilid 2B', 'Jilid 3A', 'Jilid 3B', 'Jilid 4A', 'Jilid 4B', 'Jilid 5A', 'Jilid 5B', 'Jilid Juz 27', 'Jilid 6A', 'Jilid 6B', 'Al-Qur\'an', 'Ghorib Tajwid', 'Finishing'];
+const jilidOptions = QIROATI_JILID_OPTIONS;
 
 // Draggable Session Item for Config
 const DraggableSessionItem = ({ name, time, index, moveSession, onDelete, onUpdate }) => {
@@ -338,6 +341,7 @@ const AdultClassManagement = () => {
   const [selectedClass, setSelectedClass] = useState(null);
   const [selectedSantri, setSelectedSantri] = useState(null);
   const [jilidChangeData, setJilidChangeData] = useState(null);
+  const [isSavingJilid, setIsSavingJilid] = useState(false);
   const [mutationHistory, setMutationHistory] = useState([]);
   const [filteredHistory, setFilteredHistory] = useState([]);
   const [historyFilters, setHistoryFilters] = useState({ search: '', class: 'all', date: '' });
@@ -416,11 +420,12 @@ const AdultClassManagement = () => {
 
   useEffect(() => {
     fetchAllData();
+    // Deliberately no 'focus' listener: refetching whenever the tab regains
+    // focus reads as an unwanted auto-refresh. Data still refreshes on demand
+    // through the explicit lpq:santri-data-changed event.
     const refresh = () => fetchAllData();
-    window.addEventListener('focus', refresh);
     window.addEventListener('lpq:santri-data-changed', refresh);
     return () => {
-      window.removeEventListener('focus', refresh);
       window.removeEventListener('lpq:santri-data-changed', refresh);
     };
   }, [fetchAllData]);
@@ -487,9 +492,20 @@ const AdultClassManagement = () => {
     const [draggedItem] = santriInClass.splice(dragIndex, 1);
     santriInClass.splice(hoverIndex, 0, draggedItem);
     const updatedSantriInClass = santriInClass.map((s, i) => ({ ...s, order_in_class: i + 1 }));
+    const previousSantriList = santriList;
     setSantriList([...otherSantri, ...updatedSantriInClass]);
-    const updates = updatedSantriInClass.map(s => supabase.from('santri').update({ order_in_class: s.order_in_class }).eq('id', s.id));
-    await Promise.all(updates);
+    const results = await Promise.all(
+      updatedSantriInClass.map(s => supabase.from('santri').update({ order_in_class: s.order_in_class }).eq('id', s.id).select('id'))
+    );
+    const failure = results.find(result => result.error) || results.find(result => !result.data?.length);
+    if (failure) {
+      setSantriList(previousSantriList);
+      toast({
+        title: 'Gagal menyimpan urutan',
+        description: failure.error?.message || 'Urutan santri tidak tersimpan. Periksa kembali akses Anda.',
+        variant: 'destructive',
+      });
+    }
   }, [santriList]);
 
   const handleDropSantri = async (item, toClassId) => {
@@ -524,23 +540,37 @@ const AdultClassManagement = () => {
   };
 
   const initiateJilidChange = (santri, direction) => {
-      const currentIndex = jilidOptions.indexOf(santri.jilid);
-      if (direction === 'up') {
-        if (currentIndex >= jilidOptions.length - 1) return;
-        setJilidChangeData({ santri, direction: 'up', currentJilid: santri.jilid, nextJilid: jilidOptions[currentIndex + 1] });
-      } else {
-        if (currentIndex <= 0) return;
-        setJilidChangeData({ santri, direction: 'down', currentJilid: santri.jilid, nextJilid: jilidOptions[currentIndex - 1] });
+      const nextJilid = getAdjacentQiroatiJilid(santri.jilid, direction);
+      if (!nextJilid) {
+        toast({
+          title: 'Info',
+          description: direction === 'up' ? 'Santri sudah di jilid terakhir.' : 'Santri sudah di jilid pertama.',
+        });
+        return;
       }
+      setJilidChangeData({ santri, direction, currentJilid: santri.jilid, nextJilid });
       setIsJilidModalOpen(true);
   };
 
   const confirmJilidChange = async () => {
       if (!jilidChangeData) return;
       const { santri, currentJilid, nextJilid } = jilidChangeData;
-      await supabase.from('santri').update({ jilid: nextJilid }).eq('id', santri.id);
-      await supabase.from('jilid_history').insert({ santri_id: santri.id, from_jilid: currentJilid, to_jilid: nextJilid, changed_by: user.id });
-      toast({ title: 'Berhasil' }); fetchAllData(); setIsJilidModalOpen(false); setJilidChangeData(null);
+      setIsSavingJilid(true);
+      try {
+        const savedChange = await changeSantriJilid({
+          santriId: santri.id,
+          currentJilid,
+          nextJilid,
+        });
+        toast({ title: 'Berhasil', description: `Jilid santri diubah ke ${savedChange.to_jilid}.` });
+        await fetchAllData();
+        setIsJilidModalOpen(false);
+        setJilidChangeData(null);
+      } catch (error) {
+        toast({ title: 'Gagal menyimpan jilid', description: getJilidChangeErrorMessage(error), variant: 'destructive' });
+      } finally {
+        setIsSavingJilid(false);
+      }
   };
 
   const handleSubmit = async (e) => {
@@ -609,7 +639,8 @@ const AdultClassManagement = () => {
   const attendanceById = useMemo(() => new Set(dailyAttendance.map(a => a.user_id)), [dailyAttendance]);
   const filteredUnassignedSantri = useMemo(() => santriList.filter(s => !s.id_kelas && (unassignedFilterJilid === 'all' || s.jilid === unassignedFilterJilid) && (!santriSearch || s.nama_lengkap.toLowerCase().includes(santriSearch.toLowerCase()))), [santriList, santriSearch, unassignedFilterJilid]);
 
-  const handleExportToExcel = () => {
+  const handleExportToExcel = async () => {
+    const XLSX = await loadXlsx();
     const data = [];
     Object.keys(sessionTimes).forEach(session => {
         const classGroup = classesBySession[session] || [];
@@ -760,7 +791,7 @@ const AdultClassManagement = () => {
         <Dialog open={isHistoryOpen} onOpenChange={setIsHistoryOpen}><DialogContent className="max-w-5xl"><DialogHeader><DialogTitle>Riwayat Mutasi Santri</DialogTitle></DialogHeader><div className="flex flex-wrap gap-2 my-4"><div className="relative flex-grow"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"/><Input placeholder="Cari nama santri..." value={historyFilters.search} onChange={e => setHistoryFilters({...historyFilters, search: e.target.value})} className="pl-9"/></div><Input type="date" value={historyFilters.date} onChange={e => setHistoryFilters({...historyFilters, date: e.target.value})} className="w-auto"/></div><div className="max-h-[60vh] overflow-y-auto space-y-4 pr-2 custom-scrollbar">{filteredHistory.map(m => (<div key={m.id} className="bg-slate-50 dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700 shadow-sm relative hover:shadow-md transition-all"><div className="flex flex-col md:flex-row md:items-center justify-between gap-4"><div className="flex items-start gap-4"><Avatar className="h-14 w-14 border-2 border-white shadow-md"><AvatarImage src={m.santri?.foto_url} /><AvatarFallback className="text-lg font-bold bg-slate-200">{m.santri?.nama_lengkap?.[0]}</AvatarFallback></Avatar><div><h4 className="font-bold text-lg text-primary">{m.santri?.nama_lengkap || 'Santri Dihapus'}</h4><div className="text-xs text-muted-foreground mt-1">{m.from_jilid && m.to_jilid ? `${m.from_jilid} âž” ${m.to_jilid}` : 'Perubahan Kelas'}</div></div></div><div className="flex items-center gap-3 flex-1 justify-center md:px-8"><div className="flex flex-col items-end min-w-[120px]"><p className="font-bold text-sm">{m.from_class?.nama_kelas || 'Luar Kelas'}</p></div><ArrowRight className="text-muted-foreground w-5 h-5" /><div className="flex flex-col items-start min-w-[120px]"><p className="font-bold text-sm">{m.to_class?.nama_kelas || 'Luar Kelas'}</p></div></div><div><Button variant="ghost" size="icon" onClick={() => confirmDeleteHistory(m.id)} className="text-red-500 hover:bg-red-50 hover:text-red-600 rounded-full"><Trash2 className="w-4 h-4"/></Button></div></div></div>))}</div></DialogContent></Dialog>
 
         <SantriDetailModal santri={selectedSantri} isOpen={isSantriDetailOpen} onOpenChange={setIsSantriDetailOpen} onPromote={() => initiateJilidChange(selectedSantri, 'up')} onDemote={() => initiateJilidChange(selectedSantri, 'down')} />
-        <JilidChangeModal isOpen={isJilidModalOpen} onClose={() => setIsJilidModalOpen(false)} onConfirm={confirmJilidChange} {...jilidChangeData} kategori="Dewasa" />
+        <JilidChangeModal isOpen={isJilidModalOpen} onClose={() => setIsJilidModalOpen(false)} onConfirm={confirmJilidChange} isSaving={isSavingJilid} {...jilidChangeData} kategori="Dewasa" />
         <ClassPerformanceModal isOpen={isPerformanceOpen} onClose={() => setIsPerformanceOpen(false)} classItem={selectedClass} />
         <ReorderClassesModal isOpen={isReorderOpen} onClose={() => setIsReorderOpen(false)} classes={classes} onSave={saveReorderedClasses} />
 

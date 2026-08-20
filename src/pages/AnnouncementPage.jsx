@@ -116,7 +116,7 @@ const ListSkeleton = () => (
 const EmptyState = () => (
   <div className="ann-empty">
     <Megaphone className="h-12 w-12" />
-    <h3>Belum ada pengumuman</h3>
+    <h2>Belum ada pengumuman</h2>
     <p>Pengumuman resmi dari LPQ Al-Fath Maulana akan tampil di sini setelah diterbitkan.</p>
   </div>
 );
@@ -124,7 +124,7 @@ const EmptyState = () => (
 const ErrorState = ({ message, onRetry }) => (
   <div className="ann-error">
     <Megaphone className="h-12 w-12" />
-    <h3>Gagal memuat pengumuman</h3>
+    <h2>Gagal memuat pengumuman</h2>
     <p>{message}</p>
     {onRetry && (
       <button className="ann-retry-btn" onClick={onRetry} type="button">
@@ -138,7 +138,7 @@ const ErrorState = ({ message, onRetry }) => (
 const SearchResultEmpty = ({ query }) => (
   <div className="ann-empty">
     <Search className="h-10 w-10" />
-    <h3>Tidak ada hasil</h3>
+    <h2>Tidak ada hasil</h2>
     <p>Tidak ditemukan pengumuman yang cocok dengan pencarian "{query}".</p>
   </div>
 );

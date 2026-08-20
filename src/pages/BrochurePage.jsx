@@ -71,7 +71,7 @@ const GridSkeleton = () => (
 const EmptyState = ({ icon: Icon = BookOpen, title = 'Belum ada publikasi', desc = 'Materi brosur dan pustaka digital akan tampil di sini setelah tersedia.' }) => (
   <div className="bros-empty">
     <Icon className="h-12 w-12" />
-    <h3>{title}</h3>
+    <h2>{title}</h2>
     <p>{desc}</p>
   </div>
 );
@@ -79,7 +79,7 @@ const EmptyState = ({ icon: Icon = BookOpen, title = 'Belum ada publikasi', desc
 const ErrorState = ({ message, onRetry }) => (
   <div className="bros-error">
     <FileText className="h-12 w-12" />
-    <h3>Gagal memuat publikasi</h3>
+    <h2>Gagal memuat publikasi</h2>
     <p>{message}</p>
     {onRetry && (
       <button className="bros-retry-btn" onClick={onRetry} type="button">

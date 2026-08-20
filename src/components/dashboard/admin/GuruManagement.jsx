@@ -14,9 +14,9 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from '@/components/ui/card';
 import BirthdayNotificationModal from '@/components/dashboard/shared/BirthdayNotificationModal';
-import * as XLSX from 'xlsx';
 import { getOperationalRoleFromGuruForm, pickGuruProfileFields } from '@/lib/dataMasterAdapters';
 import { getStorageErrorMessage, resolveAvatarRecords, uploadAvatar } from '@/lib/storageAdapters';
+import { loadXlsx } from '@/lib/xlsxLoader';
 import { getBirthdaysThisMonth } from '@/lib/birthdayUtils';
 import { invokeAuthenticatedEdgeFunction } from '@/lib/edgeFunctionAdapters';
 
@@ -131,6 +131,7 @@ const GuruManagement = () => {
 
   const handleBackupToExcel = async () => {
     try {
+        const XLSX = await loadXlsx();
         toast({ title: "Memproses Backup", description: "Sedang menyiapkan data untuk diekspor..." });
         console.log("Starting Backup to Excel for Guru...");
 

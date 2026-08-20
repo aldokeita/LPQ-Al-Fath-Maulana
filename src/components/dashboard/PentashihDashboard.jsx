@@ -14,7 +14,7 @@ import {
 import { toast } from '@/components/ui/use-toast';
 import { resolveAvatarRecord, resolveAvatarRecords } from '@/lib/storageAdapters';
 import ClassManagement from '@/components/dashboard/admin/ClassManagement';
-import * as XLSX from 'xlsx';
+import { loadXlsx } from '@/lib/xlsxLoader';
 
 const KHOTIM_JILID_LIST = ['Jilid 6A', 'Jilid 6B', 'Al-Qur\'an', 'Ghorib Tajwid', 'Finishing'];
 
@@ -205,8 +205,9 @@ const PentashihDashboard = () => {
   // -------------------------------------------------------------
   // Poin 5: Excel & PDF Export Handlers
   // -------------------------------------------------------------
-  const exportExcelReport = () => {
+  const exportExcelReport = async () => {
     try {
+      const XLSX = await loadXlsx();
       const khotimData = khotimCandidates.map((s, idx) => ({
         'No': idx + 1,
         'Nomor Induk Qiroati': s.nomor_induk_qiroati || '-',

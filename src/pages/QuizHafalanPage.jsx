@@ -300,25 +300,26 @@ const QuizHafalanPage = () => {
     setResultType('guru');
     setGameState('result');
 
-    const newPoints = (Number(currentSantri.points) || 0) + 1;
-    const { error: rpcError } = await supabase.rpc('increment_santri_points', {
+    // increment_santri_points adds atomically and enforces authorization. The
+    // previous direct-update fallback ran precisely when that authorization
+    // failed, is blocked by RLS anyway, and clobbered concurrent increments by
+    // writing an absolute value.
+    const { data: updatedPoints, error: rpcError } = await supabase.rpc('increment_santri_points', {
       p_santri_id: currentSantri.id,
       p_amount: 1
     });
 
     if (rpcError) {
-      const { error: fallbackError } = await supabase
-        .from('santri')
-        .update({ points: newPoints })
-        .eq('id', currentSantri.id);
-
-      if (fallbackError) {
-        toast({ title: "Gagal Update Poin", description: fallbackError.message, variant: "destructive" });
-        return;
-      }
+      toast({ title: "Gagal Update Poin", description: rpcError.message, variant: "destructive" });
+      return;
     }
 
-    setCurrentSantri(prev => ({ ...prev, points: newPoints }));
+    if (updatedPoints != null) {
+      const newPointValue = Number(updatedPoints);
+      if (Number.isFinite(newPointValue)) {
+        setCurrentSantri(prev => ({ ...prev, points: newPointValue }));
+      }
+    }
   };
 
   const selfValidate = () => {

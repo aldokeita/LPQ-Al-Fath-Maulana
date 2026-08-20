@@ -1,4 +1,4 @@
-import React, { Suspense, useMemo } from 'react';
+import React, { Suspense, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -36,6 +36,15 @@ const HeroSection = ({ content, currentSlide, setCurrentSlide, stats }) => {
   const heroSubtext = activeSlide.author || 'Metode Qiroati, pembinaan adab, dan informasi lembaga yang mudah diikuti wali santri.';
   const logoUrl = content.logoUrl || LOCAL_LOGO;
   const quality = useMemo(getQuality, []);
+  // 3D decorations are heavy: skip them entirely on phones so the
+  // three.js chunks are never fetched. Synchronous initial value prevents a
+  // flash (and a wasted download) on the first render.
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
   const sessionCount = Math.max(safeArray(content.schedules).length, 0);
   const heroCards = useMemo(() => {
     const heroItems = slides.map((slide, index) => ({
@@ -83,38 +92,42 @@ const HeroSection = ({ content, currentSlide, setCurrentSlide, stats }) => {
   return (
     <section className="home-hero" aria-labelledby="home-hero-title">
       <div className="home-hero__backdrop" />
-      <Suspense fallback={<div className="home-hero__pillar-fallback" aria-hidden="true" />}>
-        <LightPillar
-          topColor="#9dc1c7"
-          bottomColor="#00eb9d"
-          intensity={1}
-          rotationSpeed={0.4}
-          glowAmount={0.005}
-          pillarWidth={3}
-          pillarHeight={0.3}
-          noiseIntensity={0.3}
-          pillarRotation={53}
-          interactive={quality === 'high'}
-          mixBlendMode="color-dodge"
-          quality={quality}
-        />
-      </Suspense>
-      <div className="home-hero__grain" aria-hidden="true" />
-      <div className="home-hero__quran-model" aria-hidden="true">
-        <Suspense fallback={null}>
-          <ModelViewer
-            url="/models/quran_3d_free.glb"
-            width="100%"
-            height="100%"
-            environmentPreset="studio"
-            defaultZoom={3.05}
-            modelScale={1.36}
-            modelPosition={[0, -0.01, 0]}
-            modelRotation={modelRotation}
-            autoRotateSpeed={autoRotateSpeed}
+      {!isMobile && (
+        <Suspense fallback={<div className="home-hero__pillar-fallback" aria-hidden="true" />}>
+          <LightPillar
+            topColor="#9dc1c7"
+            bottomColor="#00eb9d"
+            intensity={1}
+            rotationSpeed={0.4}
+            glowAmount={0.005}
+            pillarWidth={3}
+            pillarHeight={0.3}
+            noiseIntensity={0.3}
+            pillarRotation={53}
+            interactive={quality === 'high'}
+            mixBlendMode="color-dodge"
+            quality={quality}
           />
         </Suspense>
-      </div>
+      )}
+      <div className="home-hero__grain" aria-hidden="true" />
+      {!isMobile && (
+        <div className="home-hero__quran-model" aria-hidden="true">
+          <Suspense fallback={null}>
+            <ModelViewer
+              url="/models/quran_3d_free.glb"
+              width="100%"
+              height="100%"
+              environmentPreset="studio"
+              defaultZoom={3.05}
+              modelScale={1.36}
+              modelPosition={[0, -0.01, 0]}
+              modelRotation={modelRotation}
+              autoRotateSpeed={autoRotateSpeed}
+            />
+          </Suspense>
+        </div>
+      )}
       <div className="home-hero__inner">
         <motion.div
           className="home-hero__copy"
@@ -228,7 +241,7 @@ const HeroSection = ({ content, currentSlide, setCurrentSlide, stats }) => {
                   <div className="home-hero-swap-card__veil" />
                   <div className="home-hero-swap-card__content">
                     <span>{index === 0 ? 'Sorotan utama' : card.source}</span>
-                    <h3>{card.title}</h3>
+                    <h2>{card.title}</h2>
                     <p>{card.description}</p>
                   </div>
                 </Card>

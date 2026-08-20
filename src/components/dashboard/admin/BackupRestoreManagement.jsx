@@ -8,7 +8,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/lib/customSupabaseClient';
 import { Database, Download, Upload, FileJson, FileSpreadsheet, FileText, AlertTriangle, CheckCircle, Loader2, Save, Lock, Eye, EyeOff } from 'lucide-react';
-import * as XLSX from 'xlsx';
+import { loadXlsx } from '@/lib/xlsxLoader';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -388,6 +388,7 @@ const BackupRestoreManagement = () => {
         setIsLoading(true);
         setProgress('Mengambil data dari server...');
         try {
+            const XLSX = await loadXlsx();
             let data = null;
 
             if (enableEdgeFunctions) {
@@ -477,6 +478,7 @@ const BackupRestoreManagement = () => {
         setProgress('Menganalisis file...');
 
         try {
+            const XLSX = await loadXlsx();
             console.log(`Parsing file: ${restoreFile.name}`);
             const reader = new FileReader();
 

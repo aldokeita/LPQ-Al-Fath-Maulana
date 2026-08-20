@@ -15,7 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import SantriDetailModal from '../shared/SantriDetailModal';
 import JilidChangeModal from './JilidChangeModal';
 import ClassPerformanceModal from './ClassPerformanceModal';
-import * as XLSX from 'xlsx';
+import { loadXlsx } from '@/lib/xlsxLoader';
 import ConfirmationDialog from '@/components/ui/confirmation-dialog';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { motion } from 'framer-motion';
@@ -24,6 +24,7 @@ import { getSessionName, getSessionNumber, getAllSessions } from '@/utils/sessio
 import { mapClassForLegacyUi, mapSantriForLegacyUi } from '@/lib/dataMasterAdapters';
 import { resolveAvatarRecord, resolveAvatarRecords } from '@/lib/storageAdapters';
 import { getAdjacentQiroatiJilid, QIROATI_JILID_OPTIONS } from '@/lib/qiroatiJilid';
+import { changeSantriJilid, getJilidChangeErrorMessage } from '@/lib/jilidChangeAdapters';
 
 const ItemTypes = {
   SANTRI: 'santri',
@@ -374,6 +375,7 @@ const GenericClassManagement = ({ userRole, kategori = 'Anak', configKey = 'anak
   const [isPerformanceOpen, setIsPerformanceOpen] = useState(false);
   const [isSantriDetailOpen, setIsSantriDetailOpen] = useState(false);
   const [isJilidModalOpen, setIsJilidModalOpen] = useState(false);
+  const [isSavingJilid, setIsSavingJilid] = useState(false);
   const [isReorderOpen, setIsReorderOpen] = useState(false);
   const [selectedClass, setSelectedClass] = useState(null);
   const [selectedSantri, setSelectedSantri] = useState(null);
@@ -668,11 +670,22 @@ const GenericClassManagement = ({ userRole, kategori = 'Anak', configKey = 'anak
   const confirmJilidChange = async () => {
       if (!jilidChangeData) return;
       const { santri, currentJilid, nextJilid } = jilidChangeData;
-      const { error: updateError } = await supabase.from('santri').update({ jilid: nextJilid }).eq('id', santri.id);
-      if (updateError) { toast({ title: 'Gagal!', description: updateError.message, variant: 'destructive' }); return; }
-      await supabase.from('jilid_history').insert({ santri_id: santri.id, from_jilid: currentJilid, to_jilid: nextJilid, changed_by: user.id });
-      toast({ title: 'Berhasil!', description: `Jilid santri diubah ke ${nextJilid}.` });
-      fetchAllData(); setIsJilidModalOpen(false); setJilidChangeData(null);
+      setIsSavingJilid(true);
+      try {
+        const savedChange = await changeSantriJilid({
+          santriId: santri.id,
+          currentJilid,
+          nextJilid,
+        });
+        toast({ title: 'Berhasil!', description: `Jilid santri diubah ke ${savedChange.to_jilid}.` });
+        await fetchAllData();
+        setIsJilidModalOpen(false);
+        setJilidChangeData(null);
+      } catch (error) {
+        toast({ title: 'Gagal menyimpan jilid', description: getJilidChangeErrorMessage(error), variant: 'destructive' });
+      } finally {
+        setIsSavingJilid(false);
+      }
   };
 
   const handleSubmit = async (e) => {
@@ -757,8 +770,9 @@ const GenericClassManagement = ({ userRole, kategori = 'Anak', configKey = 'anak
 
   const attendanceById = useMemo(() => new Set(dailyAttendance.map(a => a.user_id)), [dailyAttendance]);
   const filteredUnassignedSantri = useMemo(() => santriList.filter(s => !(s.current_class_id || s.id_kelas) && (unassignedFilterJilid === 'all' || s.jilid === unassignedFilterJilid) && (!santriSearch || s.nama_lengkap.toLowerCase().includes(santriSearch.toLowerCase()))), [santriList, santriSearch, unassignedFilterJilid]);
-  const handleExportToExcel = () => {
+  const handleExportToExcel = async () => {
     try {
+        const XLSX = await loadXlsx();
         const data = [];
         if (!sessionTimes || Object.keys(sessionTimes).length === 0) {
             toast({ title: 'Data Kosong', description: 'Tidak ada sesi terdaftar untuk diekspor.', variant: 'destructive' });
@@ -978,7 +992,7 @@ const GenericClassManagement = ({ userRole, kategori = 'Anak', configKey = 'anak
         </Dialog>
 
         <SantriDetailModal santri={selectedSantri} isOpen={isSantriDetailOpen} onOpenChange={setIsSantriDetailOpen} onPromote={() => initiateJilidChange(selectedSantri, 'up')} onDemote={() => initiateJilidChange(selectedSantri, 'down')} />
-        <JilidChangeModal isOpen={isJilidModalOpen} onClose={() => setIsJilidModalOpen(false)} onConfirm={confirmJilidChange} {...jilidChangeData} kategori={kategori} />
+        <JilidChangeModal isOpen={isJilidModalOpen} onClose={() => setIsJilidModalOpen(false)} onConfirm={confirmJilidChange} isSaving={isSavingJilid} {...jilidChangeData} kategori={kategori} />
         <ClassPerformanceModal isOpen={isPerformanceOpen} onClose={() => setIsPerformanceOpen(false)} classItem={selectedClass} />
         <ConfirmationDialog isOpen={confirmDialog.isOpen} onClose={() => setConfirmDialog({ ...confirmDialog, isOpen: false })} onConfirm={confirmDialog.onConfirm} title={confirmDialog.title} description={confirmDialog.description} />
 

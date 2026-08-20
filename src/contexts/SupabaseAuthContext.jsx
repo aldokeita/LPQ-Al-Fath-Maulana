@@ -27,6 +27,20 @@ export const AuthProvider = ({ children }) => {
     userIdRef.current = null;
   }, []);
 
+  // Supabase hands back a brand-new user object every time it recovers the
+  // session on tab focus, even when nothing about the account changed. Any
+  // consumer with useCallback([user]) would see a fresh reference and refetch
+  // its whole dashboard, which reads as an unwanted auto-refresh. Preserve the
+  // previous reference whenever the signed-in identity is unchanged.
+  const syncSessionPreservingIdentity = useCallback((nextSession) => {
+    setSession(nextSession);
+    setUser((previousUser) => {
+      const nextUser = nextSession?.user ?? null;
+      if (previousUser && nextUser && previousUser.id === nextUser.id) return previousUser;
+      return nextUser;
+    });
+  }, []);
+
   const loadUserProfile = useCallback(async (userId) => {
     setProfileLoading(true);
     try {
@@ -112,8 +126,7 @@ export const AuthProvider = ({ children }) => {
         // profileLoading=true, which causes ProtectedRoute to flash its
         // loading spinner and the user perceives an unwanted "reload".
         if (event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') {
-          setSession(currentSession);
-          setUser(currentSession?.user ?? null);
+          syncSessionPreservingIdentity(currentSession);
           return;
         }
 
@@ -122,8 +135,7 @@ export const AuthProvider = ({ children }) => {
         // current logged-in user with the event user.
         const incomingUserId = currentSession?.user?.id ?? null;
         if (event === 'SIGNED_IN' && userIdRef.current && userIdRef.current === incomingUserId) {
-          setSession(currentSession);
-          setUser(currentSession?.user ?? null);
+          syncSessionPreservingIdentity(currentSession);
           return;
         }
 
@@ -134,7 +146,7 @@ export const AuthProvider = ({ children }) => {
     return () => {
       subscription.unsubscribe();
     };
-  }, [clearAuthState, handleSession]);
+  }, [clearAuthState, handleSession, syncSessionPreservingIdentity]);
 
   const signUp = useCallback(async (email, password, options) => {
     if (!isSupabaseConfigured) {

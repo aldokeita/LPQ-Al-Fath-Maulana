@@ -250,8 +250,8 @@ const ProfilePage = () => {
 
               <motion.div
                 className="prof-intro__image"
-                initial={{ opacity: 0, x: 30 }}
-                whileInView={{ opacity: 1, x: 0 }}
+                initial={{ opacity: 0, y: 24 }}
+                whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: '-60px' }}
                 transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1], delay: 0.15 }}
               >

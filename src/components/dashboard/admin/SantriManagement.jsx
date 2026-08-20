@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/lib/customSupabaseClient';
 import { enableEdgeFunctions, edgeFunctionDisabledMessage } from '@/lib/featureFlags';
-import * as XLSX from 'xlsx';
+import { loadXlsx } from '@/lib/xlsxLoader';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import ConfirmationDialog from '@/components/ui/confirmation-dialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -98,7 +98,8 @@ const BulkUploadModal = ({ isOpen, onClose, onUpload, category = 'Anak' }) => {
     if (selectedFile) setFile(selectedFile);
   };
 
-  const downloadTemplate = () => {
+  const downloadTemplate = async () => {
+    const XLSX = await loadXlsx();
     const templateHeaders = BULK_IMPORT_COLUMNS.map((column) => {
       if (column === 'Tgl Lahir' || column === 'Tgl Masuk') return `${column} (MM-DD-YYYY)`;
       if (column === 'Jenis Kelamin') return 'Jenis Kelamin (Laki-laki/Perempuan)';
@@ -111,6 +112,7 @@ const BulkUploadModal = ({ isOpen, onClose, onUpload, category = 'Anak' }) => {
   };
 
   const processExcel = async (file) => {
+    const XLSX = await loadXlsx();
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -655,6 +657,7 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
 
   const handleDownloadData = async () => {
     try {
+      const XLSX = await loadXlsx();
       const normalizedSearch = filters.search.replace(/[%_,().]/g, ' ').trim();
       const categoryValues = subCategory === 'ptpt' ? ['PTPT', 'ptpt'] : ['Anak', 'anak', 'TPQ', 'tpq'];
       let query = supabase
@@ -1391,7 +1394,7 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
                         </div>
                         <div className="admin-edit-field">
                             <label className="flex items-center gap-1"><Star className="w-3 h-3 text-yellow-500"/> Poin Gamifikasi</label>
-                            <Input type="number" min="0" value={formData.points || 0} onChange={(e) => setFormData({ ...formData, points: parseInt(e.target.value) || 0 })} />
+                            <Input type="number" min="0" step="0.5" value={formData.points ?? 0} onChange={(e) => setFormData({ ...formData, points: Number(e.target.value) })} />
                         </div>
                     </div>
 

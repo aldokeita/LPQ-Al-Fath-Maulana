@@ -59,12 +59,13 @@ const AttendanceDetailsModal = ({ isOpen, onClose, details, onSuccess }) => {
       const newStatus = determineAttendanceStatus(checkInTimestamp, details.sessionStartTime);
 
       if (details.id && details.status !== 'Tidak Hadir') {
-        const { error } = await supabase.from('attendance').update({
+        const { data, error } = await supabase.from('attendance').update({
           check_in_time: timeInput,
           check_in_timestamp: checkInTimestamp,
           status: newStatus
-        }).eq('id', details.id);
+        }).eq('id', details.id).select('id');
         if (error) throw error;
+        if (!data?.length) throw new Error('Tidak ada data absensi yang berubah. Periksa akses Anda ke kelas ini.');
         toast({ title: "Berhasil", description: "Waktu kehadiran berhasil diperbarui" });
       } else {
         const newAttendance = {
@@ -78,15 +79,16 @@ const AttendanceDetailsModal = ({ isOpen, onClose, details, onSuccess }) => {
           attended_session: details.attended_session || details.sesi,
           status: newStatus
         };
-        const { error } = await supabase.from('attendance').insert(newAttendance);
+        const { data, error } = await supabase.from('attendance').insert(newAttendance).select('id');
         if (error) throw error;
+        if (!data?.length) throw new Error('Kehadiran gagal disimpan. Periksa akses Anda ke kelas ini.');
         toast({ title: "Berhasil", description: "Kehadiran berhasil dikonfirmasi" });
       }
 
       if (onSuccess) onSuccess();
       onClose();
     } catch (error) {
-      toast({ title: "Gagal", description: "Gagal memperbarui waktu kehadiran", variant: "destructive" });
+      toast({ title: "Gagal", description: error.message || "Gagal memperbarui waktu kehadiran", variant: "destructive" });
     } finally {
       setIsSubmitting(false);
     }
@@ -96,7 +98,7 @@ const AttendanceDetailsModal = ({ isOpen, onClose, details, onSuccess }) => {
     if (!isAuthorized || !details?.id) return;
     setIsSubmitting(true);
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('attendance')
         .update({
           check_in_time: null,
@@ -106,8 +108,10 @@ const AttendanceDetailsModal = ({ isOpen, onClose, details, onSuccess }) => {
           correction_reason: 'Ditandai tidak hadir dari rekap absensi.',
           corrected_by: user?.id ?? null,
         })
-        .eq('id', details.id);
+        .eq('id', details.id)
+        .select('id');
       if (error) throw error;
+      if (!data?.length) throw new Error('Status absensi tidak berubah. Periksa akses Anda ke kelas ini.');
       toast({ title: "Berhasil", description: "Status absensi diubah menjadi Tidak Hadir" });
       if (onSuccess) onSuccess();
       onClose();

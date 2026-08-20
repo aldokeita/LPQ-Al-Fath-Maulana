@@ -35,7 +35,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import MediaPlayerWidget from '@/components/MediaPlayerWidget';
 import {
   DEFAULT_SESSION_TIMES,
-  buildSessionStartTimestamp,
   calculateTimeDifference,
   determineAttendanceStatus,
   evaluateAttendanceWindow,
@@ -58,6 +57,7 @@ import { resolveAvatarUrl } from '@/lib/storageAdapters';
 import AttendanceProfileCard from '@/components/dashboard/shared/AttendanceProfileCard';
 import { useAttendanceSessionConfiguration } from '@/hooks/useAttendanceSessionConfiguration';
 import { resolveSantriLevel } from '@/lib/santriLevel';
+import { computeAttendancePointAward } from '@/lib/attendancePointRules';
 
 // --- Data (unchanged) ---
 const guruQuotes = [
@@ -315,7 +315,7 @@ const DigitalAttendancePage = () => {
 
   const getLevelInfo = (points = 0, gender) => {
       const defaultInfo = {
-          label: 'Bronze',
+          label: 'Bronze I',
           color: '#b7793f',
           badgeIcon: <Book className="w-8 h-8 text-[#b7793f]" />,
           enableGradient: true,
@@ -325,8 +325,6 @@ const DigitalAttendancePage = () => {
           avatarBorderThickness: 4,
           textGradient: true
       };
-
-      if (!levelConfig) return defaultInfo;
 
       const resolvedLevel = resolveSantriLevel({ points, gender, config: levelConfig });
       const accentColor = resolvedLevel.accentColor || defaultInfo.color;
@@ -742,10 +740,23 @@ const DigitalAttendancePage = () => {
 
         if (insertError) { setLastScan({ type: 'error', message: getAttendanceErrorMessage(insertError), name: user.nama || user.nama_lengkap, photo: user.foto_url }); }
         else {
-          let newPoints = user.points || 0;
-          if (userRole === 'santri' && !isAdult && attendanceStatusText === 'Hadir' && !shouldRestoreAbsentAttendance) {
-            await supabase.rpc('increment_santri_points', { p_santri_id: user.id, p_amount: 1 });
-            newPoints += 1;
+          let newPoints = Number(user.points) || 0;
+          const award = computeAttendancePointAward({
+            role: userRole,
+            isAdult,
+            status: attendanceStatusText,
+            timestamp: todayDate,
+            dateStr: todayStr,
+            sesi: checkInStatus.attendedSession || sesiUser,
+            sessionTimes,
+          });
+          if (award > 0) {
+            const { data: updatedPoints, error: pointsError } = await supabase.rpc('increment_santri_points', { p_santri_id: user.id, p_amount: award });
+            if (pointsError) {
+              console.error('[Absensi] Gagal menambah poin santri:', pointsError.message);
+            } else if (updatedPoints != null) {
+              newPoints = Number(updatedPoints);
+            }
           }
           const levelInfo = (userRole === 'santri' && !isAdult) ? getLevelInfo(newPoints, user.jenis_kelamin) : null;
           const [monthlyStats, learningHighlights] = userRole === 'santri'

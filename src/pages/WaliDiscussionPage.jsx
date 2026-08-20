@@ -96,7 +96,7 @@ const WaliDiscussionPage = () => {
                         ) : (
                             <Card className="text-center py-12">
                                 <CardHeader>
-                                    <CardTitle>Belum Ada Jadwal</CardTitle>
+                                    <h2 className="text-lg font-semibold">Belum Ada Jadwal</h2>
                                 </CardHeader>
                                 <CardContent>
                                     <p className="text-muted-foreground">Jadwal diskusi akan segera diumumkan. Silakan cek kembali nanti.</p>

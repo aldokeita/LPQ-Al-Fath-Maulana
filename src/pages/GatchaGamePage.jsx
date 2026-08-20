@@ -9,6 +9,7 @@ import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
 import { useTheme } from '@/contexts/ThemeContext';
 import { resolveAvatarUrl } from '@/lib/storageAdapters';
+import { toast } from '@/components/ui/use-toast';
 const GatchaGamePage = () => {
   const navigate = useNavigate();
   const {
@@ -144,20 +145,30 @@ const GatchaGamePage = () => {
       setActiveReward(reward);
       if (reward.type === 'points' && currentPlayer) {
         const amount = Number.parseInt(reward.value, 10) || 0;
-        const nextPoints = (Number(currentPlayer.points) || 0) + amount;
-        const { error: rpcError } = await supabase.rpc('increment_santri_points', {
+        // increment_santri_points is the authoritative path: it adds atomically and
+        // enforces authorization. A direct santri update as fallback would run only
+        // when that authorization failed, is blocked by RLS anyway, and would clobber
+        // concurrent increments by writing an absolute value.
+        const { data: updatedPoints, error: rpcError } = await supabase.rpc('increment_santri_points', {
           p_santri_id: currentPlayer.id,
           p_amount: amount
         });
 
         if (rpcError) {
-          await supabase.from('santri').update({ points: nextPoints }).eq('id', currentPlayer.id);
+          toast({
+            title: 'Gagal menambah poin',
+            description: rpcError.message,
+            variant: 'destructive'
+          });
+        } else if (updatedPoints != null) {
+          const newPointValue = Number(updatedPoints);
+          if (Number.isFinite(newPointValue)) {
+            setCurrentPlayer(prev => ({
+              ...prev,
+              points: newPointValue
+            }));
+          }
         }
-
-        setCurrentPlayer(prev => ({
-          ...prev,
-          points: nextPoints
-        }));
       }
       setGameState('REWARD_SHOW');
       setTimeout(resetGame, 15000);

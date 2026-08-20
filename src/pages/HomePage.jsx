@@ -127,7 +127,7 @@ const HomePage = () => {
         <meta name="description" content="Website resmi LPQ Al-Fath Maulana: pendaftaran, berita, pengumuman, feedback, dan portal pendidikan Al-Qur'an." />
       </Helmet>
 
-      <main className="home-page">
+      <div className="home-page">
         <HeroSection content={content} currentSlide={currentSlide} setCurrentSlide={setCurrentSlide} stats={stats} />
         <InstitutionalValues content={content} />
         <ProgramBento schedules={content.schedules} quotas={content.quotas} />
@@ -135,7 +135,7 @@ const HomePage = () => {
         <EditorialNews news={news} announcements={announcements} loading={loading} error={contentError} />
         <TestimonialsFaq proofPoints={content.proofPoints} faqs={content.faqs} />
         <FinalCTA content={content} formData={formData} setFormData={setFormData} onSubmit={handleSubmitQuestion} sending={sending} />
-      </main>
+      </div>
     </>
   );
 };
