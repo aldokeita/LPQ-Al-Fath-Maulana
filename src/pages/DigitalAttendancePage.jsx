@@ -1143,6 +1143,15 @@ const DigitalAttendancePage = () => {
                   <Dices className="w-4 h-4" />
                   <span>Acak Nama</span>
                 </button>
+                <button
+                  className="attendance-header__action-btn attendance-header__action-btn--leaderboard"
+                  onClick={() => navigate('/top-score')}
+                  title="Leaderboard"
+                  aria-label="Leaderboard"
+                >
+                  <Trophy className="w-4 h-4" />
+                  <span>Leaderboard</span>
+                </button>
               </>
             )}
             <button

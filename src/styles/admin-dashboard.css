@@ -2688,6 +2688,11 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
   background: linear-gradient(135deg, #ea580c, #f59e0b 52%, #eab308);
 }
 
+.attendance-header__action-btn--leaderboard {
+  --attendance-action-shadow: rgba(180, 83, 9, 0.3);
+  background: linear-gradient(135deg, #b45309, #f59e0b 52%, #facc15);
+}
+
 @media (max-width: 767px) {
   .attendance-header {
     align-items: flex-start;
@@ -5280,6 +5285,14 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
   --attendance-action-glass-hover: rgb(234 88 12 / 0.92);
   --attendance-action-border: rgb(253 186 116 / 0.5);
   --attendance-action-shadow: rgb(234 88 12 / 0.3);
+  background: var(--attendance-action-glass);
+}
+
+.attendance-header__action-btn--leaderboard {
+  --attendance-action-glass: rgb(180 83 9 / 0.84);
+  --attendance-action-glass-hover: rgb(217 119 6 / 0.94);
+  --attendance-action-border: rgb(253 230 138 / 0.54);
+  --attendance-action-shadow: rgb(180 83 9 / 0.3);
   background: var(--attendance-action-glass);
 }
 
