@@ -4,14 +4,19 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Trophy, Crown, Star, Sparkles, CheckCircle } from 'lucide-react';
+import { ArrowLeft, ChevronLeft, ChevronRight, Trophy, Crown, Star, Sparkles } from 'lucide-react';
 import { Helmet } from 'react-helmet';
 import { toast } from '@/components/ui/use-toast';
 import { Input } from '@/components/ui/input';
+import { resolveAvatarRecords } from '@/lib/storageAdapters';
+
+const PAGE_SIZE = 10;
 
 const TopScorePage = () => {
     const navigate = useNavigate();
     const [students, setStudents] = useState([]);
+    const [totalStudents, setTotalStudents] = useState(0);
+    const [currentPage, setCurrentPage] = useState(1);
     const [isLoading, setIsLoading] = useState(true);
     const [rfidTag, setRfidTag] = useState('');
     const inputRef = useRef(null);
@@ -35,26 +40,51 @@ const TopScorePage = () => {
         };
     }, []);
 
+    const totalPages = Math.max(1, Math.ceil(totalStudents / PAGE_SIZE));
+
     useEffect(() => {
+        let isMounted = true;
+
         const fetchTopScores = async () => {
+            setIsLoading(true);
             try {
-                const { data, error } = await supabase
+                const from = (currentPage - 1) * PAGE_SIZE;
+                const to = from + PAGE_SIZE - 1;
+                const { data, count, error } = await supabase
                     .from('santri')
-                    .select('id, nama_lengkap, points, foto_url, sesi_mengaji, jilid')
-                    .order('points', { ascending: false })
-                    .limit(10);
+                    .select('id, nama_lengkap, points, foto_url, avatar_path, sesi_mengaji, jilid', { count: 'exact' })
+                    .order('points', { ascending: false, nullsFirst: false })
+                    .order('nama_lengkap', { ascending: true })
+                    .range(from, to);
 
                 if (error) throw error;
-                setStudents(data || []);
+
+                const studentsWithAvatars = await resolveAvatarRecords(data || [], { ownerType: 'santri' });
+                if (!isMounted) return;
+
+                setStudents(studentsWithAvatars);
+                setTotalStudents(count || 0);
             } catch (err) {
                 console.error("Error fetching top scores:", err);
+                if (!isMounted) return;
+                setStudents([]);
+                setTotalStudents(0);
             } finally {
-                setIsLoading(false);
+                if (isMounted) setIsLoading(false);
             }
         };
 
         fetchTopScores();
-    }, []);
+        return () => {
+            isMounted = false;
+        };
+    }, [currentPage]);
+
+    useEffect(() => {
+        if (!isLoading && currentPage > totalPages) {
+            setCurrentPage(totalPages);
+        }
+    }, [currentPage, isLoading, totalPages, totalStudents]);
 
     const processRfidScan = async (tag) => {
         const now = Date.now();
@@ -217,7 +247,7 @@ const TopScorePage = () => {
         <div className="min-h-screen bg-slate-50 dark:bg-slate-950 p-6 md:p-12 relative overflow-hidden font-sans text-slate-900 dark:text-slate-100">
             <Helmet>
                 <title>Papan Skor Santri Terbaik - LPQ Al-Fath Maulana</title>
-                <meta name="description" content="Leaderboard Top 10 Santri dengan poin tertinggi di LPQ Al-Fath Maulana." />
+                <meta name="description" content="Leaderboard santri dengan poin tertinggi di LPQ Al-Fath Maulana." />
             </Helmet>
 
             {/* Hidden RFID Input */}
@@ -320,7 +350,7 @@ const TopScorePage = () => {
 
                 {isLoading ? (
                      <div className="space-y-4">
-                        {[...Array(5)].map((_, i) => (
+                        {[...Array(PAGE_SIZE)].map((_, i) => (
                             <div key={i} className="h-24 bg-white/50 dark:bg-slate-800/50 rounded-2xl animate-pulse" />
                         ))}
                     </div>
@@ -332,7 +362,8 @@ const TopScorePage = () => {
                         className="space-y-4"
                     >
                         {students.map((student, index) => {
-                            const styles = getRankStyles(index);
+                            const rank = ((currentPage - 1) * PAGE_SIZE) + index;
+                            const styles = getRankStyles(rank);
                             return (
                                 <motion.div
                                     key={student.id}
@@ -350,11 +381,11 @@ const TopScorePage = () => {
                                         rounded-full flex items-center justify-center font-black text-lg md:text-xl shadow-md z-20
                                         ${styles.badge.bg} ${styles.badge.text} border-2 border-white dark:border-slate-900
                                     `}>
-                                        {index + 1}
+                                        {rank + 1}
                                     </div>
 
                                     {/* Special Icon for Top 3 */}
-                                    {index < 3 && (
+                                    {rank < 3 && (
                                         <div className="absolute -top-3 -right-2 transform rotate-12 z-20">
                                             <Crown className={`w-8 h-8 md:w-10 md:h-10 ${styles.iconColor} drop-shadow-md`} fill="currentColor" />
                                         </div>
@@ -363,10 +394,10 @@ const TopScorePage = () => {
                                     {/* Avatar */}
                                     <div className="ml-8 md:ml-10 relative">
                                         <Avatar className={`w-14 h-14 md:w-20 md:h-20 border-4 border-white dark:border-slate-900 shadow-md`}>
-                                            <AvatarImage src={student.foto_url} className="object-cover" />
+                                            <AvatarImage src={student.foto_url} loading={rank < 3 ? 'eager' : 'lazy'} decoding="async" className="object-cover" />
                                             <AvatarFallback className="bg-slate-200 text-slate-500 text-xl font-bold">{student.nama_lengkap.charAt(0)}</AvatarFallback>
                                         </Avatar>
-                                        {index < 3 && <Sparkles className="absolute -bottom-1 -right-1 w-5 h-5 text-yellow-400 animate-pulse" fill="currentColor"/>}
+                                        {rank < 3 && <Sparkles className="absolute -bottom-1 -right-1 w-5 h-5 text-yellow-400 animate-pulse" fill="currentColor"/>}
                                     </div>
 
                                     {/* Info */}
@@ -394,6 +425,41 @@ const TopScorePage = () => {
                             );
                         })}
                     </motion.div>
+                )}
+
+                {!isLoading && totalStudents > 0 && (
+                    <div className="mt-6 flex flex-col items-center gap-4 sm:flex-row sm:justify-between">
+                        <p className="text-sm text-slate-500 dark:text-slate-400">
+                            {totalStudents} santri · {PAGE_SIZE} santri per halaman
+                        </p>
+                        {totalPages > 1 && (
+                            <nav className="flex items-center gap-3" aria-label="Navigasi leaderboard">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                                    disabled={currentPage === 1}
+                                    aria-label="Halaman sebelumnya"
+                                >
+                                    <ChevronLeft className="w-4 h-4 mr-1" /> Sebelumnya
+                                </Button>
+                                <span className="min-w-[7rem] text-center text-sm font-semibold text-slate-600 dark:text-slate-300">
+                                    Halaman {currentPage} / {totalPages}
+                                </span>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+                                    disabled={currentPage === totalPages}
+                                    aria-label="Halaman berikutnya"
+                                >
+                                    Berikutnya <ChevronRight className="w-4 h-4 ml-1" />
+                                </Button>
+                            </nav>
+                        )}
+                    </div>
                 )}
             </div>
         </div>
