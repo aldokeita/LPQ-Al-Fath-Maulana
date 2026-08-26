@@ -3455,19 +3455,33 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
 }
 
 .attendance-profile-card__point-award-badge {
+  position: absolute;
+  top: 0.42rem;
+  right: 0.42rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 2.15rem;
-  padding: 0.16rem 0.38rem;
-  border: 1px solid transparent;
+  min-width: 2.25rem;
+  min-height: 1.3rem;
+  padding: 0.2rem 0.42rem;
+  border: 1px solid rgba(255, 255, 255, 0.72);
   border-radius: 999px;
-  font-size: 0.62rem;
+  font-size: 0.58rem;
   font-weight: 800;
   line-height: 1;
-  letter-spacing: 0.01em;
+  letter-spacing: 0.025em;
   white-space: nowrap;
-  box-shadow: 0 2px 5px rgba(76, 91, 105, 0.12);
+  z-index: 2;
+  box-shadow:
+    0 3px 8px rgba(76, 91, 105, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.72);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  transform: translateZ(0);
+}
+
+.attendance-profile-card__detail-item--has-point-award {
+  position: relative;
 }
 
 .attendance-profile-card__point-award-badge--half {
@@ -3486,6 +3500,24 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
   background: rgba(191, 219, 254, 0.92);
   border-color: rgba(37, 99, 235, 0.42);
   color: #1e40af;
+}
+
+.dark .attendance-profile-card__point-award-badge--half {
+  background: rgba(133, 77, 14, 0.8);
+  border-color: rgba(250, 204, 21, 0.46);
+  color: #fef08a;
+}
+
+.dark .attendance-profile-card__point-award-badge--one {
+  background: rgba(22, 101, 52, 0.8);
+  border-color: rgba(74, 222, 128, 0.46);
+  color: #bbf7d0;
+}
+
+.dark .attendance-profile-card__point-award-badge--two {
+  background: rgba(30, 64, 175, 0.8);
+  border-color: rgba(96, 165, 250, 0.46);
+  color: #bfdbfe;
 }
 
 .attendance-profile-card__attendance-summary {

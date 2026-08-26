@@ -271,7 +271,7 @@ const DetailItem = ({ icon, label, value, accent, amber, mono, pointAccent, poin
 
   return (
     <div
-      className="attendance-profile-card__detail-item"
+      className={`attendance-profile-card__detail-item ${pointAwardBadge ? 'attendance-profile-card__detail-item--has-point-award' : ''}`}
       style={
         pointAccent
           ? {
@@ -309,16 +309,16 @@ const DetailItem = ({ icon, label, value, accent, amber, mono, pointAccent, poin
           >
             {value}
           </span>
-          {pointAwardBadge && (
-            <span
-              className={`attendance-profile-card__point-award-badge attendance-profile-card__point-award-badge--${pointAwardBadge.tone}`}
-              aria-label={`Mendapat ${pointAwardBadge.label} poin dari absensi`}
-            >
-              +{pointAwardBadge.label}
-            </span>
-          )}
         </div>
       </div>
+      {pointAwardBadge && (
+        <span
+          className={`attendance-profile-card__point-award-badge attendance-profile-card__point-award-badge--${pointAwardBadge.tone}`}
+          aria-label={`Mendapat ${pointAwardBadge.label} poin dari absensi`}
+        >
+          +{pointAwardBadge.label}
+        </span>
+      )}
     </div>
   );
 };
