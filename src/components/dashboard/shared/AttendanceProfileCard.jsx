@@ -31,6 +31,7 @@ const AttendanceProfileCard = ({
   time,
   jilid,
   points,
+  pointsAward,
   kelas,
   sesi,
   rfid,
@@ -205,7 +206,14 @@ const AttendanceProfileCard = ({
               <DetailItem icon={<BookOpen className="w-4 h-4" />} label="Jilid" value={jilid} pointAccent={pointAccent} accent />
             )}
             {points !== undefined && points !== null && (
-              <DetailItem icon={<Star className="w-4 h-4" />} label="Poin" value={points} pointAccent={pointAccent} amber />
+              <DetailItem
+                icon={<Star className="w-4 h-4" />}
+                label="Poin"
+                value={points}
+                pointAccent={pointAccent}
+                amber
+                pointAward={pointsAward}
+              />
             )}
             {pointLevel && (
               <DetailItem icon={<Crown className="w-4 h-4" />} label="Level" value={pointLevel} pointAccent={pointAccent} />
@@ -258,48 +266,62 @@ const AttendanceProfileCard = ({
 };
 
 /* --- Detail Item --- */
-const DetailItem = ({ icon, label, value, accent, amber, mono, pointAccent }) => (
-  <div
-    className="attendance-profile-card__detail-item"
-    style={
-      pointAccent
-        ? {
-            borderColor: pointAccent.color,
-            backgroundColor: 'rgba(255, 255, 255, 0.92)',
-          }
-        : amber
-        ? { borderColor: 'var(--att-amber-border)', backgroundColor: 'var(--att-amber-bg)' }
-        : accent
-          ? { borderColor: 'var(--att-accent-border)', backgroundColor: 'var(--att-accent-bg)' }
-          : undefined
-    }
-  >
+const DetailItem = ({ icon, label, value, accent, amber, mono, pointAccent, pointAward }) => {
+  const pointAwardBadge = getPointAwardBadge(pointAward);
+
+  return (
     <div
-      className="attendance-profile-card__detail-icon"
+      className={`attendance-profile-card__detail-item ${pointAwardBadge ? 'attendance-profile-card__detail-item--has-point-award' : ''}`}
       style={
         pointAccent
-          ? { color: pointAccent.color }
+          ? {
+              borderColor: pointAccent.color,
+              backgroundColor: 'rgba(255, 255, 255, 0.92)',
+            }
           : amber
-          ? { color: 'var(--att-amber)' }
+          ? { borderColor: 'var(--att-amber-border)', backgroundColor: 'var(--att-amber-bg)' }
           : accent
-            ? { color: 'var(--att-accent)' }
+            ? { borderColor: 'var(--att-accent-border)', backgroundColor: 'var(--att-accent-bg)' }
             : undefined
       }
     >
-      {icon}
-    </div>
-    <div className="attendance-profile-card__detail-text">
-      <span className="attendance-profile-card__detail-label">{label}</span>
-      <span
-        className={`attendance-profile-card__detail-value ${mono ? 'font-mono' : ''}`}
-        style={pointAccent ? { color: pointAccent.color } : amber ? { color: 'var(--att-amber)' } : undefined}
-        title={String(value)}
+      <div
+        className="attendance-profile-card__detail-icon"
+        style={
+          pointAccent
+            ? { color: pointAccent.color }
+            : amber
+            ? { color: 'var(--att-amber)' }
+            : accent
+              ? { color: 'var(--att-accent)' }
+              : undefined
+        }
       >
-        {value}
-      </span>
+        {icon}
+      </div>
+      <div className="attendance-profile-card__detail-text">
+        <span className="attendance-profile-card__detail-label">{label}</span>
+        <div className="attendance-profile-card__detail-value-row">
+          <span
+            className={`attendance-profile-card__detail-value ${mono ? 'font-mono' : ''}`}
+            style={pointAccent ? { color: pointAccent.color } : amber ? { color: 'var(--att-amber)' } : undefined}
+            title={String(value)}
+          >
+            {value}
+          </span>
+        </div>
+      </div>
+      {pointAwardBadge && (
+        <span
+          className={`attendance-profile-card__point-award-badge attendance-profile-card__point-award-badge--${pointAwardBadge.tone}`}
+          aria-label={`Mendapat ${pointAwardBadge.label} poin dari absensi`}
+        >
+          +{pointAwardBadge.label}
+        </span>
+      )}
     </div>
-  </div>
-);
+  );
+};
 
 const AttendanceSummary = ({ monthlyStats }) => (
   <div className="attendance-profile-card__detail-item attendance-profile-card__attendance-summary">
@@ -384,6 +406,16 @@ function getPointLevel(points = 0) {
   if (safePoints <= 50) return 'Santri Rajin';
   if (safePoints <= 80) return 'Santri Super';
   return 'Santri Legend';
+}
+
+function getPointAwardBadge(pointsAward) {
+  const normalizedAward = Number(pointsAward);
+  if (![0.5, 1, 2].includes(normalizedAward)) return null;
+
+  return {
+    label: normalizedAward === 0.5 ? '0.5' : String(normalizedAward),
+    tone: normalizedAward === 0.5 ? 'half' : normalizedAward === 1 ? 'one' : 'two',
+  };
 }
 
 /* --- Status Config --- */

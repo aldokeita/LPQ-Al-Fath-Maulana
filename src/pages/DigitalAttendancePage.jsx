@@ -741,6 +741,7 @@ const DigitalAttendancePage = () => {
         if (insertError) { setLastScan({ type: 'error', message: getAttendanceErrorMessage(insertError), name: user.nama || user.nama_lengkap, photo: user.foto_url }); }
         else {
           let newPoints = Number(user.points) || 0;
+          let pointsAward = 0;
           const award = computeAttendancePointAward({
             role: userRole,
             isAdult,
@@ -756,6 +757,7 @@ const DigitalAttendancePage = () => {
               console.error('[Absensi] Gagal menambah poin santri:', pointsError.message);
             } else if (updatedPoints != null) {
               newPoints = Number(updatedPoints);
+              pointsAward = award;
             }
           }
           const levelInfo = (userRole === 'santri' && !isAdult) ? getLevelInfo(newPoints, user.jenis_kelamin) : null;
@@ -794,6 +796,7 @@ const DigitalAttendancePage = () => {
             time: newAttendance.check_in_time,
             status: newAttendance.status,
             points: newPoints,
+            pointsAward,
             levelInfo,
             monthlyStats,
             ...learningHighlights,
@@ -1051,6 +1054,7 @@ const DigitalAttendancePage = () => {
             time={scan.time}
             jilid={scan.jilid}
             points={scan.points}
+            pointsAward={scan.pointsAward}
             monthlyStats={scan.monthlyStats}
             hafalanCount={scan.hafalanCount}
             characterStrength={scan.characterStrength}
@@ -1076,6 +1080,7 @@ const DigitalAttendancePage = () => {
             time={scan.time}
             jilid={scan.jilid}
             points={scan.points}
+            pointsAward={scan.pointsAward}
             levelInfo={scan.levelInfo}
             monthlyStats={scan.monthlyStats}
             hafalanCount={scan.hafalanCount}
