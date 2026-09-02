@@ -3747,8 +3747,8 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
   position: relative;
   z-index: 4;
   display: grid;
-  width: clamp(3.125rem, 9vw, 4.5rem);
-  height: clamp(3.125rem, 9vw, 4.5rem);
+  width: clamp(3.5rem, 10vw, 5rem);
+  height: clamp(3.5rem, 10vw, 5rem);
   flex: 0 0 auto;
   place-items: center;
   isolation: isolate;
@@ -3795,7 +3795,7 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
 
 .attendance-profile-card__identity-divider {
   width: 1px;
-  height: clamp(2.4rem, 7vw, 3.6rem);
+  height: clamp(2.55rem, 7.5vw, 4rem);
   flex: 0 0 1px;
   background: linear-gradient(
     to bottom,
@@ -3823,8 +3823,8 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
   width: 100%;
   max-width: none;
   margin: 0;
-  font-size: clamp(1.25rem, 5.8vw, 2rem);
-  line-height: 1.08;
+  font-size: clamp(1.375rem, 6.2vw, 2.2rem);
+  line-height: 1.05;
   text-align: left;
   overflow-wrap: anywhere;
 }
@@ -3859,7 +3859,7 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
   }
 
   .attendance-profile-card__identity-divider {
-    height: 2.3rem;
+    height: 2.55rem;
   }
 }
 
