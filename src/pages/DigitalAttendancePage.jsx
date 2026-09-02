@@ -58,6 +58,7 @@ import AttendanceProfileCard from '@/components/dashboard/shared/AttendanceProfi
 import { useAttendanceSessionConfiguration } from '@/hooks/useAttendanceSessionConfiguration';
 import { resolveSantriLevel } from '@/lib/santriLevel';
 import { computeAttendancePointAward } from '@/lib/attendancePointRules';
+import '@/styles/admin-dashboard.css';
 
 // --- Data (unchanged) ---
 const guruQuotes = [

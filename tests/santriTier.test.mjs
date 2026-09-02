@@ -97,6 +97,7 @@ test('wires the transparent crest identity row into the attendance profile card 
   assert.match(cardSource, /attendance-profile-card__identity-divider/);
   assert.match(cardSource, /attendance-profile-card__identity-copy/);
   assert.doesNotMatch(cardSource, /tierProgress=\{scan\.tierProgress\}/);
+  assert.match(attendanceSource, /import '@\/styles\/admin-dashboard\.css';/);
   assert.match(emblemSource, /alt=\{tier\.alt\}/);
   assert.match(emblemSource, /width=\{TIER_SYMBOL_DIMENSION\}/);
   assert.match(emblemSource, /height=\{TIER_SYMBOL_DIMENSION\}/);
