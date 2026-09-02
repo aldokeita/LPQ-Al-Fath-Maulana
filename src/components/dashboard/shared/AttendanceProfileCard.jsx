@@ -18,6 +18,8 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { getSessionName } from '@/utils/sessionMapping';
+import { resolveSantriTier } from '@/lib/santriTier';
+import TierEmblem from './TierEmblem';
 
 /**
  * AttendanceProfileCard — Shared premium profile card for attendance results.
@@ -57,7 +59,9 @@ const AttendanceProfileCard = ({
 
   const configuredAccent = !isTeacher && levelColor ? getConfiguredAccent(levelColor) : null;
   const pointAccent = !isTeacher ? (configuredAccent || getPointAccent(points)) : null;
-  const pointLevel = !isTeacher ? (levelInfo?.label || getPointLevel(points)) : null;
+  const hasTierData = !isTeacher && (levelInfo || (points !== undefined && points !== null));
+  const tierInfo = hasTierData ? resolveSantriTier({ levelInfo, points }) : null;
+  const pointLevel = !isTeacher ? (tierInfo?.label || levelInfo?.label || getPointLevel(points)) : null;
   const cardDepth = clampDepth(cardBorderThickness, 8);
   const avatarDepth = clampDepth(avatarBorderThickness, 4);
   const statusConfig = getStatusConfig(status);
@@ -141,6 +145,10 @@ const AttendanceProfileCard = ({
             <GraduationCap className="w-3.5 h-3.5" />
             <span>{isPentashih ? 'Pentashih' : 'Guru'}</span>
           </div>
+        )}
+
+        {!isTeacher && hasTierData && (
+          <TierEmblem levelInfo={levelInfo} points={points} />
         )}
       </div>
 

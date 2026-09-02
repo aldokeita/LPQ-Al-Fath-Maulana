@@ -3726,6 +3726,68 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
   object-position: center 16%;
 }
 
+/* The tier mark is anchored inside the avatar so its reserved square never
+   changes the card height when an image loads or falls back. */
+.attendance-profile-card__tier-emblem {
+  position: absolute;
+  left: 0.8rem;
+  bottom: 0.8rem;
+  z-index: 3;
+  display: grid;
+  width: 4.75rem;
+  height: 4.75rem;
+  place-items: center;
+  padding: 0.28rem;
+  border: 1px solid color-mix(in srgb, var(--attendance-profile-accent) 48%, rgba(255, 255, 255, 0.9));
+  border-radius: 1.1rem;
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow:
+    inset 1px 1px 0 rgba(255, 255, 255, 0.96),
+    0 6px 14px rgba(42, 56, 69, 0.18);
+  -webkit-backdrop-filter: blur(10px) saturate(1.12);
+  backdrop-filter: blur(10px) saturate(1.12);
+  pointer-events: none;
+}
+
+.attendance-profile-card__tier-emblem img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.attendance-profile-card__tier-emblem--fallback {
+  border-style: dashed;
+  color: color-mix(in srgb, var(--attendance-profile-accent) 70%, #52606d);
+}
+
+.attendance-profile-card__tier-emblem-fallback {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+}
+
+.attendance-profile-card__tier-emblem-fallback svg {
+  width: 2rem;
+  height: 2rem;
+}
+
+.attendance-profile-card--white-glass .attendance-profile-card__tier-emblem {
+  border-color: color-mix(in srgb, var(--attendance-profile-accent) 56%, rgba(255, 255, 255, 0.94));
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.84), rgba(236, 243, 247, 0.68));
+}
+
+@media (max-width: 380px) {
+  .attendance-profile-card__tier-emblem {
+    left: 0.6rem;
+    bottom: 0.6rem;
+    width: 4rem;
+    height: 4rem;
+    border-radius: 0.95rem;
+  }
+}
+
 .attendance-profile-card--white-glass .attendance-profile-card__success-badge {
   top: 0.85rem;
   right: 0.85rem;
