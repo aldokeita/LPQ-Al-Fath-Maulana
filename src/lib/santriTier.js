@@ -1,4 +1,8 @@
-import { resolveSantriLevel } from './santriLevel.js';
+import {
+  createDefaultSantriLevelConfig,
+  normalizeLevelConfigShape,
+  resolveSantriLevel,
+} from './santriLevel.js';
 
 const TIER_ASSET_BASE_PATH = '/assets/tiers';
 
@@ -67,6 +71,83 @@ export const getSantriTierAsset = (label) => (
 const getLevelLabel = (levelInfo) => String(
   levelInfo?.name ?? levelInfo?.label ?? '',
 ).trim();
+
+const normalizeGenderKey = (gender) => {
+  const value = String(gender || '').toLowerCase();
+  return value.includes('perempuan') || value.includes('putri') || value === 'p'
+    ? 'female'
+    : 'male';
+};
+
+const getConfiguredLevels = (config, gender) => {
+  const normalizedConfig = normalizeLevelConfigShape(config);
+  const genderKey = normalizeGenderKey(gender);
+  const configuredLevels = normalizedConfig[genderKey];
+  const fallbackLevels = createDefaultSantriLevelConfig()[genderKey];
+  const levels = Array.isArray(configuredLevels) && configuredLevels.length > 0
+    ? configuredLevels
+    : fallbackLevels;
+
+  return levels
+    .map((level, index) => ({
+      ...level,
+      name: String(level?.name ?? level?.label ?? `Level ${index + 1}`).trim(),
+      min: Number(level?.min ?? 0),
+      max: Number(level?.max ?? Number.POSITIVE_INFINITY),
+    }))
+    .filter((level) => level.name && Number.isFinite(level.min) && level.min >= 0)
+    .sort((a, b) => a.min - b.min);
+};
+
+const clampProgressRatio = (ratio) => Math.min(1, Math.max(0, ratio));
+
+/**
+ * Resolves progress using the active level configuration. The returned ratio
+ * is only a visual fill value; labels and thresholds always come from data.
+ */
+export const resolveSantriTierProgress = ({ points, gender, config, levelInfo } = {}) => {
+  const numericPoints = Number(points);
+  const hasPoints = Number.isFinite(numericPoints) && numericPoints >= 0;
+  const displayPoints = hasPoints ? numericPoints : null;
+  const wholePoints = hasPoints ? Math.floor(numericPoints) : 0;
+  const levels = getConfiguredLevels(config, gender);
+  const resolvedLevel = resolveSantriLevel({ points: wholePoints, gender, config });
+  const resolvedLabel = getLevelLabel(resolvedLevel);
+  const suppliedLabel = getLevelLabel(levelInfo);
+
+  let currentIndex = levels.findIndex((level) => normalizeTierLabel(level.name) === normalizeTierLabel(resolvedLabel));
+  if (currentIndex < 0 && suppliedLabel) {
+    currentIndex = levels.findIndex((level) => normalizeTierLabel(level.name) === normalizeTierLabel(suppliedLabel));
+  }
+  if (currentIndex < 0 && hasPoints) {
+    currentIndex = levels.findIndex((level) => wholePoints >= level.min && wholePoints <= level.max);
+  }
+
+  const currentLevel = levels[currentIndex] || null;
+  const nextLevel = currentIndex >= 0 ? levels[currentIndex + 1] || null : null;
+  const nextMin = nextLevel ? Number(nextLevel.min) : null;
+  const currentMin = currentLevel ? Number(currentLevel.min) : null;
+  const hasValidRange = Boolean(
+    hasPoints
+      && currentLevel
+      && Number.isFinite(currentMin)
+      && nextLevel
+      && Number.isFinite(nextMin)
+      && nextMin > currentMin,
+  );
+
+  return {
+    label: currentLevel?.name || resolvedLabel || suppliedLabel || null,
+    currentMin,
+    currentMax: currentLevel ? Number(currentLevel.max) : null,
+    currentPoints: displayPoints,
+    nextLabel: nextLevel?.name || null,
+    nextMin: hasValidRange ? nextMin : null,
+    ratio: hasValidRange ? clampProgressRatio((displayPoints - currentMin) / (nextMin - currentMin)) : null,
+    available: hasValidRange,
+    isHighest: Boolean(currentLevel && !nextLevel),
+  };
+};
 
 /**
  * Resolves the configured student level to one of the bundled tier symbols.

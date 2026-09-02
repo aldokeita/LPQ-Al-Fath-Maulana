@@ -7,6 +7,7 @@ import {
   SANTRI_TIER_DEFINITIONS,
   getSantriTierAsset,
   resolveSantriTier,
+  resolveSantriTierProgress,
 } from '../src/lib/santriTier.js';
 
 const repositoryRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -42,23 +43,63 @@ test('returns an honest fallback when the level has no matching symbol', () => {
   assert.equal(result.alt, 'Simbol tier belum tersedia');
 });
 
+test('derives progress and next tier from the active level thresholds', () => {
+  const bronzeProgress = resolveSantriTierProgress({ points: 0, gender: 'Laki-laki' });
+  assert.equal(bronzeProgress.label, 'Bronze I');
+  assert.equal(bronzeProgress.nextLabel, 'Bronze II');
+  assert.equal(bronzeProgress.nextMin, 31);
+  assert.equal(bronzeProgress.available, true);
+  assert.equal(bronzeProgress.ratio, 0);
+
+  const highestProgress = resolveSantriTierProgress({ points: 700, gender: 'Laki-laki' });
+  assert.equal(highestProgress.label, 'Grandmaster');
+  assert.equal(highestProgress.isHighest, true);
+  assert.equal(highestProgress.nextLabel, null);
+  assert.equal(highestProgress.available, false);
+});
+
+test('does not invent thresholds for a custom level configuration', () => {
+  const config = {
+    male: [
+      { name: 'Pemula Kustom', min: 0, max: 9 },
+      { name: 'Lanjutan Kustom', min: 10, max: 19 },
+    ],
+  };
+
+  const progress = resolveSantriTierProgress({ points: 5, gender: 'Laki-laki', config });
+  assert.equal(progress.label, 'Pemula Kustom');
+  assert.equal(progress.nextLabel, 'Lanjutan Kustom');
+  assert.equal(progress.nextMin, 10);
+  assert.equal(progress.available, true);
+
+  const highest = resolveSantriTierProgress({ points: 20, gender: 'Laki-laki', config });
+  assert.equal(highest.label, 'Lanjutan Kustom');
+  assert.equal(highest.isHighest, true);
+  assert.equal(highest.nextLabel, null);
+});
+
 test('keeps the resolver independent from UI markup', async () => {
   const source = await readFile(join(repositoryRoot, 'src', 'lib', 'santriTier.js'), 'utf8');
   assert.doesNotMatch(source, /<img|className=/);
 });
 
 test('wires the tier symbol into the attendance profile card contract', async () => {
-  const [cardSource, emblemSource] = await Promise.all([
+  const [cardSource, emblemSource, attendanceSource] = await Promise.all([
     readFile(join(repositoryRoot, 'src', 'components', 'dashboard', 'shared', 'AttendanceProfileCard.jsx'), 'utf8'),
     readFile(join(repositoryRoot, 'src', 'components', 'dashboard', 'shared', 'TierEmblem.jsx'), 'utf8'),
+    readFile(join(repositoryRoot, 'src', 'pages', 'DigitalAttendancePage.jsx'), 'utf8'),
   ]);
 
   assert.match(cardSource, /import TierEmblem from '\.\/TierEmblem';/);
-  assert.match(cardSource, /<TierEmblem\s+levelInfo=\{levelInfo\}\s+points=\{points\}/);
+  assert.match(cardSource, /<TierEmblem\s+levelInfo=\{levelInfo\}\s+points=\{points\}\s+tierProgress=\{tierProgress\}/);
   assert.match(emblemSource, /alt=\{tier\.alt\}/);
   assert.match(emblemSource, /width=\{TIER_SYMBOL_DIMENSION\}/);
   assert.match(emblemSource, /height=\{TIER_SYMBOL_DIMENSION\}/);
   assert.match(emblemSource, /loading="eager"/);
   assert.match(emblemSource, /onError=\{\(\) => setFailedSource\(tier\.assetSrc\)\}/);
-  assert.match(emblemSource, /attendance-profile-card__tier-emblem--fallback/);
+  assert.match(emblemSource, /attendance-profile-card__tier-crest--fallback/);
+  assert.match(emblemSource, /role="progressbar"/);
+  assert.match(emblemSource, /Tier Tertinggi/);
+  assert.match(attendanceSource, /resolveSantriTierProgress/);
+  assert.match(attendanceSource, /tierProgress=\{scan\.tierProgress\}/);
 });

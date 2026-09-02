@@ -38,6 +38,7 @@ const AttendanceProfileCard = ({
   sesi,
   rfid,
   levelInfo,
+  tierProgress,
   monthlyStats,
   hafalanCount,
   characterStrength,
@@ -147,10 +148,11 @@ const AttendanceProfileCard = ({
           </div>
         )}
 
-        {!isTeacher && hasTierData && (
-          <TierEmblem levelInfo={levelInfo} points={points} />
-        )}
       </div>
+
+      {!isTeacher && hasTierData && (
+        <TierEmblem levelInfo={levelInfo} points={points} tierProgress={tierProgress} />
+      )}
 
       {/* Name — primary hierarchy, centered */}
       <h2
