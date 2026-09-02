@@ -84,10 +84,11 @@ test('keeps the resolver independent from UI markup', async () => {
 });
 
 test('wires the transparent crest identity row into the attendance profile card contract', async () => {
-  const [cardSource, emblemSource, attendanceSource] = await Promise.all([
+  const [cardSource, emblemSource, attendanceSource, styleSource] = await Promise.all([
     readFile(join(repositoryRoot, 'src', 'components', 'dashboard', 'shared', 'AttendanceProfileCard.jsx'), 'utf8'),
     readFile(join(repositoryRoot, 'src', 'components', 'dashboard', 'shared', 'TierEmblem.jsx'), 'utf8'),
     readFile(join(repositoryRoot, 'src', 'pages', 'DigitalAttendancePage.jsx'), 'utf8'),
+    readFile(join(repositoryRoot, 'src', 'styles', 'admin-dashboard.css'), 'utf8'),
   ]);
 
   assert.match(cardSource, /import TierEmblem from '\.\/TierEmblem';/);
@@ -96,6 +97,10 @@ test('wires the transparent crest identity row into the attendance profile card 
   assert.match(cardSource, /role="group"/);
   assert.match(cardSource, /attendance-profile-card__identity-divider/);
   assert.match(cardSource, /attendance-profile-card__identity-copy/);
+  assert.match(styleSource, /\.attendance-profile-card__identity-row\s*\{[\s\S]*?width:\s*100%;[\s\S]*?align-items:\s*center;[\s\S]*?justify-content:\s*center;/);
+  assert.match(styleSource, /\.attendance-profile-card__identity-copy\s*\{[\s\S]*?flex:\s*0 1 24rem;/);
+  const identityRowStyles = styleSource.match(/\.attendance-profile-card__identity-row\s*\{([\s\S]*?)\}/)?.[1] || '';
+  assert.doesNotMatch(identityRowStyles, /margin[^;]*\bauto\b/);
   assert.doesNotMatch(cardSource, /tierProgress=\{scan\.tierProgress\}/);
   assert.match(attendanceSource, /import '@\/styles\/admin-dashboard\.css';/);
   assert.match(emblemSource, /alt=\{tier\.alt\}/);
