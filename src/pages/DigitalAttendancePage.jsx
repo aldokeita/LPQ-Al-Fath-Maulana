@@ -57,7 +57,6 @@ import { resolveAvatarUrl } from '@/lib/storageAdapters';
 import AttendanceProfileCard from '@/components/dashboard/shared/AttendanceProfileCard';
 import { useAttendanceSessionConfiguration } from '@/hooks/useAttendanceSessionConfiguration';
 import { resolveSantriLevel } from '@/lib/santriLevel';
-import { resolveSantriTierProgress } from '@/lib/santriTier';
 import { computeAttendancePointAward } from '@/lib/attendancePointRules';
 
 // --- Data (unchanged) ---
@@ -354,12 +353,6 @@ const DigitalAttendancePage = () => {
       };
   };
 
-  const getTierProgress = (points, gender, levelInfo) => (
-      levelInfo
-        ? resolveSantriTierProgress({ points, gender, config: levelConfig, levelInfo })
-        : null
-  );
-
   const forceFocus = () => { if (inputRef.current) { inputRef.current.focus(); } };
 
   useEffect(() => {
@@ -411,10 +404,7 @@ const DigitalAttendancePage = () => {
                  setLastScan(prev => ({ ...prev, type: 'success', time: nowTime, message: 'Absensi MMQ diperbarui!', quote: lastScan.pendingQuote }));
             } else {
                 const levelInfo = (lastScan.role === 'santri' && lastScan.kategori !== 'Dewasa') ? getLevelInfo(lastScan.points, lastScan.gender) : null;
-                const tierProgress = (lastScan.role === 'santri' && lastScan.kategori !== 'Dewasa')
-                  ? getTierProgress(lastScan.points, lastScan.gender, levelInfo)
-                  : null;
-                setLastScan(prev => ({ ...prev, type: 'success', levelInfo, tierProgress, message: 'Absensi sudah tercatat.', quote: lastScan.pendingQuote }));
+                setLastScan(prev => ({ ...prev, type: 'success', levelInfo, message: 'Absensi sudah tercatat.', quote: lastScan.pendingQuote }));
             }
           } catch (err) { setLastScan({ type: 'error', message: err.message, name: 'Error' }); }
           finally { setIsLoading(false); setRfidTag(''); setTimeout(forceFocus, 50); return; }
@@ -684,7 +674,6 @@ const DigitalAttendancePage = () => {
         if (existingAttendance && !shouldRestoreAbsentAttendance) {
           if (userRole === 'santri') {
              const levelInfo = (!isAdult) ? getLevelInfo(user.points, user.jenis_kelamin) : null;
-             const tierProgress = (!isAdult) ? getTierProgress(user.points, user.jenis_kelamin, levelInfo) : null;
              const [monthlyStats, learningHighlights] = await Promise.all([
                  getSantriMonthlyAttendanceStats(user.id),
                  getSantriLearningHighlights(user.id),
@@ -695,7 +684,6 @@ const DigitalAttendancePage = () => {
                 time: existingAttendance.check_in_time,
                 status: existingAttendance.status,
                 levelInfo,
-                tierProgress,
                 monthlyStats,
                 ...learningHighlights
              });
@@ -777,9 +765,6 @@ const DigitalAttendancePage = () => {
             }
           }
           const levelInfo = (userRole === 'santri' && !isAdult) ? getLevelInfo(newPoints, user.jenis_kelamin) : null;
-          const tierProgress = (userRole === 'santri' && !isAdult)
-            ? getTierProgress(newPoints, user.jenis_kelamin, levelInfo)
-            : null;
           const [monthlyStats, learningHighlights] = userRole === 'santri'
             ? await Promise.all([
                 getSantriMonthlyAttendanceStats(user.id),
@@ -817,7 +802,6 @@ const DigitalAttendancePage = () => {
             points: newPoints,
             pointsAward,
             levelInfo,
-            tierProgress,
             monthlyStats,
             ...learningHighlights,
             adultStats,
@@ -1102,7 +1086,6 @@ const DigitalAttendancePage = () => {
             points={scan.points}
             pointsAward={scan.pointsAward}
             levelInfo={scan.levelInfo}
-            tierProgress={scan.tierProgress}
             monthlyStats={scan.monthlyStats}
             hafalanCount={scan.hafalanCount}
             characterStrength={scan.characterStrength}

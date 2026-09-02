@@ -83,7 +83,7 @@ test('keeps the resolver independent from UI markup', async () => {
   assert.doesNotMatch(source, /<img|className=/);
 });
 
-test('wires the tier symbol into the attendance profile card contract', async () => {
+test('wires the transparent crest identity row into the attendance profile card contract', async () => {
   const [cardSource, emblemSource, attendanceSource] = await Promise.all([
     readFile(join(repositoryRoot, 'src', 'components', 'dashboard', 'shared', 'AttendanceProfileCard.jsx'), 'utf8'),
     readFile(join(repositoryRoot, 'src', 'components', 'dashboard', 'shared', 'TierEmblem.jsx'), 'utf8'),
@@ -91,15 +91,21 @@ test('wires the tier symbol into the attendance profile card contract', async ()
   ]);
 
   assert.match(cardSource, /import TierEmblem from '\.\/TierEmblem';/);
-  assert.match(cardSource, /<TierEmblem\s+levelInfo=\{levelInfo\}\s+points=\{points\}\s+tierProgress=\{tierProgress\}/);
+  assert.match(cardSource, /<TierEmblem\s+levelInfo=\{levelInfo\}\s+points=\{points\}\s+hasTierData=\{hasTierData\}/);
+  assert.match(cardSource, /attendance-profile-card__identity-row/);
+  assert.match(cardSource, /role="group"/);
+  assert.match(cardSource, /attendance-profile-card__identity-divider/);
+  assert.match(cardSource, /attendance-profile-card__identity-copy/);
+  assert.doesNotMatch(cardSource, /tierProgress=\{scan\.tierProgress\}/);
   assert.match(emblemSource, /alt=\{tier\.alt\}/);
   assert.match(emblemSource, /width=\{TIER_SYMBOL_DIMENSION\}/);
   assert.match(emblemSource, /height=\{TIER_SYMBOL_DIMENSION\}/);
   assert.match(emblemSource, /loading="eager"/);
   assert.match(emblemSource, /onError=\{\(\) => setFailedSource\(tier\.assetSrc\)\}/);
   assert.match(emblemSource, /attendance-profile-card__tier-crest--fallback/);
-  assert.match(emblemSource, /role="progressbar"/);
-  assert.match(emblemSource, /Tier Tertinggi/);
-  assert.match(attendanceSource, /resolveSantriTierProgress/);
-  assert.match(attendanceSource, /tierProgress=\{scan\.tierProgress\}/);
+  assert.match(emblemSource, /attendance-profile-card__tier-crest-aura/);
+  assert.match(emblemSource, /attendance-profile-card__tier-crest-image/);
+  assert.doesNotMatch(emblemSource, /LEVEL SANTRI|Tier Tertinggi|progressbar|Menuju/);
+  assert.doesNotMatch(attendanceSource, /resolveSantriTierProgress/);
+  assert.doesNotMatch(attendanceSource, /tierProgress/);
 });
