@@ -58,6 +58,7 @@ import AttendanceProfileCard from '@/components/dashboard/shared/AttendanceProfi
 import { useAttendanceSessionConfiguration } from '@/hooks/useAttendanceSessionConfiguration';
 import { resolveSantriLevel } from '@/lib/santriLevel';
 import { computeAttendancePointAward } from '@/lib/attendancePointRules';
+import '@/styles/admin-dashboard.css';
 
 // --- Data (unchanged) ---
 const guruQuotes = [
@@ -323,7 +324,9 @@ const DigitalAttendancePage = () => {
           textColor: '#3b82f6',
           cardBorderThickness: 8,
           avatarBorderThickness: 4,
-          textGradient: true
+          textGradient: true,
+          min: 0,
+          max: 30,
       };
 
       const resolvedLevel = resolveSantriLevel({ points, gender, config: levelConfig });
@@ -345,7 +348,9 @@ const DigitalAttendancePage = () => {
           textColor: resolvedLevel.textColor,
           cardBorderThickness: resolvedLevel.cardBorderThickness,
           avatarBorderThickness: resolvedLevel.avatarBorderThickness,
-          textGradient: resolvedLevel.textGradient
+          textGradient: resolvedLevel.textGradient,
+          min: resolvedLevel.min,
+          max: resolvedLevel.max,
       };
   };
 

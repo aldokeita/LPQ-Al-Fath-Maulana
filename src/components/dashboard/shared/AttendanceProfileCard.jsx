@@ -18,10 +18,12 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { getSessionName } from '@/utils/sessionMapping';
+import { resolveSantriTier } from '@/lib/santriTier';
+import TierEmblem from './TierEmblem';
 
 /**
  * AttendanceProfileCard — Shared premium profile card for attendance results.
- * Center-aligned, portrait-optimized layout.
+ * Responsive profile card with a compact, horizontal student identity row.
  */
 const AttendanceProfileCard = ({
   variant = 'student',
@@ -57,7 +59,14 @@ const AttendanceProfileCard = ({
 
   const configuredAccent = !isTeacher && levelColor ? getConfiguredAccent(levelColor) : null;
   const pointAccent = !isTeacher ? (configuredAccent || getPointAccent(points)) : null;
-  const pointLevel = !isTeacher ? (levelInfo?.label || getPointLevel(points)) : null;
+  const hasTierData = !isTeacher && (
+    Boolean(levelInfo?.label || levelInfo?.name)
+      || (points !== undefined && points !== null && Number.isFinite(Number(points)))
+  );
+  const tierInfo = hasTierData ? resolveSantriTier({ levelInfo, points }) : null;
+  const pointLevel = !isTeacher
+    ? (tierInfo?.label || levelInfo?.label || (hasTierData ? getPointLevel(points) : 'Level belum tersedia'))
+    : null;
   const cardDepth = clampDepth(cardBorderThickness, 8);
   const avatarDepth = clampDepth(avatarBorderThickness, 4);
   const statusConfig = getStatusConfig(status);
@@ -142,20 +151,39 @@ const AttendanceProfileCard = ({
             <span>{isPentashih ? 'Pentashih' : 'Guru'}</span>
           </div>
         )}
+
       </div>
 
-      {/* Name — primary hierarchy, centered */}
-      <h2
-        className="attendance-profile-card__name attendance-profile-card__name--gradient"
-        style={{ '--attendance-name-gradient': nameGradient }}
-      >
-        {name}
-      </h2>
-
-      {!isTeacher && sesi && (
-        <p className="attendance-profile-card__session-label">
-          Sesi {getSessionName(sesi)}
-        </p>
+      {isTeacher ? (
+        <h2
+          className="attendance-profile-card__name attendance-profile-card__name--gradient"
+          style={{ '--attendance-name-gradient': nameGradient }}
+        >
+          {name}
+        </h2>
+      ) : (
+        <div
+          className="attendance-profile-card__identity-row"
+          style={{ '--attendance-tier-accent': levelColor || '#94a3b8' }}
+          role="group"
+          aria-label={`Identitas santri ${name}`}
+        >
+          <TierEmblem levelInfo={levelInfo} points={points} hasTierData={hasTierData} />
+          <span className="attendance-profile-card__identity-divider" aria-hidden="true" />
+          <div className="attendance-profile-card__identity-copy">
+            <h2
+              className="attendance-profile-card__name attendance-profile-card__name--gradient"
+              style={{ '--attendance-name-gradient': nameGradient }}
+            >
+              {name}
+            </h2>
+            {sesi && (
+              <p className="attendance-profile-card__session-label">
+                Sesi {getSessionName(sesi)}
+              </p>
+            )}
+          </div>
+        </div>
       )}
 
       {/* Subtitle */}
