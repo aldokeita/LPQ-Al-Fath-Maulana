@@ -3810,8 +3810,10 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
 .attendance-profile-card__identity-copy {
   display: flex;
   min-width: 0;
-  /* Keep the crest, divider, and text as one shrink-to-fit group. */
-  flex: 0 1 24rem;
+  /* Let the row center the real content width while long names can wrap. */
+  width: fit-content;
+  max-width: min(20rem, 100%);
+  flex: 0 1 auto;
   flex-direction: column;
   align-items: flex-start;
   justify-content: center;

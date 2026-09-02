@@ -100,7 +100,7 @@ test('wires the transparent crest identity row into the attendance profile card 
   assert.match(styleSource, /\.attendance-profile-card__identity-row\s*\{[\s\S]*?width:\s*100%;[\s\S]*?align-items:\s*center;[\s\S]*?justify-content:\s*center;/);
   assert.match(styleSource, /\.attendance-profile-card__tier-crest\s*\{[\s\S]*?width:\s*clamp\(3\.5rem,\s*10vw,\s*5rem\);[\s\S]*?height:\s*clamp\(3\.5rem,\s*10vw,\s*5rem\);/);
   assert.match(styleSource, /\.attendance-profile-card--white-glass \.attendance-profile-card__identity-row \.attendance-profile-card__name\s*\{[\s\S]*?font-size:\s*clamp\(1\.375rem,\s*6\.2vw,\s*2\.2rem\);/);
-  assert.match(styleSource, /\.attendance-profile-card__identity-copy\s*\{[\s\S]*?flex:\s*0 1 24rem;/);
+  assert.match(styleSource, /\.attendance-profile-card__identity-copy\s*\{[\s\S]*?width:\s*fit-content;[\s\S]*?max-width:\s*min\(20rem,\s*100%\);[\s\S]*?flex:\s*0 1 auto;/);
   const identityRowStyles = styleSource.match(/\.attendance-profile-card__identity-row\s*\{([\s\S]*?)\}/)?.[1] || '';
   assert.doesNotMatch(identityRowStyles, /margin[^;]*\bauto\b/);
   assert.doesNotMatch(cardSource, /tierProgress=\{scan\.tierProgress\}/);
