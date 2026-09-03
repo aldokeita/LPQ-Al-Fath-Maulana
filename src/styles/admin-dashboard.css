@@ -7561,6 +7561,86 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
   font-weight: 850;
 }
 
+.class-attendance-bulk-action {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  margin-top: 0.75rem;
+  padding: 0.8rem 1rem;
+  border: 1px solid rgb(var(--class-attendance-cyan) / 0.28);
+  border-radius: 1.25rem;
+  background:
+    linear-gradient(110deg, rgb(224 242 254 / 0.72), rgb(237 233 254 / 0.58)),
+    rgb(255 255 255 / 0.3);
+  box-shadow:
+    inset 1px 1px 0 rgb(255 255 255 / 0.74),
+    0 18px 34px -28px rgb(var(--class-attendance-blue) / 0.62);
+  -webkit-backdrop-filter: blur(20px) saturate(1.25);
+  backdrop-filter: blur(20px) saturate(1.25);
+}
+
+.class-attendance-bulk-action__icon {
+  display: grid;
+  flex: 0 0 auto;
+  width: 2.45rem;
+  height: 2.45rem;
+  place-items: center;
+  border: 1px solid rgb(var(--class-attendance-cyan) / 0.24);
+  border-radius: 0.85rem;
+  color: rgb(3 105 161);
+  background: rgb(255 255 255 / 0.48);
+  box-shadow: inset 1px 1px 0 rgb(255 255 255 / 0.72);
+}
+
+.class-attendance-bulk-action__icon svg {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+.class-attendance-bulk-action__copy {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 12rem;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.class-attendance-bulk-action__copy strong {
+  color: hsl(var(--admin-text-primary));
+  font-size: 0.82rem;
+  font-weight: 850;
+}
+
+.class-attendance-bulk-action__copy span {
+  color: hsl(var(--admin-text-secondary));
+  font-size: 0.7rem;
+  line-height: 1.4;
+}
+
+.class-attendance-download-all {
+  flex: 0 0 auto;
+  min-height: 2.5rem;
+  border-color: rgb(var(--class-attendance-cyan) / 0.36) !important;
+  border-radius: 999px !important;
+  color: rgb(3 105 161) !important;
+  background: rgb(255 255 255 / 0.52) !important;
+  box-shadow:
+    inset 1px 1px 0 rgb(255 255 255 / 0.78),
+    0 10px 22px -18px rgb(var(--class-attendance-blue) / 0.72);
+}
+
+.class-attendance-download-all:hover {
+  border-color: rgb(var(--class-attendance-cyan) / 0.58) !important;
+  background: rgb(255 255 255 / 0.76) !important;
+  transform: translateY(-1px);
+}
+
+.class-attendance-download-all svg {
+  width: 1rem;
+  height: 1rem;
+  margin-right: 0.45rem;
+}
+
 .class-attendance-workspace {
   display: grid;
   grid-template-columns: minmax(17rem, 0.72fr) minmax(0, 1.7fr);
@@ -8143,6 +8223,7 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
 
 .dark .class-attendance-toolbar,
 .dark .class-attendance-summary,
+.dark .class-attendance-bulk-action,
 .dark .class-attendance-browser,
 .dark .class-attendance-preview-panel {
   background: rgb(15 23 42 / 0.54);
@@ -8150,6 +8231,9 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
 
 .dark .class-attendance-hero__privacy,
 .dark .class-attendance-summary > div,
+.dark .class-attendance-bulk-action,
+.dark .class-attendance-bulk-action__icon,
+.dark .class-attendance-download-all,
 .dark .class-attendance-class-card,
 .dark .class-attendance-select,
 .dark .class-attendance-refresh,
@@ -8244,6 +8328,15 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
     flex-direction: column;
   }
 
+  .class-attendance-bulk-action {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .class-attendance-download-all {
+    width: 100%;
+  }
+
   .class-attendance-download {
     width: 100%;
   }
@@ -8280,6 +8373,7 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
   .class-attendance-hero,
   .class-attendance-toolbar,
   .class-attendance-summary,
+  .class-attendance-bulk-action,
   .class-attendance-browser,
   .class-attendance-preview-panel,
   .class-attendance-loading {
@@ -8289,6 +8383,7 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
 
 @media (prefers-reduced-motion: reduce) {
   .class-attendance-class-card,
+  .class-attendance-download-all,
   .class-attendance-download {
     transition: none;
   }

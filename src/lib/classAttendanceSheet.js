@@ -203,8 +203,9 @@ const renderPrintPage = ({
   </section>`;
 };
 
-export const buildClassAttendanceHtml = ({
-  classData,
+const buildClassAttendanceDocument = ({
+  bundle = false,
+  classDataList,
   dateSlots,
   generatedAt = new Date(),
   logoDataUrl,
@@ -214,28 +215,50 @@ export const buildClassAttendanceHtml = ({
   qiroatiLogoDataUrl = '',
   year,
 }) => {
+  const classes = (Array.isArray(classDataList) ? classDataList : [classDataList]).filter(Boolean);
+  if (classes.length === 0) {
+    throw new Error('Tidak ada kelas aktif untuk diunduh.');
+  }
+
   const config = normalizeClassAttendancePrintConfig(printConfig);
   const monthLabel = getClassAttendanceMonthLabel(monthIndex, year);
   const generatedAtLabel = new Intl.DateTimeFormat('id-ID', {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(generatedAt);
-  const pages = createClassAttendancePages(classData.roster);
-  const pageMarkup = pages.map((page) => renderPrintPage({
+  const classPages = classes.map((classData) => ({
     classData,
-    config,
-    dateSlots,
-    generatedAtLabel,
-    lpqLogoDataUrl,
-    monthLabel,
-    page,
-    qiroatiLogoDataUrl,
-  })).join('');
+    pages: createClassAttendancePages(classData.roster),
+  }));
+  const pageMarkup = classPages.map(({ classData, pages }) => (
+    pages.map((page) => renderPrintPage({
+      classData,
+      config,
+      dateSlots,
+      generatedAtLabel,
+      lpqLogoDataUrl,
+      monthLabel,
+      page,
+      qiroatiLogoDataUrl,
+    })).join('')
+  )).join('');
+  const totalStudents = classes.reduce(
+    (total, classData) => total + (Array.isArray(classData.roster) ? classData.roster.length : 0),
+    0,
+  );
+  const totalPages = classPages.reduce(
+    (total, { pages }) => total + pages.length,
+    0,
+  );
 
   const { branding, content, typography } = config;
   const headerFont = getClassAttendanceHeaderFontStack(typography.headerFont);
   const titleTransform = typography.titleUppercase ? 'uppercase' : 'none';
   const tableHeaderTransform = typography.tableHeaderUppercase ? 'uppercase' : 'none';
+  const documentTargetLabel = bundle ? 'Semua kelas' : classes[0].nama_kelas;
+  const documentSummary = bundle
+    ? `${monthLabel} · ${classes.length} kelas · ${totalStudents} santri · ${totalPages} lembar`
+    : `${monthLabel} · ${totalStudents} santri`;
 
   return `<!doctype html>
 <html lang="id">
@@ -243,7 +266,7 @@ export const buildClassAttendanceHtml = ({
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="robots" content="noindex,nofollow" />
-  <title>${escapeAttendanceHtml(content.documentCategory)} ${escapeAttendanceHtml(classData.nama_kelas)} — ${escapeAttendanceHtml(monthLabel)}</title>
+  <title>${escapeAttendanceHtml(content.documentCategory)} ${escapeAttendanceHtml(documentTargetLabel)} — ${escapeAttendanceHtml(monthLabel)}</title>
   <style>
     :root {
       color-scheme: light;
@@ -326,7 +349,7 @@ export const buildClassAttendanceHtml = ({
 </head>
 <body>
   <div class="print-toolbar">
-    <div><strong>${escapeAttendanceHtml(content.documentCategory)} ${escapeAttendanceHtml(classData.nama_kelas)}</strong><span>${escapeAttendanceHtml(monthLabel)} · ${classData.roster.length} santri</span></div>
+    <div><strong>${escapeAttendanceHtml(content.documentCategory)} ${escapeAttendanceHtml(documentTargetLabel)}</strong><span>${escapeAttendanceHtml(documentSummary)}</span></div>
     <button type="button" onclick="window.print()">${escapeAttendanceHtml(content.printButtonLabel)}</button>
   </div>
   <p class="privacy-note">${escapeAttendanceHtml(content.privacyNotice)}</p>
@@ -334,5 +357,16 @@ export const buildClassAttendanceHtml = ({
 </body>
 </html>`;
 };
+
+export const buildClassAttendanceHtml = (args = {}) => buildClassAttendanceDocument({
+  ...args,
+  bundle: false,
+  classDataList: [args.classData],
+});
+
+export const buildClassAttendanceBundleHtml = (args = {}) => buildClassAttendanceDocument({
+  ...args,
+  bundle: true,
+});
 
 export { INDONESIAN_MONTHS };

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {
+  buildClassAttendanceBundleHtml,
   buildClassAttendanceHtml,
   createClassAttendancePages,
   getClassAttendanceDateSlots,
@@ -111,5 +112,40 @@ const smallHtml = buildClassAttendanceHtml({
   year: 2026,
 });
 assert.doesNotMatch(smallHtml, />—</);
+
+const bundleHtml = buildClassAttendanceBundleHtml({
+  classDataList: [
+    {
+      nama_kelas: 'Kelas Pagi <A>',
+      sesi: 'Pagi',
+      guru: { nama: 'Ustadzah Nabila' },
+      roster: smallRoster,
+    },
+    {
+      nama_kelas: 'Kelas Sore',
+      sesi: 'Sore',
+      guru: { nama: 'Ustadz Fikri' },
+      roster: [{ id: 'sore-1', nama_lengkap: 'Santri Sore' }],
+    },
+  ],
+  dateSlots: juneSlots,
+  generatedAt: new Date('2026-06-01T08:00:00+07:00'),
+  logoDataUrl: 'data:image/webp;base64,AAAA',
+  monthIndex: 5,
+  year: 2026,
+});
+assert.match(bundleHtml, /Semua kelas/);
+assert.match(bundleHtml, /2 kelas/);
+assert.match(bundleHtml, /Kelas Pagi &lt;A&gt;/);
+assert.match(bundleHtml, /Kelas Sore/);
+assert.equal((bundleHtml.match(/class="attendance-page/g) || []).length, 2);
+assert.match(bundleHtml, /break-after: page/);
+assert.match(bundleHtml, /window\.print\(\)/);
+assert.doesNotMatch(bundleHtml, /Kelas Pagi <A>/);
+assert.doesNotMatch(bundleHtml, /https?:\/\//);
+assert.throws(
+  () => buildClassAttendanceBundleHtml({ classDataList: [], dateSlots: juneSlots, monthIndex: 5, year: 2026 }),
+  /Tidak ada kelas aktif/,
+);
 
 console.log('Class attendance sheet tests passed.');
