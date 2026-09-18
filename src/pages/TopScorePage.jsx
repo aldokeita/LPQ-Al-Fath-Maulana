@@ -2,18 +2,25 @@ import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, ChevronLeft, ChevronRight, Trophy, Crown, Star, Sparkles } from 'lucide-react';
 import { Helmet } from 'react-helmet';
 import { toast } from '@/components/ui/use-toast';
 import { Input } from '@/components/ui/input';
-import { resolveAvatarRecords } from '@/lib/storageAdapters';
+import {
+    canManageLeaderboard,
+    fetchLeaderboardPage,
+    LEADERBOARD_PAGE_SIZE,
+} from '@/lib/leaderboardAdapters';
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = LEADERBOARD_PAGE_SIZE;
 
 const TopScorePage = () => {
     const navigate = useNavigate();
+    const { role } = useAuth();
+    const canScanAttendance = canManageLeaderboard(role);
     const [students, setStudents] = useState([]);
     const [totalStudents, setTotalStudents] = useState(0);
     const [currentPage, setCurrentPage] = useState(1);
@@ -24,6 +31,8 @@ const TopScorePage = () => {
 
     // Auto-focus input for RFID scanning
     useEffect(() => {
+        if (!canScanAttendance) return undefined;
+
         const focusInput = () => {
             if (inputRef.current) {
                 inputRef.current.focus();
@@ -38,7 +47,7 @@ const TopScorePage = () => {
             clearInterval(interval);
             window.removeEventListener('click', focusInput);
         };
-    }, []);
+    }, [canScanAttendance]);
 
     const totalPages = Math.max(1, Math.ceil(totalStudents / PAGE_SIZE));
 
@@ -48,22 +57,14 @@ const TopScorePage = () => {
         const fetchTopScores = async () => {
             setIsLoading(true);
             try {
-                const from = (currentPage - 1) * PAGE_SIZE;
-                const to = from + PAGE_SIZE - 1;
-                const { data, count, error } = await supabase
-                    .from('santri')
-                    .select('id, nama_lengkap, points, foto_url, avatar_path, sesi_mengaji, jilid', { count: 'exact' })
-                    .order('points', { ascending: false, nullsFirst: false })
-                    .order('nama_lengkap', { ascending: true })
-                    .range(from, to);
-
-                if (error) throw error;
-
-                const studentsWithAvatars = await resolveAvatarRecords(data || [], { ownerType: 'santri' });
+                const { students: studentsWithAvatars, totalStudents: total } = await fetchLeaderboardPage({
+                    page: currentPage,
+                    pageSize: PAGE_SIZE,
+                });
                 if (!isMounted) return;
 
                 setStudents(studentsWithAvatars);
-                setTotalStudents(count || 0);
+                setTotalStudents(total);
             } catch (err) {
                 console.error("Error fetching top scores:", err);
                 if (!isMounted) return;
@@ -87,6 +88,8 @@ const TopScorePage = () => {
     }, [currentPage, isLoading, totalPages, totalStudents]);
 
     const processRfidScan = async (tag) => {
+        if (!canScanAttendance) return;
+
         const now = Date.now();
         if (now - lastScanTime < 2000) return; // Prevent double scans within 2 seconds
         setLastScanTime(now);
@@ -250,17 +253,18 @@ const TopScorePage = () => {
                 <meta name="description" content="Leaderboard santri dengan poin tertinggi di LPQ Al-Fath Maulana." />
             </Helmet>
 
-            {/* Hidden RFID Input */}
-            <form onSubmit={handleRfidSubmit} className="absolute opacity-0 -z-50 top-0 left-0 w-0 h-0 overflow-hidden">
-                <Input
-                    ref={inputRef}
-                    value={rfidTag}
-                    onChange={(e) => setRfidTag(e.target.value)}
-                    autoFocus
-                    autoComplete="off"
-                />
-                <button type="submit">Scan</button>
-            </form>
+            {canScanAttendance && (
+                <form onSubmit={handleRfidSubmit} className="absolute opacity-0 -z-50 top-0 left-0 w-0 h-0 overflow-hidden">
+                    <Input
+                        ref={inputRef}
+                        value={rfidTag}
+                        onChange={(e) => setRfidTag(e.target.value)}
+                        autoFocus
+                        autoComplete="off"
+                    />
+                    <button type="submit">Scan</button>
+                </form>
+            )}
 
             {/* Background Decorations */}
             <div className="absolute top-0 left-0 w-full h-96 bg-gradient-to-b from-blue-100 to-transparent dark:from-blue-950/40 dark:to-transparent -z-10" />
@@ -343,7 +347,9 @@ const TopScorePage = () => {
                                  </motion.div>
                              </div>
                          </div>
-                        <p className="text-muted-foreground font-medium uppercase tracking-widest text-xs md:text-sm animate-pulse">Leaderboard Poin Tertinggi • Tap Kartu Untuk Absen</p>
+                        <p className="text-muted-foreground font-medium uppercase tracking-widest text-xs md:text-sm animate-pulse">
+                            {canScanAttendance ? 'Leaderboard Poin Tertinggi • Tap Kartu Untuk Absen' : 'Leaderboard Poin Tertinggi • Mode Baca Saja • Data kelas Anda'}
+                        </p>
                     </div>
                     <div className="w-[100px]" /> {/* Spacer for balance */}
                 </div>
