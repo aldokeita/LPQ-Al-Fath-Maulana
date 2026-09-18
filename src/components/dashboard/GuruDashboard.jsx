@@ -41,6 +41,7 @@ import { deleteAvatar, getStorageErrorMessage, resolveAvatarUrl, uploadAvatar } 
 import { getBirthdaysThisMonth } from '@/lib/birthdayUtils';
 import AvatarPreviewDialog from '@/components/dashboard/shared/AvatarPreviewDialog';
 import StudentTransferModal from '@/components/dashboard/guru/StudentTransferModal';
+import GuruLeaderboardPanel from '@/components/dashboard/guru/GuruLeaderboardPanel';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useTheme } from '@/contexts/ThemeContext';
 import { getAdjacentQiroatiJilid, QIROATI_JILID_OPTIONS } from '@/lib/qiroatiJilid';
@@ -501,6 +502,7 @@ const GuruDashboard = () => {
             </div>
           </section>
         )}
+        <GuruLeaderboardPanel />
         <div className="space-y-8">
             {myClasses.map(cls => (
                 <Card key={cls.id} className="shadow-lg hover:shadow-xl transition-shadow duration-300 border-border/50">

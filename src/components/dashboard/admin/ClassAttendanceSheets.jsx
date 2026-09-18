@@ -7,6 +7,7 @@ import {
   Download,
   FileCheck2,
   FileSpreadsheet,
+  Files,
   RefreshCw,
   Search,
   ShieldCheck,
@@ -26,6 +27,7 @@ import {
   normalizeClassAttendancePrintConfig,
 } from '@/lib/classAttendancePrintConfig';
 import {
+  buildClassAttendanceBundleHtml,
   buildClassAttendanceHtml,
   createClassAttendancePages,
   getClassAttendanceDateSlots,
@@ -217,8 +219,12 @@ const ClassAttendanceSheets = ({
   const [selectedClassId, setSelectedClassId] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(true);
-  const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadMode, setDownloadMode] = useState('');
   const [error, setError] = useState('');
+
+  const isDownloading = Boolean(downloadMode);
+  const isDownloadingSelected = downloadMode === 'selected';
+  const isDownloadingAll = downloadMode === 'all';
 
   const loadSource = useCallback(async ({ preserveSelection = true } = {}) => {
     setIsLoading(true);
@@ -297,41 +303,59 @@ const ClassAttendanceSheets = ({
     readyClasses: source.classes.filter((classItem) => classItem.warnings.length === 0).length,
   }), [source.classes]);
 
+  const loadLatestDownloadContext = async () => {
+    const [latestSource, nextAppearance] = await Promise.all([
+      sourceLoader({ year: selectedYear }),
+      appearanceLoader().catch((appearanceError) => {
+        console.warn('Latest class attendance appearance could not be loaded:', appearanceError);
+        return appearance;
+      }),
+    ]);
+    const latestAppearance = nextAppearance || appearance;
+    const latestDateSlots = getClassAttendanceDateSlots({
+      year: selectedYear,
+      monthIndex: selectedMonth,
+      holidays: latestSource.holidays,
+    });
+    const [lpqLogoDataUrl, qiroatiLogoDataUrl] = await Promise.all([
+      latestAppearance.config.branding.showLpqLogo
+        ? getEmbeddedAsset(latestAppearance.lpqLogoUrl)
+          .catch(() => getEmbeddedAsset('/logo-lpq-al-fath-maulana.webp'))
+        : Promise.resolve(''),
+      latestAppearance.config.branding.showQiroatiLogo
+        ? getEmbeddedAsset(latestAppearance.qiroatiLogoUrl).catch((logoError) => {
+          console.warn('Qiroati logo could not be embedded:', logoError);
+          return '';
+        })
+        : Promise.resolve(''),
+    ]);
+
+    return {
+      latestAppearance,
+      latestDateSlots,
+      latestSource,
+      lpqLogoDataUrl,
+      qiroatiLogoDataUrl,
+    };
+  };
+
   const handleDownload = async () => {
     if (!selectedClass) return;
 
-    setIsDownloading(true);
+    setDownloadMode('selected');
     try {
-      const [latestSource, latestAppearance] = await Promise.all([
-        sourceLoader({ year: selectedYear }),
-        appearanceLoader().catch((appearanceError) => {
-          console.warn('Latest class attendance appearance could not be loaded:', appearanceError);
-          return appearance;
-        }),
-      ]);
+      const {
+        latestAppearance,
+        latestDateSlots,
+        latestSource,
+        lpqLogoDataUrl,
+        qiroatiLogoDataUrl,
+      } = await loadLatestDownloadContext();
       const latestClass = latestSource.classes.find((classItem) => classItem.id === selectedClass.id);
 
       if (!latestClass) {
         throw new Error('Kelas sudah tidak aktif atau tidak ditemukan. Muat ulang daftar kelas.');
       }
-
-      const latestDateSlots = getClassAttendanceDateSlots({
-        year: selectedYear,
-        monthIndex: selectedMonth,
-        holidays: latestSource.holidays,
-      });
-      const [lpqLogoDataUrl, qiroatiLogoDataUrl] = await Promise.all([
-        latestAppearance.config.branding.showLpqLogo
-          ? getEmbeddedAsset(latestAppearance.lpqLogoUrl)
-            .catch(() => getEmbeddedAsset('/logo-lpq-al-fath-maulana.webp'))
-          : Promise.resolve(''),
-        latestAppearance.config.branding.showQiroatiLogo
-          ? getEmbeddedAsset(latestAppearance.qiroatiLogoUrl).catch((logoError) => {
-            console.warn('Qiroati logo could not be embedded:', logoError);
-            return '';
-          })
-          : Promise.resolve(''),
-      ]);
       const html = buildClassAttendanceHtml({
         classData: latestClass,
         dateSlots: latestDateSlots,
@@ -359,7 +383,55 @@ const ClassAttendanceSheets = ({
         variant: 'destructive',
       });
     } finally {
-      setIsDownloading(false);
+      setDownloadMode('');
+    }
+  };
+
+  const handleDownloadAll = async () => {
+    if (source.classes.length === 0) return;
+
+    setDownloadMode('all');
+    try {
+      const {
+        latestAppearance,
+        latestDateSlots,
+        latestSource,
+        lpqLogoDataUrl,
+        qiroatiLogoDataUrl,
+      } = await loadLatestDownloadContext();
+
+      if (latestSource.classes.length === 0) {
+        throw new Error('Belum ada kelas aktif untuk diunduh. Muat ulang daftar kelas.');
+      }
+
+      const html = buildClassAttendanceBundleHtml({
+        classDataList: latestSource.classes,
+        dateSlots: latestDateSlots,
+        generatedAt: latestSource.fetchedAt,
+        lpqLogoDataUrl,
+        monthIndex: selectedMonth,
+        printConfig: latestAppearance.config,
+        qiroatiLogoDataUrl,
+        year: selectedYear,
+      });
+      const filename = `absensi-semua-kelas-${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}.html`;
+
+      setSource(latestSource);
+      setAppearance(latestAppearance);
+      downloadHtmlFile({ filename, html });
+      toast({
+        title: 'Semua absensi siap dicetak',
+        description: `Satu file HTML berisi ${latestSource.classes.length} kelas dan siap dicetak sekaligus.`,
+      });
+    } catch (downloadError) {
+      console.error('Failed to download all class attendance HTML:', downloadError);
+      toast({
+        title: 'Unduhan gagal',
+        description: downloadError.message || 'Gagal membuat HTML seluruh absensi kelas.',
+        variant: 'destructive',
+      });
+    } finally {
+      setDownloadMode('');
     }
   };
 
@@ -421,6 +493,25 @@ const ClassAttendanceSheets = ({
         <div><Clock3 aria-hidden="true" /><span><strong>{activeDateCount}</strong>Hari belajar</span></div>
       </div>
 
+      {source.classes.length > 0 && (
+        <div className="class-attendance-bulk-action" role="group" aria-label="Unduh semua absensi kelas">
+          <span className="class-attendance-bulk-action__icon"><Files aria-hidden="true" /></span>
+          <div className="class-attendance-bulk-action__copy">
+            <strong>Unduh semua absensi</strong>
+            <span>Gabungkan {summary.totalClasses} kelas dalam satu HTML yang siap dicetak sekaligus.</span>
+          </div>
+          <Button
+            variant="outline"
+            onClick={handleDownloadAll}
+            disabled={isDownloading || isLoading}
+            className="class-attendance-download-all"
+          >
+            {isDownloadingAll ? <RefreshCw className="animate-spin" aria-hidden="true" /> : <Files aria-hidden="true" />}
+            {isDownloadingAll ? 'Menyiapkan…' : 'Unduh semua'}
+          </Button>
+        </div>
+      )}
+
       {source.classes.length === 0 ? (
         <AdminEmptyState
           icon={FileSpreadsheet}
@@ -480,8 +571,8 @@ const ClassAttendanceSheets = ({
                     <span>{selectedClass.roster.length} santri · {activeDateCount} hari belajar · disinkronkan {formatSnapshotTime(source.fetchedAt)}</span>
                   </div>
                   <Button onClick={handleDownload} disabled={isDownloading} className="class-attendance-download">
-                    {isDownloading ? <RefreshCw className="animate-spin" aria-hidden="true" /> : <Download aria-hidden="true" />}
-                    {isDownloading ? 'Menyinkronkan…' : 'Unduh HTML'}
+                    {isDownloadingSelected ? <RefreshCw className="animate-spin" aria-hidden="true" /> : <Download aria-hidden="true" />}
+                    {isDownloadingSelected ? 'Menyinkronkan…' : 'Unduh HTML'}
                   </Button>
                 </div>
 
