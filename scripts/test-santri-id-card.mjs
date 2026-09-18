@@ -40,6 +40,7 @@ assert.match(html, /@page \{ size: 210mm 297mm; margin: 0; \}/);
 assert.match(html, /kartu-murid-abstrak-5\.jpeg/);
 assert.match(html, /--id-card-width: 53\.8mm/);
 assert.match(html, /--id-card-height: 86mm/);
+assert.match(html, /photo-frame[^}]*transform: translate\(0mm, -2mm\)/);
 assert.match(html, /page-break-inside: avoid/);
 assert.match(html, /Aisyah &lt;Utama&gt;/);
 assert.match(html, /NIQ-001/);

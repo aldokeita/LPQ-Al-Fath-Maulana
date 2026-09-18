@@ -105,6 +105,20 @@ const SantriIdCardManagement = () => {
 
   const paperConfig = getIdCardPaperConfig(paperSize);
   const allFilteredSelected = filteredSantri.length > 0 && filteredSantri.every((item) => selectedIds.has(item.id));
+  const designForRender = useMemo(() => {
+    const next = {
+      ...design,
+      logoUrl: design.logoUrl || lpqLogoUrl,
+    };
+    if (next.backgroundUrl && typeof window !== 'undefined' && !/^(?:https?:|data:image\/)/i.test(next.backgroundUrl)) {
+      try {
+        next.backgroundUrl = new URL(next.backgroundUrl, window.location.origin).href;
+      } catch {
+        // Keep the original path; the print renderer will show its fallback.
+      }
+    }
+    return next;
+  }, [design, lpqLogoUrl]);
 
   useEffect(() => {
     let cancelled = false;
@@ -169,8 +183,8 @@ const SantriIdCardManagement = () => {
 
     const html = buildIdCardPrintHtml({
       cards: selectedSantri,
-      designConfig: { ...design, logoUrl: design.logoUrl || lpqLogoUrl },
-      logoUrl: design.logoUrl || lpqLogoUrl,
+      designConfig: designForRender,
+      logoUrl: designForRender.logoUrl,
       paperSize,
       qrDataUrls,
     });
@@ -312,7 +326,7 @@ const SantriIdCardManagement = () => {
             <iframe
               title="Preview ID Card santri"
               className="santri-id-card__preview-frame"
-              srcDoc={buildIdCardPrintHtml({ cards: selectedSantri, designConfig: { ...design, logoUrl: design.logoUrl || lpqLogoUrl }, logoUrl: design.logoUrl || lpqLogoUrl, paperSize, qrDataUrls })}
+              srcDoc={buildIdCardPrintHtml({ cards: selectedSantri, designConfig: designForRender, logoUrl: designForRender.logoUrl, paperSize, qrDataUrls })}
             />
           )}
         </div>
