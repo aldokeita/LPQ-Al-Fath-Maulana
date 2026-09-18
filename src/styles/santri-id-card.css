@@ -396,6 +396,249 @@
   color: hsl(var(--admin-text-primary));
 }
 
+.santri-id-card-editor {
+  margin: 0.85rem;
+  overflow: hidden;
+  border: 1px solid rgb(148 163 184 / 0.2);
+  border-radius: 1rem;
+  background: rgb(255 255 255 / 0.34);
+  box-shadow: inset 1px 1px 0 rgb(255 255 255 / 0.64);
+}
+
+.santri-id-card-editor__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
+  border-bottom: 1px solid rgb(148 163 184 / 0.16);
+}
+
+.santri-id-card-editor__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: #0d9488;
+  font-size: 0.65rem;
+  font-weight: 900;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.santri-id-card-editor__eyebrow svg {
+  width: 0.85rem;
+  height: 0.85rem;
+}
+
+.santri-id-card-editor__header h3 {
+  margin: 0.2rem 0 0;
+  color: hsl(var(--admin-text-primary));
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.santri-id-card-editor__header p {
+  margin: 0.25rem 0 0;
+  color: hsl(var(--admin-text-muted));
+  font-size: 0.7rem;
+}
+
+.santri-id-card-editor__actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 0.45rem;
+}
+
+.santri-id-card-editor__actions button {
+  min-height: 2.4rem;
+  border-radius: 0.8rem;
+  font-size: 0.68rem;
+}
+
+.santri-id-card-editor__actions svg {
+  width: 0.9rem;
+  height: 0.9rem;
+  margin-right: 0.35rem;
+}
+
+.santri-id-card-editor__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  padding: 0.85rem;
+}
+
+.santri-id-card-editor__group {
+  display: grid;
+  align-content: start;
+  gap: 0.8rem;
+  padding: 0.85rem;
+  border: 1px solid rgb(148 163 184 / 0.16);
+  border-radius: 0.9rem;
+  background: rgb(255 255 255 / 0.32);
+}
+
+.santri-id-card-editor__group-heading h4 {
+  margin: 0;
+  color: hsl(var(--admin-text-primary));
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.santri-id-card-editor__group-heading p {
+  margin: 0.18rem 0 0;
+  color: hsl(var(--admin-text-muted));
+  font-size: 0.65rem;
+  line-height: 1.4;
+}
+
+.santri-id-card-editor__field {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.santri-id-card-editor__field label,
+.santri-id-card-editor__color span {
+  color: hsl(var(--admin-text-secondary));
+  font-size: 0.66rem;
+  font-weight: 800;
+}
+
+.santri-id-card-editor__field input,
+.santri-id-card-editor__field [data-radix-select-trigger] {
+  min-height: 2.3rem;
+  border-color: rgb(255 255 255 / 0.6);
+  background: rgb(255 255 255 / 0.44);
+  font-size: 0.7rem;
+}
+
+.santri-id-card-editor__input-pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 2.4rem;
+  gap: 0.4rem;
+}
+
+.santri-id-card-editor__input-pair button {
+  min-height: 2.3rem;
+  border-radius: 0.65rem;
+}
+
+.santri-id-card-editor__input-pair button svg {
+  width: 0.9rem;
+  height: 0.9rem;
+}
+
+.santri-id-card-editor__two-col {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.santri-id-card-editor__range {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.santri-id-card-editor__range > span {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  color: hsl(var(--admin-text-secondary));
+  font-size: 0.66rem;
+}
+
+.santri-id-card-editor__range em {
+  color: #0d9488;
+  font-size: 0.64rem;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.santri-id-card-editor__range input[type="range"] {
+  width: 100%;
+  accent-color: #0d9488;
+}
+
+.santri-id-card-editor__color {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.santri-id-card-editor__color input[type="color"] {
+  width: 2.6rem;
+  height: 2.3rem;
+  padding: 0.2rem;
+  border: 1px solid rgb(255 255 255 / 0.65);
+  border-radius: 0.65rem;
+  background: rgb(255 255 255 / 0.42);
+  cursor: pointer;
+}
+
+.santri-id-card-editor__switch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-height: 2.7rem;
+}
+
+.santri-id-card-editor__switch div {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.santri-id-card-editor__switch strong {
+  color: hsl(var(--admin-text-primary));
+  font-size: 0.7rem;
+}
+
+.santri-id-card-editor__switch span {
+  color: hsl(var(--admin-text-muted));
+  font-size: 0.63rem;
+}
+
+.dark .santri-id-card-editor {
+  border-color: rgb(255 255 255 / 0.1);
+  background: rgb(15 23 42 / 0.5);
+  box-shadow: inset 1px 1px 0 rgb(255 255 255 / 0.05);
+}
+
+.dark .santri-id-card-editor__group,
+.dark .santri-id-card-editor__field input,
+.dark .santri-id-card-editor__field [data-radix-select-trigger],
+.dark .santri-id-card-editor__color input[type="color"] {
+  border-color: rgb(255 255 255 / 0.1) !important;
+  background: rgb(255 255 255 / 0.055) !important;
+}
+
+@media (max-width: 767px) {
+  .santri-id-card-editor__header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .santri-id-card-editor__actions {
+    width: 100%;
+  }
+
+  .santri-id-card-editor__actions > * {
+    flex: 1;
+  }
+
+  .santri-id-card-editor__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .santri-id-card-editor__actions button {
+    transition: none;
+  }
+}
+
 .santri-id-card__preview-frame {
   display: block;
   width: calc(100% - 1.7rem);

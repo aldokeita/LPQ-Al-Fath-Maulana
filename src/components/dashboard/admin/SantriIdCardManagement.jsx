@@ -18,13 +18,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from '@/components/ui/use-toast';
 import AdminEmptyState from '@/components/dashboard/shared/AdminEmptyState';
 import AdminErrorState from '@/components/dashboard/shared/AdminErrorState';
+import SantriIdCardLiveEditor from '@/components/dashboard/admin/SantriIdCardLiveEditor';
 import { getAllSessions, getSessionName } from '@/utils/sessionMapping';
 import { fetchSantriForIdCards } from '@/lib/santriIdCardAdapters';
 import { fetchClassAttendanceAppearance } from '@/lib/classAttendancePrintAdapters';
 import {
   buildIdCardPrintHtml,
+  DEFAULT_ID_CARD_DESIGN,
   getIdCardPaperConfig,
   ID_CARD_PAPER_OPTIONS,
+  normalizeIdCardDesign,
 } from '@/lib/santriIdCardPrint';
 import '@/styles/santri-id-card.css';
 
@@ -38,7 +41,15 @@ const SantriIdCardManagement = () => {
   const [paperSize, setPaperSize] = useState('A4');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
-  const [qiroatiLogoUrl, setQiroatiLogoUrl] = useState('');
+  const [lpqLogoUrl, setLpqLogoUrl] = useState('/logo-lpq-al-fath-maulana.webp');
+  const [design, setDesign] = useState(() => {
+    try {
+      const saved = window.localStorage.getItem('lpq_santri_id_card_design');
+      return normalizeIdCardDesign(saved ? JSON.parse(saved) : DEFAULT_ID_CARD_DESIGN);
+    } catch {
+      return normalizeIdCardDesign(DEFAULT_ID_CARD_DESIGN);
+    }
+  });
   const [qrDataUrls, setQrDataUrls] = useState({});
   const [isGeneratingQr, setIsGeneratingQr] = useState(false);
 
@@ -50,12 +61,16 @@ const SantriIdCardManagement = () => {
       const [data, appearance] = await Promise.all([
         fetchSantriForIdCards(),
         fetchClassAttendanceAppearance().catch((appearanceError) => {
-          console.warn('Logo Qiroati tidak dapat dimuat:', appearanceError);
+          console.warn('Logo LPQ tidak dapat dimuat:', appearanceError);
           return null;
         }),
       ]);
       setSantri(data || []);
-      setQiroatiLogoUrl(appearance?.qiroatiLogoUrl || '');
+      setLpqLogoUrl(appearance?.lpqLogoUrl || '/logo-lpq-al-fath-maulana.webp');
+      setDesign((current) => normalizeIdCardDesign({
+        ...current,
+        logoUrl: current.logoUrl || appearance?.lpqLogoUrl || '/logo-lpq-al-fath-maulana.webp',
+      }));
       setSelectedIds(new Set());
     } catch (loadError) {
       console.error('Failed to load santri for ID cards:', loadError);
@@ -154,7 +169,8 @@ const SantriIdCardManagement = () => {
 
     const html = buildIdCardPrintHtml({
       cards: selectedSantri,
-      logoUrl: qiroatiLogoUrl,
+      designConfig: { ...design, logoUrl: design.logoUrl || lpqLogoUrl },
+      logoUrl: design.logoUrl || lpqLogoUrl,
       paperSize,
       qrDataUrls,
     });
@@ -170,6 +186,20 @@ const SantriIdCardManagement = () => {
     };
     printWindow.addEventListener('load', triggerPrint, { once: true });
     window.setTimeout(triggerPrint, 700);
+  };
+
+  const saveDesign = () => {
+    try {
+      window.localStorage.setItem('lpq_santri_id_card_design', JSON.stringify(design));
+      toast({ title: 'Pengaturan disimpan', description: 'Kustomisasi ID Card tersimpan di browser ini.' });
+    } catch {
+      toast({ title: 'Gagal menyimpan', description: 'Browser tidak mengizinkan penyimpanan pengaturan.', variant: 'destructive' });
+    }
+  };
+
+  const resetDesign = () => {
+    setDesign(normalizeIdCardDesign({ ...DEFAULT_ID_CARD_DESIGN, logoUrl: lpqLogoUrl }));
+    try { window.localStorage.removeItem('lpq_santri_id_card_design'); } catch { /* storage may be unavailable */ }
   };
 
   if (role !== 'admin') {
@@ -275,13 +305,14 @@ const SantriIdCardManagement = () => {
             <span><CreditCard aria-hidden="true" /><strong>{paperConfig.label} · {paperConfig.orientation}</strong></span>
             <span>{paperConfig.cardsPerPage} kartu per halaman · ukuran kartu 53,8 × 86 mm</span>
           </div>
+          <SantriIdCardLiveEditor design={design} onChange={setDesign} onReset={resetDesign} onSave={saveDesign} />
           {selectedSantri.length === 0 ? (
             <AdminEmptyState icon={CreditCard} title="Pilih santri untuk melihat preview" description="ID Card dapat dibuat untuk satu santri atau seluruh hasil filter." />
           ) : (
             <iframe
               title="Preview ID Card santri"
               className="santri-id-card__preview-frame"
-              srcDoc={buildIdCardPrintHtml({ cards: selectedSantri, logoUrl: qiroatiLogoUrl, paperSize, qrDataUrls })}
+              srcDoc={buildIdCardPrintHtml({ cards: selectedSantri, designConfig: { ...design, logoUrl: design.logoUrl || lpqLogoUrl }, logoUrl: design.logoUrl || lpqLogoUrl, paperSize, qrDataUrls })}
             />
           )}
         </div>

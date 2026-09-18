@@ -32,7 +32,7 @@ const html = buildIdCardPrintHtml({
     jilid: 'Jilid 2A',
     sesi_label: 'Pagi',
   }],
-  logoUrl: '/qiroati-logo.webp',
+  logoUrl: '/logo-lpq-al-fath-maulana.webp',
   paperSize: 'A4',
   qrDataUrls: { 'santri-1': 'data:image/png;base64,QR' },
 });
@@ -43,9 +43,9 @@ assert.match(html, /Aisyah &lt;Utama&gt;/);
 assert.match(html, /NIQ-001/);
 assert.match(html, /data:image\/png;base64,QR/);
 assert.match(html, /id-card__photo-fallback/);
+assert.doesNotMatch(html, /id-card::after/);
 assert.doesNotMatch(html, /Aisyah <Utama>/);
 assert.doesNotMatch(html, /Nomor Induk Qiroati|Kartu Santri|Jilid 2A|Pagi/);
-assert.doesNotMatch(html, /logo-lpq-al-fath-maulana/);
 
 const f4Html = buildIdCardPrintHtml({ cards: Array.from({ length: 10 }, (_, id) => ({ id, nama_lengkap: `Santri ${id}` })), paperSize: 'F4' });
 assert.match(f4Html, /@page \{ size: 215\.9mm 330\.2mm; margin: 0; \}/);
