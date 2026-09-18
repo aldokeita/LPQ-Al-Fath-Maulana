@@ -20,14 +20,13 @@ import AdminEmptyState from '@/components/dashboard/shared/AdminEmptyState';
 import AdminErrorState from '@/components/dashboard/shared/AdminErrorState';
 import { getAllSessions, getSessionName } from '@/utils/sessionMapping';
 import { fetchSantriForIdCards } from '@/lib/santriIdCardAdapters';
+import { fetchClassAttendanceAppearance } from '@/lib/classAttendancePrintAdapters';
 import {
   buildIdCardPrintHtml,
   getIdCardPaperConfig,
   ID_CARD_PAPER_OPTIONS,
 } from '@/lib/santriIdCardPrint';
 import '@/styles/santri-id-card.css';
-
-const DEFAULT_LOGO_URL = '/logo-lpq-al-fath-maulana.webp';
 
 const getInitial = (name) => String(name || 'S').trim().charAt(0).toUpperCase() || 'S';
 
@@ -39,6 +38,7 @@ const SantriIdCardManagement = () => {
   const [paperSize, setPaperSize] = useState('A4');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+  const [qiroatiLogoUrl, setQiroatiLogoUrl] = useState('');
   const [qrDataUrls, setQrDataUrls] = useState({});
   const [isGeneratingQr, setIsGeneratingQr] = useState(false);
 
@@ -47,8 +47,15 @@ const SantriIdCardManagement = () => {
     setIsLoading(true);
     setError('');
     try {
-      const data = await fetchSantriForIdCards();
+      const [data, appearance] = await Promise.all([
+        fetchSantriForIdCards(),
+        fetchClassAttendanceAppearance().catch((appearanceError) => {
+          console.warn('Logo Qiroati tidak dapat dimuat:', appearanceError);
+          return null;
+        }),
+      ]);
       setSantri(data || []);
+      setQiroatiLogoUrl(appearance?.qiroatiLogoUrl || '');
       setSelectedIds(new Set());
     } catch (loadError) {
       console.error('Failed to load santri for ID cards:', loadError);
@@ -147,7 +154,7 @@ const SantriIdCardManagement = () => {
 
     const html = buildIdCardPrintHtml({
       cards: selectedSantri,
-      logoUrl: DEFAULT_LOGO_URL,
+      logoUrl: qiroatiLogoUrl,
       paperSize,
       qrDataUrls,
     });
@@ -266,7 +273,7 @@ const SantriIdCardManagement = () => {
           </div>
           <div className="santri-id-card__print-status" role="status">
             <span><CreditCard aria-hidden="true" /><strong>{paperConfig.label} · {paperConfig.orientation}</strong></span>
-            <span>{paperConfig.cardsPerPage} kartu per halaman · ukuran kartu 55 × 84 mm</span>
+            <span>{paperConfig.cardsPerPage} kartu per halaman · ukuran kartu 53,8 × 86 mm</span>
           </div>
           {selectedSantri.length === 0 ? (
             <AdminEmptyState icon={CreditCard} title="Pilih santri untuk melihat preview" description="ID Card dapat dibuat untuk satu santri atau seluruh hasil filter." />
@@ -274,7 +281,7 @@ const SantriIdCardManagement = () => {
             <iframe
               title="Preview ID Card santri"
               className="santri-id-card__preview-frame"
-              srcDoc={buildIdCardPrintHtml({ cards: selectedSantri, logoUrl: DEFAULT_LOGO_URL, paperSize, qrDataUrls })}
+              srcDoc={buildIdCardPrintHtml({ cards: selectedSantri, logoUrl: qiroatiLogoUrl, paperSize, qrDataUrls })}
             />
           )}
         </div>

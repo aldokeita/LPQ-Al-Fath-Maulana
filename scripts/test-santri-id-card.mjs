@@ -5,6 +5,8 @@ import {
   chunkIdCardRecords,
   escapeIdCardHtml,
   getIdCardPaperConfig,
+  ID_CARD_HEIGHT_MM,
+  ID_CARD_WIDTH_MM,
 } from '../src/lib/santriIdCardPrint.js';
 
 const [component, dashboard, adapter] = await Promise.all([
@@ -16,6 +18,8 @@ const [component, dashboard, adapter] = await Promise.all([
 assert.equal(getIdCardPaperConfig('A4').widthMm, 210);
 assert.equal(getIdCardPaperConfig('F4').heightMm, 330.2);
 assert.equal(getIdCardPaperConfig('A4').cardsPerPage, 9);
+assert.equal(ID_CARD_WIDTH_MM, 53.8);
+assert.equal(ID_CARD_HEIGHT_MM, 86);
 assert.deepEqual(chunkIdCardRecords(Array.from({ length: 10 }, (_, id) => ({ id }))).map((page) => page.length), [9, 1]);
 assert.equal(escapeIdCardHtml('<Nama & "Khusus">'), '&lt;Nama &amp; &quot;Khusus&quot;&gt;');
 
@@ -28,17 +32,20 @@ const html = buildIdCardPrintHtml({
     jilid: 'Jilid 2A',
     sesi_label: 'Pagi',
   }],
-  logoUrl: '/logo-lpq-al-fath-maulana.webp',
+  logoUrl: '/qiroati-logo.webp',
   paperSize: 'A4',
   qrDataUrls: { 'santri-1': 'data:image/png;base64,QR' },
 });
 assert.match(html, /@page \{ size: 210mm 297mm; margin: 0; \}/);
+assert.match(html, /kartu-murid-abstrak-5\.jpeg/);
 assert.match(html, /page-break-inside: avoid/);
 assert.match(html, /Aisyah &lt;Utama&gt;/);
 assert.match(html, /NIQ-001/);
 assert.match(html, /data:image\/png;base64,QR/);
 assert.match(html, /id-card__photo-fallback/);
 assert.doesNotMatch(html, /Aisyah <Utama>/);
+assert.doesNotMatch(html, /Nomor Induk Qiroati|Kartu Santri|Jilid 2A|Pagi/);
+assert.doesNotMatch(html, /logo-lpq-al-fath-maulana/);
 
 const f4Html = buildIdCardPrintHtml({ cards: Array.from({ length: 10 }, (_, id) => ({ id, nama_lengkap: `Santri ${id}` })), paperSize: 'F4' });
 assert.match(f4Html, /@page \{ size: 215\.9mm 330\.2mm; margin: 0; \}/);
