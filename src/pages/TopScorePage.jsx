@@ -21,6 +21,7 @@ const TopScorePage = () => {
     const navigate = useNavigate();
     const { role } = useAuth();
     const canScanAttendance = canManageLeaderboard(role);
+    const leaderboardBackPath = role === 'guru' ? '/dashboard' : '/absensi-digital';
     const [students, setStudents] = useState([]);
     const [totalStudents, setTotalStudents] = useState(0);
     const [currentPage, setCurrentPage] = useState(1);
@@ -275,7 +276,7 @@ const TopScorePage = () => {
                 <div className="flex items-center justify-between mb-12">
                      <Button
                         variant="ghost"
-                        onClick={() => navigate('/absensi-digital')}
+                        onClick={() => navigate(leaderboardBackPath)}
                         className="hover:bg-white/50 dark:hover:bg-slate-800/50 transition-colors"
                     >
                         <ArrowLeft className="w-5 h-5 mr-2" /> Kembali
