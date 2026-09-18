@@ -38,12 +38,15 @@ const html = buildIdCardPrintHtml({
 });
 assert.match(html, /@page \{ size: 210mm 297mm; margin: 0; \}/);
 assert.match(html, /kartu-murid-abstrak-5\.jpeg/);
+assert.match(html, /--id-card-width: 53\.8mm/);
+assert.match(html, /--id-card-height: 86mm/);
 assert.match(html, /page-break-inside: avoid/);
 assert.match(html, /Aisyah &lt;Utama&gt;/);
 assert.match(html, /NIQ-001/);
 assert.match(html, /data:image\/png;base64,QR/);
 assert.match(html, /id-card__photo-fallback/);
 assert.doesNotMatch(html, /id-card::after/);
+assert.match(html, /id-card__photo-frame[^}]*border: 0;/);
 assert.doesNotMatch(html, /Aisyah <Utama>/);
 assert.doesNotMatch(html, /Nomor Induk Qiroati|Kartu Santri|Jilid 2A|Pagi/);
 

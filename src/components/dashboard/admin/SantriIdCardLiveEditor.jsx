@@ -96,6 +96,7 @@ const SantriIdCardLiveEditor = ({ design, onChange, onReset, onSave }) => {
             <div className="santri-id-card-editor__field"><Label>Posisi logo</Label><Select value={design.logoPosition} onValueChange={(value) => update('logoPosition', value)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="top-left">Kiri atas</SelectItem><SelectItem value="top-center">Tengah atas</SelectItem><SelectItem value="top-right">Kanan atas</SelectItem></SelectContent></Select></div>
             <RangeField label="Ukuran logo" value={design.logoSizeMm} min={7} max={22} unit=" mm" onChange={(value) => update('logoSizeMm', value)} />
           </div>
+          <div className="santri-id-card-editor__two-col"><RangeField label="Geser logo kiri ↔ kanan" value={design.logoOffsetXmm} min={-12} max={12} unit=" mm" onChange={(value) => update('logoOffsetXmm', value)} /><RangeField label="Geser logo atas ↕ bawah" value={design.logoOffsetYmm} min={-8} max={8} unit=" mm" onChange={(value) => update('logoOffsetYmm', value)} /></div>
         </ControlGroup>
 
         <ControlGroup title="Nama panggilan" description="Nama dicetak tanpa label tambahan.">
@@ -108,13 +109,14 @@ const SantriIdCardLiveEditor = ({ design, onChange, onReset, onSave }) => {
           <div className="santri-id-card-editor__field"><Label>Font nomor</Label><Select value={design.numberFontFamily} onValueChange={(value) => update('numberFontFamily', value)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{FONT_OPTIONS.map((font) => <SelectItem key={font.value} value={font.value}>{font.label}</SelectItem>)}</SelectContent></Select></div>
           <div className="santri-id-card-editor__two-col"><ColorField label="Warna nomor" value={design.numberColor} onChange={(value) => update('numberColor', value)} /><RangeField label="Ukuran nomor" value={design.numberSizePt} min={7} max={15} unit=" pt" onChange={(value) => update('numberSizePt', value)} /></div>
           <RangeField label="Jarak nama → nomor" value={design.numberGapMm} min={0} max={8} unit=" mm" step={0.5} onChange={(value) => update('numberGapMm', value)} />
+          <RangeField label="Lebar bidang nomor" value={design.numberWidthMm} min={26} max={42} unit=" mm" onChange={(value) => update('numberWidthMm', value)} />
         </ControlGroup>
 
         <ControlGroup title="Foto & QR Code" description="QR selalu berada di area kanan bawah kartu.">
           <RangeField label="Diameter foto" value={design.photoSizeMm} min={22} max={36} unit=" mm" onChange={(value) => update('photoSizeMm', value)} />
-          <div className="santri-id-card-editor__two-col"><ColorField label="Warna ring foto" value={design.photoRingColor} onChange={(value) => update('photoRingColor', value)} /><RangeField label="Tebal ring" value={design.photoRingWidthMm} min={0} max={3} unit=" mm" step={0.1} onChange={(value) => update('photoRingWidthMm', value)} /></div>
           <RangeField label="Ukuran QR" value={design.qrSizeMm} min={10} max={22} unit=" mm" onChange={(value) => update('qrSizeMm', value)} />
           <div className="santri-id-card-editor__two-col"><RangeField label="Jarak kanan QR" value={design.qrRightMm} min={0} max={10} unit=" mm" step={0.5} onChange={(value) => update('qrRightMm', value)} /><RangeField label="Jarak bawah QR" value={design.qrBottomMm} min={0} max={10} unit=" mm" step={0.5} onChange={(value) => update('qrBottomMm', value)} /></div>
+          <div className="santri-id-card-editor__two-col"><RangeField label="Geser QR kiri ↔ kanan" value={design.qrOffsetXmm} min={-12} max={12} unit=" mm" step={0.5} onChange={(value) => update('qrOffsetXmm', value)} /><RangeField label="Geser QR atas ↕ bawah" value={design.qrOffsetYmm} min={-12} max={12} unit=" mm" step={0.5} onChange={(value) => update('qrOffsetYmm', value)} /></div>
         </ControlGroup>
 
         <ControlGroup title="Bingkai luar" description="Garis interior sengaja dihapus agar background tetap bersih.">

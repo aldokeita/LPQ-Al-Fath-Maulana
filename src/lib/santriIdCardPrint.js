@@ -31,21 +31,24 @@ export const DEFAULT_ID_CARD_DESIGN = Object.freeze({
   logoUrl: '',
   logoPosition: 'top-left',
   logoSizeMm: 12,
-  photoSizeMm: 30,
-  photoRingColor: '#a3d915',
-  photoRingWidthMm: 1.4,
+  logoOffsetXmm: 0,
+  logoOffsetYmm: 0,
+  photoSizeMm: 26,
   nameFontFamily: 'Montserrat, Arial, sans-serif',
   nameColor: '#f59e0b',
   nameSizePt: 13,
-  nameGapMm: 2.5,
+  nameGapMm: 0,
   numberFontFamily: 'Montserrat, Arial, sans-serif',
   numberColor: '#475569',
   numberSizePt: 10,
   numberGapMm: 0,
+  numberWidthMm: 34,
   numberLetterSpacing: 0.08,
   qrSizeMm: 17,
   qrRightMm: 4,
   qrBottomMm: 3,
+  qrOffsetXmm: 0,
+  qrOffsetYmm: 0,
   showOuterBorder: true,
   outerBorderColor: '#8bc7c0',
   outerBorderWidthMm: 0.45,
@@ -64,16 +67,20 @@ export const normalizeIdCardDesign = (value = {}) => {
     ...design,
     logoPosition: ['top-left', 'top-center', 'top-right'].includes(design.logoPosition) ? design.logoPosition : DEFAULT_ID_CARD_DESIGN.logoPosition,
     logoSizeMm: clampDesignNumber(design.logoSizeMm, DEFAULT_ID_CARD_DESIGN.logoSizeMm, 7, 22),
-    photoSizeMm: clampDesignNumber(design.photoSizeMm, DEFAULT_ID_CARD_DESIGN.photoSizeMm, 22, 36),
-    photoRingWidthMm: clampDesignNumber(design.photoRingWidthMm, DEFAULT_ID_CARD_DESIGN.photoRingWidthMm, 0, 3),
+    logoOffsetXmm: clampDesignNumber(design.logoOffsetXmm, DEFAULT_ID_CARD_DESIGN.logoOffsetXmm, -12, 12),
+    logoOffsetYmm: clampDesignNumber(design.logoOffsetYmm, DEFAULT_ID_CARD_DESIGN.logoOffsetYmm, -8, 8),
+    photoSizeMm: clampDesignNumber(design.photoSizeMm, DEFAULT_ID_CARD_DESIGN.photoSizeMm, 22, 32),
     nameSizePt: clampDesignNumber(design.nameSizePt, DEFAULT_ID_CARD_DESIGN.nameSizePt, 9, 18),
     nameGapMm: clampDesignNumber(design.nameGapMm, DEFAULT_ID_CARD_DESIGN.nameGapMm, 0, 8),
     numberSizePt: clampDesignNumber(design.numberSizePt, DEFAULT_ID_CARD_DESIGN.numberSizePt, 7, 15),
     numberGapMm: clampDesignNumber(design.numberGapMm, DEFAULT_ID_CARD_DESIGN.numberGapMm, 0, 8),
+    numberWidthMm: clampDesignNumber(design.numberWidthMm, DEFAULT_ID_CARD_DESIGN.numberWidthMm, 26, 42),
     numberLetterSpacing: clampDesignNumber(design.numberLetterSpacing, DEFAULT_ID_CARD_DESIGN.numberLetterSpacing, 0, 0.18),
     qrSizeMm: clampDesignNumber(design.qrSizeMm, DEFAULT_ID_CARD_DESIGN.qrSizeMm, 10, 22),
     qrRightMm: clampDesignNumber(design.qrRightMm, DEFAULT_ID_CARD_DESIGN.qrRightMm, 0, 10),
     qrBottomMm: clampDesignNumber(design.qrBottomMm, DEFAULT_ID_CARD_DESIGN.qrBottomMm, 0, 10),
+    qrOffsetXmm: clampDesignNumber(design.qrOffsetXmm, DEFAULT_ID_CARD_DESIGN.qrOffsetXmm, -12, 12),
+    qrOffsetYmm: clampDesignNumber(design.qrOffsetYmm, DEFAULT_ID_CARD_DESIGN.qrOffsetYmm, -12, 12),
     outerBorderWidthMm: clampDesignNumber(design.outerBorderWidthMm, DEFAULT_ID_CARD_DESIGN.outerBorderWidthMm, 0, 2),
     cardRadiusMm: clampDesignNumber(design.cardRadiusMm, DEFAULT_ID_CARD_DESIGN.cardRadiusMm, 0, 8),
     showOuterBorder: design.showOuterBorder !== false,
@@ -185,16 +192,16 @@ export const ID_CARD_PRINT_STYLES = ({ designConfig, paperSize = 'A4' } = {}) =>
     .id-card__decor--one { top: 20mm; left: -3mm; background: #14b8a6; }
     .id-card__decor--two { top: 10mm; right: -2mm; background: #eab308; transform: rotate(26deg); }
     .id-card__decor--three { bottom: 19mm; left: -2mm; background: #2563eb; transform: rotate(28deg); }
-    .id-card__header { position: relative; z-index: 1; display: flex; width: 100%; align-items: center; justify-content: ${logoAlignment}; gap: 1.1mm; padding: 4.5mm 4mm 0; }
+    .id-card__header { position: relative; z-index: 1; display: flex; width: 100%; align-items: center; justify-content: ${logoAlignment}; gap: 1.1mm; padding: 4.5mm 4mm 0; transform: translate(${design.logoOffsetXmm}mm, ${design.logoOffsetYmm}mm); }
     .id-card__logo { width: ${design.logoSizeMm}mm; height: ${design.logoSizeMm}mm; object-fit: contain; }
     .id-card__brand-fallback { display: grid; width: 17mm; height: 9mm; place-items: center; border-radius: 2mm; color: #0f766e; background: rgba(204,251,241,.9); font-size: 6.2pt; font-weight: 900; letter-spacing: .06em; }
-    .id-card__photo-frame { position: relative; z-index: 1; display: grid; width: ${design.photoSizeMm}mm; height: ${design.photoSizeMm}mm; place-items: center; margin-top: 3.5mm; padding: 1.3mm; border: ${design.photoRingWidthMm}mm solid ${design.photoRingColor}; border-radius: 50%; background: #fff; box-shadow: 0 1.5mm 3mm rgba(101,163,13,.22); }
+    .id-card__photo-frame { position: relative; z-index: 1; display: grid; width: ${design.photoSizeMm}mm; height: ${design.photoSizeMm}mm; place-items: center; margin-top: 3.5mm; padding: 0; border: 0; border-radius: 50%; background: transparent; box-shadow: none; }
     .id-card__photo { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
     .id-card__photo-fallback { display: grid; width: 100%; height: 100%; place-items: center; border-radius: 50%; color: #0f766e; background: #dff7f2; font-size: 22pt; font-weight: 900; }
-    .id-card__name { position: relative; z-index: 1; width: 100%; min-height: 10mm; margin: ${design.nameGapMm}mm 5mm 0; color: ${design.nameColor}; font-family: ${design.nameFontFamily}; font-size: ${design.nameSizePt}pt; font-weight: 900; line-height: 1.05; text-align: center; overflow-wrap: anywhere; }
-    .id-card__number { position: relative; z-index: 1; display: flex; width: 42mm; min-height: 9mm; align-items: center; justify-content: center; margin-top: ${design.numberGapMm}mm; border: .6mm solid #8b8b8b; border-radius: 5mm; background: rgba(255,255,255,.77); }
-    .id-card__number strong { max-width: 38mm; color: ${design.numberColor}; font-family: ${design.numberFontFamily}; font-size: ${design.numberSizePt}pt; letter-spacing: ${design.numberLetterSpacing}em; overflow-wrap: anywhere; text-align: center; }
-    .id-card__qr-wrap { position: relative; z-index: 1; display: grid; width: ${design.qrSizeMm}mm; height: ${design.qrSizeMm}mm; place-items: center; align-self: flex-end; margin-top: auto; margin-right: ${design.qrRightMm}mm; margin-bottom: ${design.qrBottomMm}mm; }
+    .id-card__name { position: relative; z-index: 1; width: 100%; min-height: 0; margin: ${design.nameGapMm}mm 5mm 0; color: ${design.nameColor}; font-family: ${design.nameFontFamily}; font-size: ${design.nameSizePt}pt; font-weight: 900; line-height: 1.05; text-align: center; overflow-wrap: anywhere; }
+    .id-card__number { position: relative; z-index: 1; display: flex; width: ${design.numberWidthMm}mm; min-height: 9mm; align-items: center; justify-content: center; margin-top: ${design.numberGapMm}mm; border: .6mm solid #8b8b8b; border-radius: 5mm; background: rgba(255,255,255,.77); }
+    .id-card__number strong { max-width: ${Math.max(22, design.numberWidthMm - 4)}mm; color: ${design.numberColor}; font-family: ${design.numberFontFamily}; font-size: ${design.numberSizePt}pt; letter-spacing: ${design.numberLetterSpacing}em; overflow-wrap: anywhere; text-align: center; }
+    .id-card__qr-wrap { position: relative; z-index: 1; display: grid; width: ${design.qrSizeMm}mm; height: ${design.qrSizeMm}mm; place-items: center; align-self: flex-end; margin-top: auto; margin-right: ${design.qrRightMm}mm; margin-bottom: ${design.qrBottomMm}mm; transform: translate(${design.qrOffsetXmm}mm, ${design.qrOffsetYmm}mm); }
     .id-card__qr { width: ${design.qrSizeMm}mm; height: ${design.qrSizeMm}mm; object-fit: contain; }
     .id-card__qr-fallback { color: #64748b; font-size: 5pt; text-align: center; }
     @page { size: ${paper.widthMm}mm ${paper.heightMm}mm; margin: 0; }
