@@ -1,0 +1,286 @@
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import QRCode from 'qrcode';
+import {
+  Check,
+  CreditCard,
+  Printer,
+  RefreshCw,
+  Search,
+  ShieldCheck,
+  Users,
+  X,
+} from 'lucide-react';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { toast } from '@/components/ui/use-toast';
+import AdminEmptyState from '@/components/dashboard/shared/AdminEmptyState';
+import AdminErrorState from '@/components/dashboard/shared/AdminErrorState';
+import { getAllSessions, getSessionName } from '@/utils/sessionMapping';
+import { fetchSantriForIdCards } from '@/lib/santriIdCardAdapters';
+import {
+  buildIdCardPrintHtml,
+  getIdCardPaperConfig,
+  ID_CARD_PAPER_OPTIONS,
+} from '@/lib/santriIdCardPrint';
+import '@/styles/santri-id-card.css';
+
+const DEFAULT_LOGO_URL = '/logo-lpq-al-fath-maulana.webp';
+
+const getInitial = (name) => String(name || 'S').trim().charAt(0).toUpperCase() || 'S';
+
+const SantriIdCardManagement = () => {
+  const { role } = useAuth();
+  const [santri, setSantri] = useState([]);
+  const [selectedIds, setSelectedIds] = useState(() => new Set());
+  const [filters, setFilters] = useState({ search: '', kategori: 'all', jenisKelamin: 'all', sesi: 'all' });
+  const [paperSize, setPaperSize] = useState('A4');
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [qrDataUrls, setQrDataUrls] = useState({});
+  const [isGeneratingQr, setIsGeneratingQr] = useState(false);
+
+  const loadSantri = useCallback(async () => {
+    if (role !== 'admin') return;
+    setIsLoading(true);
+    setError('');
+    try {
+      const data = await fetchSantriForIdCards();
+      setSantri(data || []);
+      setSelectedIds(new Set());
+    } catch (loadError) {
+      console.error('Failed to load santri for ID cards:', loadError);
+      setSantri([]);
+      setError(loadError.message || 'Gagal memuat data santri untuk ID Card.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [role]);
+
+  useEffect(() => {
+    loadSantri();
+  }, [loadSantri]);
+
+  const filteredSantri = useMemo(() => {
+    const query = filters.search.trim().toLowerCase();
+    return santri.filter((item) => {
+      const session = getSessionName(item.sesi_mengaji);
+      const searchMatches = !query || [item.nama_lengkap, item.nama_panggilan, item.nomor_induk_qiroati]
+        .some((value) => String(value || '').toLowerCase().includes(query));
+      const categoryMatches = filters.kategori === 'all' || String(item.kategori || '').toLowerCase() === filters.kategori.toLowerCase();
+      const genderMatches = filters.jenisKelamin === 'all' || String(item.jenis_kelamin || '').toLowerCase() === filters.jenisKelamin.toLowerCase();
+      const sessionMatches = filters.sesi === 'all' || session === filters.sesi;
+      return searchMatches && categoryMatches && genderMatches && sessionMatches;
+    });
+  }, [filters, santri]);
+
+  const selectedSantri = useMemo(
+    () => santri.filter((item) => selectedIds.has(item.id)),
+    [santri, selectedIds],
+  );
+
+  const paperConfig = getIdCardPaperConfig(paperSize);
+  const allFilteredSelected = filteredSantri.length > 0 && filteredSantri.every((item) => selectedIds.has(item.id));
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (selectedSantri.length === 0) {
+      setQrDataUrls({});
+      setIsGeneratingQr(false);
+      return undefined;
+    }
+
+    setIsGeneratingQr(true);
+    Promise.all(selectedSantri.map(async (item) => {
+      if (!item.nomor_induk_qiroati) return [item.id, ''];
+      try {
+        const dataUrl = await QRCode.toDataURL(String(item.nomor_induk_qiroati), {
+          width: 160,
+          margin: 1,
+          errorCorrectionLevel: 'M',
+        });
+        return [item.id, dataUrl];
+      } catch (qrError) {
+        console.warn('QR ID Card could not be generated:', qrError);
+        return [item.id, ''];
+      }
+    })).then((entries) => {
+      if (!cancelled) setQrDataUrls(Object.fromEntries(entries));
+    }).finally(() => {
+      if (!cancelled) setIsGeneratingQr(false);
+    });
+
+    return () => { cancelled = true; };
+  }, [selectedSantri]);
+
+  const toggleSantri = (santriId) => {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (next.has(santriId)) next.delete(santriId);
+      else next.add(santriId);
+      return next;
+    });
+  };
+
+  const toggleSelectAllFiltered = () => {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (allFilteredSelected) filteredSantri.forEach((item) => next.delete(item.id));
+      else filteredSantri.forEach((item) => next.add(item.id));
+      return next;
+    });
+  };
+
+  const clearSelection = () => setSelectedIds(new Set());
+
+  const handlePrint = () => {
+    if (selectedSantri.length === 0 || isGeneratingQr) return;
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      toast({ title: 'Jendela cetak diblokir', description: 'Izinkan pop-up untuk membuka pratinjau cetak.', variant: 'destructive' });
+      return;
+    }
+
+    const html = buildIdCardPrintHtml({
+      cards: selectedSantri,
+      logoUrl: DEFAULT_LOGO_URL,
+      paperSize,
+      qrDataUrls,
+    });
+    printWindow.document.open();
+    printWindow.document.write(html);
+    printWindow.document.close();
+    printWindow.focus();
+    let hasPrinted = false;
+    const triggerPrint = () => {
+      if (hasPrinted || printWindow.closed) return;
+      hasPrinted = true;
+      window.setTimeout(() => printWindow.print(), 240);
+    };
+    printWindow.addEventListener('load', triggerPrint, { once: true });
+    window.setTimeout(triggerPrint, 700);
+  };
+
+  if (role !== 'admin') {
+    return <AdminErrorState message="ID Card Santri hanya dapat diakses oleh administrator." />;
+  }
+
+  return (
+    <section className="santri-id-card" aria-labelledby="santri-id-card-title">
+      <header className="santri-id-card__hero">
+        <div className="santri-id-card__hero-copy">
+          <span className="santri-id-card__hero-icon"><CreditCard aria-hidden="true" /></span>
+          <div>
+            <p className="santri-id-card__eyebrow">Administrasi · Identitas santri</p>
+            <h2 id="santri-id-card-title">ID Card Santri</h2>
+            <p>Pilih satu atau beberapa santri untuk membuat kartu identitas yang siap dicetak.</p>
+          </div>
+        </div>
+        <div className="santri-id-card__privacy"><ShieldCheck aria-hidden="true" /><span>Data aktual<br /><strong>Tidak disimpan ulang</strong></span></div>
+      </header>
+
+      {error && <AdminErrorState message={error} onRetry={loadSantri} className="mb-5" />}
+
+      <div className="santri-id-card__toolbar" aria-label="Filter dan ukuran cetak ID Card">
+        <div className="santri-id-card__search">
+          <Search aria-hidden="true" />
+          <Input
+            value={filters.search}
+            onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))}
+            placeholder="Cari nama atau nomor induk…"
+            aria-label="Cari santri untuk ID Card"
+          />
+        </div>
+        <Select value={filters.kategori} onValueChange={(value) => setFilters((current) => ({ ...current, kategori: value }))}>
+          <SelectTrigger aria-label="Filter kategori santri"><SelectValue placeholder="Kategori" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Semua kategori</SelectItem>
+            <SelectItem value="Anak">Santri TPQ</SelectItem>
+            <SelectItem value="PTPT">Santri PTPT</SelectItem>
+            <SelectItem value="Dewasa">Santri Dewasa</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={filters.jenisKelamin} onValueChange={(value) => setFilters((current) => ({ ...current, jenisKelamin: value }))}>
+          <SelectTrigger aria-label="Filter jenis kelamin"><SelectValue placeholder="Jenis kelamin" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Semua gender</SelectItem>
+            <SelectItem value="Laki-laki">Laki-laki</SelectItem>
+            <SelectItem value="Perempuan">Perempuan</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={filters.sesi} onValueChange={(value) => setFilters((current) => ({ ...current, sesi: value }))}>
+          <SelectTrigger aria-label="Filter sesi mengaji"><SelectValue placeholder="Sesi" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Semua sesi</SelectItem>
+            {getAllSessions().map((session) => <SelectItem key={session.id} value={session.name}>{session.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="santri-id-card__workspace">
+        <aside className="santri-id-card__selection" aria-label="Daftar santri untuk ID Card">
+          <div className="santri-id-card__selection-header">
+            <div><p>Seleksi santri</p><span>{filteredSantri.length} hasil · {selectedSantri.length} dipilih</span></div>
+            <Users aria-hidden="true" />
+          </div>
+          <div className="santri-id-card__selection-actions">
+            <Button type="button" variant="outline" size="sm" onClick={toggleSelectAllFiltered} disabled={filteredSantri.length === 0}>
+              {allFilteredSelected ? <X aria-hidden="true" /> : <Check aria-hidden="true" />}
+              {allFilteredSelected ? 'Batalkan hasil' : 'Pilih semua hasil'}
+            </Button>
+            <Button type="button" variant="ghost" size="sm" onClick={clearSelection} disabled={selectedSantri.length === 0}>Deselect all</Button>
+          </div>
+          {isLoading ? (
+            <div className="santri-id-card__loading" role="status" aria-live="polite"><RefreshCw className="animate-spin" aria-hidden="true" /> Memuat data santri…</div>
+          ) : filteredSantri.length === 0 ? (
+            <AdminEmptyState icon={Users} title="Santri tidak ditemukan" description="Coba ubah pencarian atau filter yang digunakan." />
+          ) : (
+            <div className="santri-id-card__list">
+              {filteredSantri.map((item) => (
+                <label key={item.id} className={`santri-id-card__student ${selectedIds.has(item.id) ? 'is-selected' : ''}`}>
+                  <Checkbox checked={selectedIds.has(item.id)} onCheckedChange={() => toggleSantri(item.id)} aria-label={`Pilih ${item.nama_lengkap}`} />
+                  <span className="santri-id-card__student-avatar">
+                    {item.foto_url ? <img src={item.foto_url} alt="" loading="lazy" /> : <span aria-hidden="true">{getInitial(item.nama_lengkap)}</span>}
+                  </span>
+                  <span className="santri-id-card__student-copy"><strong>{item.nama_lengkap || 'Tanpa nama'}</strong><small>{item.nomor_induk_qiroati || 'Nomor induk belum tersedia'} · {getSessionName(item.sesi_mengaji) || 'Sesi belum diatur'}</small></span>
+                </label>
+              ))}
+            </div>
+          )}
+        </aside>
+
+        <div className="santri-id-card__preview-panel">
+          <div className="santri-id-card__preview-header">
+            <div><p>Preview & cetak</p><h3>{selectedSantri.length === 0 ? 'Belum ada kartu dipilih' : `${selectedSantri.length} ID Card siap dibuat`}</h3></div>
+            <div className="santri-id-card__paper-controls">
+              <Select value={paperSize} onValueChange={setPaperSize}>
+                <SelectTrigger aria-label="Pilih ukuran kertas"><SelectValue /></SelectTrigger>
+                <SelectContent>{Object.entries(ID_CARD_PAPER_OPTIONS).map(([value, option]) => <SelectItem key={value} value={value}>{option.label}</SelectItem>)}</SelectContent>
+              </Select>
+              <Button type="button" onClick={handlePrint} disabled={selectedSantri.length === 0 || isGeneratingQr} className="santri-id-card__print-button"><Printer aria-hidden="true" />{isGeneratingQr ? 'Menyiapkan QR…' : `Cetak ${selectedSantri.length || ''} ID Card`}</Button>
+            </div>
+          </div>
+          <div className="santri-id-card__print-status" role="status">
+            <span><CreditCard aria-hidden="true" /><strong>{paperConfig.label} · {paperConfig.orientation}</strong></span>
+            <span>{paperConfig.cardsPerPage} kartu per halaman · ukuran kartu 55 × 84 mm</span>
+          </div>
+          {selectedSantri.length === 0 ? (
+            <AdminEmptyState icon={CreditCard} title="Pilih santri untuk melihat preview" description="ID Card dapat dibuat untuk satu santri atau seluruh hasil filter." />
+          ) : (
+            <iframe
+              title="Preview ID Card santri"
+              className="santri-id-card__preview-frame"
+              srcDoc={buildIdCardPrintHtml({ cards: selectedSantri, logoUrl: DEFAULT_LOGO_URL, paperSize, qrDataUrls })}
+            />
+          )}
+        </div>
+      </div>
+    </section>
+  );
+};
+
+export default SantriIdCardManagement;
