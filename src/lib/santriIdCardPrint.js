@@ -33,6 +33,10 @@ export const DEFAULT_ID_CARD_DESIGN = Object.freeze({
   logoSizeMm: 12,
   logoOffsetXmm: 0,
   logoOffsetYmm: 0,
+  logoRightUrl: '',
+  logoRightSizeMm: 10,
+  logoRightOffsetXmm: 0,
+  logoRightOffsetYmm: 0,
   photoSizeMm: 26,
   photoOffsetXmm: 0,
   photoOffsetYmm: -2,
@@ -40,6 +44,7 @@ export const DEFAULT_ID_CARD_DESIGN = Object.freeze({
   nameColor: '#f59e0b',
   nameSizePt: 13,
   nameGapMm: 0,
+  nameOffsetYmm: 0,
   numberFontFamily: 'Montserrat, Arial, sans-serif',
   numberColor: '#475569',
   numberSizePt: 10,
@@ -51,6 +56,8 @@ export const DEFAULT_ID_CARD_DESIGN = Object.freeze({
   qrBottomMm: 3,
   qrOffsetXmm: 0,
   qrOffsetYmm: 0,
+  qrColor: '#0f766e',
+  qrBackgroundColor: '#ffffff',
   showOuterBorder: true,
   outerBorderColor: '#8bc7c0',
   outerBorderWidthMm: 0.45,
@@ -71,11 +78,15 @@ export const normalizeIdCardDesign = (value = {}) => {
     logoSizeMm: clampDesignNumber(design.logoSizeMm, DEFAULT_ID_CARD_DESIGN.logoSizeMm, 7, 22),
     logoOffsetXmm: clampDesignNumber(design.logoOffsetXmm, DEFAULT_ID_CARD_DESIGN.logoOffsetXmm, -12, 12),
     logoOffsetYmm: clampDesignNumber(design.logoOffsetYmm, DEFAULT_ID_CARD_DESIGN.logoOffsetYmm, -8, 8),
+    logoRightSizeMm: clampDesignNumber(design.logoRightSizeMm, DEFAULT_ID_CARD_DESIGN.logoRightSizeMm, 7, 22),
+    logoRightOffsetXmm: clampDesignNumber(design.logoRightOffsetXmm, DEFAULT_ID_CARD_DESIGN.logoRightOffsetXmm, -12, 12),
+    logoRightOffsetYmm: clampDesignNumber(design.logoRightOffsetYmm, DEFAULT_ID_CARD_DESIGN.logoRightOffsetYmm, -8, 8),
     photoSizeMm: clampDesignNumber(design.photoSizeMm, DEFAULT_ID_CARD_DESIGN.photoSizeMm, 22, 32),
     photoOffsetXmm: clampDesignNumber(design.photoOffsetXmm, DEFAULT_ID_CARD_DESIGN.photoOffsetXmm, -12, 12),
     photoOffsetYmm: clampDesignNumber(design.photoOffsetYmm, DEFAULT_ID_CARD_DESIGN.photoOffsetYmm, -12, 12),
     nameSizePt: clampDesignNumber(design.nameSizePt, DEFAULT_ID_CARD_DESIGN.nameSizePt, 9, 18),
     nameGapMm: clampDesignNumber(design.nameGapMm, DEFAULT_ID_CARD_DESIGN.nameGapMm, 0, 8),
+    nameOffsetYmm: clampDesignNumber(design.nameOffsetYmm, DEFAULT_ID_CARD_DESIGN.nameOffsetYmm, -8, 8),
     numberSizePt: clampDesignNumber(design.numberSizePt, DEFAULT_ID_CARD_DESIGN.numberSizePt, 7, 15),
     numberGapMm: clampDesignNumber(design.numberGapMm, DEFAULT_ID_CARD_DESIGN.numberGapMm, 0, 8),
     numberWidthMm: clampDesignNumber(design.numberWidthMm, DEFAULT_ID_CARD_DESIGN.numberWidthMm, 26, 42),
@@ -85,6 +96,8 @@ export const normalizeIdCardDesign = (value = {}) => {
     qrBottomMm: clampDesignNumber(design.qrBottomMm, DEFAULT_ID_CARD_DESIGN.qrBottomMm, 0, 10),
     qrOffsetXmm: clampDesignNumber(design.qrOffsetXmm, DEFAULT_ID_CARD_DESIGN.qrOffsetXmm, -12, 12),
     qrOffsetYmm: clampDesignNumber(design.qrOffsetYmm, DEFAULT_ID_CARD_DESIGN.qrOffsetYmm, -12, 12),
+    qrColor: /^#[0-9a-f]{6}$/i.test(String(design.qrColor || '')) ? design.qrColor : DEFAULT_ID_CARD_DESIGN.qrColor,
+    qrBackgroundColor: /^#[0-9a-f]{6}$/i.test(String(design.qrBackgroundColor || '')) ? design.qrBackgroundColor : DEFAULT_ID_CARD_DESIGN.qrBackgroundColor,
     outerBorderWidthMm: clampDesignNumber(design.outerBorderWidthMm, DEFAULT_ID_CARD_DESIGN.outerBorderWidthMm, 0, 2),
     cardRadiusMm: clampDesignNumber(design.cardRadiusMm, DEFAULT_ID_CARD_DESIGN.cardRadiusMm, 0, 8),
     showOuterBorder: design.showOuterBorder !== false,
@@ -129,7 +142,7 @@ const renderImage = ({ alt, className, src }) => {
     : '';
 };
 
-export const renderIdCardMarkup = ({ card, logoUrl, qrDataUrl = '' }) => {
+export const renderIdCardMarkup = ({ card, designConfig, logoRightUrl, logoUrl, qrDataUrl = '' }) => {
   const name = card?.nama_panggilan || card?.nama_lengkap || 'Nama Santri';
   const nomorInduk = card?.nomor_induk_qiroati || '';
   const photo = renderImage({
@@ -141,6 +154,11 @@ export const renderIdCardMarkup = ({ card, logoUrl, qrDataUrl = '' }) => {
     alt: 'Logo LPQ Al-Fath Maulana',
     className: 'id-card__logo',
     src: logoUrl,
+  });
+  const logoRight = renderImage({
+    alt: 'Logo kanan ID Card',
+    className: 'id-card__logo id-card__logo--right',
+    src: logoRightUrl,
   });
   const qr = nomorInduk && qrDataUrl
     ? renderImage({
@@ -154,8 +172,9 @@ export const renderIdCardMarkup = ({ card, logoUrl, qrDataUrl = '' }) => {
     <div class="id-card__decor id-card__decor--one" aria-hidden="true"></div>
     <div class="id-card__decor id-card__decor--two" aria-hidden="true"></div>
     <div class="id-card__decor id-card__decor--three" aria-hidden="true"></div>
-    <header class="id-card__header">
-      ${logo || '<span class="id-card__brand-fallback">LPQ</span>'}
+    <header class="id-card__header ${logoRight ? 'has-right-logo' : ''}">
+      <span class="id-card__logo-slot id-card__logo-slot--left">${logo || '<span class="id-card__brand-fallback">LPQ</span>'}</span>
+      <span class="id-card__logo-slot id-card__logo-slot--right">${logoRight}</span>
     </header>
     <div class="id-card__photo-frame">${photo}</div>
     <h2 class="id-card__name">${escapeIdCardHtml(name)}</h2>
@@ -196,13 +215,18 @@ export const ID_CARD_PRINT_STYLES = ({ designConfig, paperSize = 'A4' } = {}) =>
     .id-card__decor--one { top: 20mm; left: -3mm; background: #14b8a6; }
     .id-card__decor--two { top: 10mm; right: -2mm; background: #eab308; transform: rotate(26deg); }
     .id-card__decor--three { bottom: 19mm; left: -2mm; background: #2563eb; transform: rotate(28deg); }
-    .id-card__header { position: relative; z-index: 1; display: flex; width: 100%; align-items: center; justify-content: ${logoAlignment}; gap: 1.1mm; padding: 4.5mm 4mm 0; transform: translate(${design.logoOffsetXmm}mm, ${design.logoOffsetYmm}mm); }
+    .id-card__header { position: relative; z-index: 1; display: flex; width: 100%; align-items: center; justify-content: ${logoAlignment}; gap: 1.1mm; padding: 4.5mm 4mm 0; }
+    .id-card__header.has-right-logo { justify-content: space-between; }
+    .id-card__logo-slot { display: flex; align-items: center; min-width: 0; }
+    .id-card__logo-slot--left { transform: translate(${design.logoOffsetXmm}mm, ${design.logoOffsetYmm}mm); }
+    .id-card__logo-slot--right { transform: translate(${design.logoRightOffsetXmm}mm, ${design.logoRightOffsetYmm}mm); }
     .id-card__logo { width: ${design.logoSizeMm}mm; height: ${design.logoSizeMm}mm; object-fit: contain; }
+    .id-card__logo--right { width: ${design.logoRightSizeMm}mm; height: ${design.logoRightSizeMm}mm; }
     .id-card__brand-fallback { display: grid; width: 17mm; height: 9mm; place-items: center; border-radius: 2mm; color: #0f766e; background: rgba(204,251,241,.9); font-size: 6.2pt; font-weight: 900; letter-spacing: .06em; }
     .id-card__photo-frame { position: relative; z-index: 1; display: grid; width: ${design.photoSizeMm}mm; height: ${design.photoSizeMm}mm; place-items: center; margin-top: 3.5mm; padding: 0; border: 0; border-radius: 50%; background: transparent; box-shadow: none; transform: translate(${design.photoOffsetXmm}mm, ${design.photoOffsetYmm}mm); }
     .id-card__photo { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
     .id-card__photo-fallback { display: grid; width: 100%; height: 100%; place-items: center; border-radius: 50%; color: #0f766e; background: #dff7f2; font-size: 22pt; font-weight: 900; }
-    .id-card__name { position: relative; z-index: 1; width: 100%; min-height: 0; margin: ${design.nameGapMm}mm 5mm 0; color: ${design.nameColor}; font-family: ${design.nameFontFamily}; font-size: ${design.nameSizePt}pt; font-weight: 900; line-height: 1.05; text-align: center; overflow-wrap: anywhere; }
+    .id-card__name { position: relative; z-index: 1; width: 100%; min-height: 0; margin: ${design.nameGapMm}mm 5mm 0; color: ${design.nameColor}; font-family: ${design.nameFontFamily}; font-size: ${design.nameSizePt}pt; font-weight: 900; line-height: 1.05; text-align: center; overflow-wrap: anywhere; transform: translateY(${design.nameOffsetYmm}mm); }
     .id-card__number { position: relative; z-index: 1; display: flex; width: ${design.numberWidthMm}mm; min-height: 9mm; align-items: center; justify-content: center; margin-top: ${design.numberGapMm}mm; border: .6mm solid #8b8b8b; border-radius: 5mm; background: rgba(255,255,255,.77); }
     .id-card__number strong { max-width: ${Math.max(22, design.numberWidthMm - 4)}mm; color: ${design.numberColor}; font-family: ${design.numberFontFamily}; font-size: ${design.numberSizePt}pt; letter-spacing: ${design.numberLetterSpacing}em; overflow-wrap: anywhere; text-align: center; }
     .id-card__qr-wrap { position: relative; z-index: 1; display: grid; width: ${design.qrSizeMm}mm; height: ${design.qrSizeMm}mm; place-items: center; align-self: flex-end; margin-top: auto; margin-right: ${design.qrRightMm}mm; margin-bottom: ${design.qrBottomMm}mm; transform: translate(${design.qrOffsetXmm}mm, ${design.qrOffsetYmm}mm); }
@@ -229,10 +253,11 @@ export const buildIdCardPrintHtml = ({
   designConfig,
 }) => {
   const paper = getIdCardPaperConfig(paperSize);
+  const design = normalizeIdCardDesign(designConfig);
   const pages = chunkIdCardRecords(cards, paper.cardsPerPage);
   const sheetMarkup = pages.map((page) => `
     <section class="id-card-sheet">
-      ${page.map((card) => renderIdCardMarkup({ card, logoUrl, qrDataUrl: qrDataUrls[card.id] })).join('')}
+      ${page.map((card) => renderIdCardMarkup({ card, designConfig: design, logoRightUrl: design.logoRightUrl, logoUrl, qrDataUrl: qrDataUrls[card.id] })).join('')}
     </section>`).join('');
 
   return `<!doctype html>

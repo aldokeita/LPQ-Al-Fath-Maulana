@@ -48,6 +48,8 @@ assert.match(html, /data:image\/png;base64,QR/);
 assert.match(html, /id-card__photo-fallback/);
 assert.doesNotMatch(html, /id-card::after/);
 assert.match(html, /id-card__photo-frame[^}]*border: 0;/);
+assert.match(html, /id-card__header[^}]*justify-content: flex-start/);
+assert.match(html, /id-card__name[^}]*transform: translateY\(0mm\)/);
 assert.doesNotMatch(html, /Aisyah <Utama>/);
 assert.doesNotMatch(html, /Nomor Induk Qiroati|Kartu Santri|Jilid 2A|Pagi/);
 

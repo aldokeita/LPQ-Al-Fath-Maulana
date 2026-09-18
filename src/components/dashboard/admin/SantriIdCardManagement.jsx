@@ -122,6 +122,7 @@ const SantriIdCardManagement = () => {
 
   useEffect(() => {
     let cancelled = false;
+    const qrDesign = designForRender;
 
     if (selectedSantri.length === 0) {
       setQrDataUrls({});
@@ -137,6 +138,10 @@ const SantriIdCardManagement = () => {
           width: 160,
           margin: 1,
           errorCorrectionLevel: 'M',
+          color: {
+            dark: qrDesign.qrColor,
+            light: qrDesign.qrBackgroundColor,
+          },
         });
         return [item.id, dataUrl];
       } catch (qrError) {
@@ -150,7 +155,7 @@ const SantriIdCardManagement = () => {
     });
 
     return () => { cancelled = true; };
-  }, [selectedSantri]);
+  }, [designForRender.qrBackgroundColor, designForRender.qrColor, selectedSantri]);
 
   const toggleSantri = (santriId) => {
     setSelectedIds((current) => {

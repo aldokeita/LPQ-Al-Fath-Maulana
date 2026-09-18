@@ -10,6 +10,10 @@ const FONT_OPTIONS = [
   { value: 'Montserrat, Arial, sans-serif', label: 'Montserrat · Modern' },
   { value: 'Cinzel, Georgia, serif', label: 'Cinzel · Editorial' },
   { value: 'Poppins, Arial, sans-serif', label: 'Poppins · Rounded' },
+  { value: 'Playfair Display, Georgia, serif', label: 'Playfair Display · Elegant' },
+  { value: 'DM Sans, Arial, sans-serif', label: 'DM Sans · Minimal' },
+  { value: 'Trebuchet MS, Arial, sans-serif', label: 'Trebuchet · Friendly' },
+  { value: 'Courier New, monospace', label: 'Courier New · Technical' },
   { value: 'Arial, Helvetica, sans-serif', label: 'Arial · Clean' },
 ];
 
@@ -47,6 +51,7 @@ const ColorField = ({ label, onChange, value }) => (
 const SantriIdCardLiveEditor = ({ design, onChange, onReset, onSave }) => {
   const backgroundInputRef = useRef(null);
   const logoInputRef = useRef(null);
+  const logoRightInputRef = useRef(null);
 
   const update = (field, value) => onChange((current) => ({ ...current, [field]: value }));
 
@@ -65,6 +70,15 @@ const SantriIdCardLiveEditor = ({ design, onChange, onReset, onSave }) => {
     if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) return;
     const dataUrl = await readFileAsDataUrl(file);
     update('logoUrl', dataUrl);
+    event.target.value = '';
+  };
+
+  const handleRightLogoUpload = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) return;
+    const dataUrl = await readFileAsDataUrl(file);
+    update('logoRightUrl', dataUrl);
     event.target.value = '';
   };
 
@@ -97,12 +111,16 @@ const SantriIdCardLiveEditor = ({ design, onChange, onReset, onSave }) => {
             <RangeField label="Ukuran logo" value={design.logoSizeMm} min={7} max={22} unit=" mm" onChange={(value) => update('logoSizeMm', value)} />
           </div>
           <div className="santri-id-card-editor__two-col"><RangeField label="Geser logo kiri ↔ kanan" value={design.logoOffsetXmm} min={-12} max={12} unit=" mm" onChange={(value) => update('logoOffsetXmm', value)} /><RangeField label="Geser logo atas ↕ bawah" value={design.logoOffsetYmm} min={-8} max={8} unit=" mm" onChange={(value) => update('logoOffsetYmm', value)} /></div>
+          <div className="santri-id-card-editor__field"><Label htmlFor="id-card-logo-right-url">Logo kanan atas (opsional)</Label><div className="santri-id-card-editor__input-pair"><Input id="id-card-logo-right-url" value={design.logoRightUrl} placeholder="URL atau upload logo kedua" onChange={(event) => update('logoRightUrl', event.target.value)} /><Button type="button" variant="outline" size="icon" onClick={() => logoRightInputRef.current?.click()} aria-label="Upload logo kanan"><Upload aria-hidden="true" /></Button><input ref={logoRightInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleRightLogoUpload} hidden /></div></div>
+          <div className="santri-id-card-editor__two-col"><RangeField label="Ukuran logo kanan" value={design.logoRightSizeMm} min={7} max={22} unit=" mm" onChange={(value) => update('logoRightSizeMm', value)} /><RangeField label="Geser logo kanan X" value={design.logoRightOffsetXmm} min={-12} max={12} unit=" mm" onChange={(value) => update('logoRightOffsetXmm', value)} /></div>
+          <RangeField label="Geser logo kanan Y" value={design.logoRightOffsetYmm} min={-8} max={8} unit=" mm" onChange={(value) => update('logoRightOffsetYmm', value)} />
         </ControlGroup>
 
         <ControlGroup title="Nama panggilan" description="Nama dicetak tanpa label tambahan.">
           <div className="santri-id-card-editor__field"><Label>Font nama</Label><Select value={design.nameFontFamily} onValueChange={(value) => update('nameFontFamily', value)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{FONT_OPTIONS.map((font) => <SelectItem key={font.value} value={font.value}>{font.label}</SelectItem>)}</SelectContent></Select></div>
           <div className="santri-id-card-editor__two-col"><ColorField label="Warna nama" value={design.nameColor} onChange={(value) => update('nameColor', value)} /><RangeField label="Ukuran nama" value={design.nameSizePt} min={9} max={18} unit=" pt" onChange={(value) => update('nameSizePt', value)} /></div>
           <RangeField label="Jarak foto → nama" value={design.nameGapMm} min={0} max={8} unit=" mm" step={0.5} onChange={(value) => update('nameGapMm', value)} />
+          <RangeField label="Geser nama atas ↕ bawah" value={design.nameOffsetYmm} min={-8} max={8} unit=" mm" step={0.5} onChange={(value) => update('nameOffsetYmm', value)} />
         </ControlGroup>
 
         <ControlGroup title="Nomor induk" description="Nomor tampil langsung tanpa teks “Nomor Induk Qiroati”.">
@@ -112,12 +130,13 @@ const SantriIdCardLiveEditor = ({ design, onChange, onReset, onSave }) => {
           <RangeField label="Lebar bidang nomor" value={design.numberWidthMm} min={26} max={42} unit=" mm" onChange={(value) => update('numberWidthMm', value)} />
         </ControlGroup>
 
-        <ControlGroup title="Foto & QR Code" description="QR selalu berada di area kanan bawah kartu.">
+        <ControlGroup title="Foto & QR Code" description="QR dapat dipindahkan ke arah mana pun dari posisi kanan bawah.">
           <RangeField label="Diameter foto" value={design.photoSizeMm} min={22} max={36} unit=" mm" onChange={(value) => update('photoSizeMm', value)} />
           <div className="santri-id-card-editor__two-col"><RangeField label="Geser avatar kiri ↔ kanan" value={design.photoOffsetXmm} min={-12} max={12} unit=" mm" step={0.5} onChange={(value) => update('photoOffsetXmm', value)} /><RangeField label="Geser avatar atas ↕ bawah" value={design.photoOffsetYmm} min={-12} max={12} unit=" mm" step={0.5} onChange={(value) => update('photoOffsetYmm', value)} /></div>
           <RangeField label="Ukuran QR" value={design.qrSizeMm} min={10} max={22} unit=" mm" onChange={(value) => update('qrSizeMm', value)} />
           <div className="santri-id-card-editor__two-col"><RangeField label="Jarak kanan QR" value={design.qrRightMm} min={0} max={10} unit=" mm" step={0.5} onChange={(value) => update('qrRightMm', value)} /><RangeField label="Jarak bawah QR" value={design.qrBottomMm} min={0} max={10} unit=" mm" step={0.5} onChange={(value) => update('qrBottomMm', value)} /></div>
           <div className="santri-id-card-editor__two-col"><RangeField label="Geser QR kiri ↔ kanan" value={design.qrOffsetXmm} min={-12} max={12} unit=" mm" step={0.5} onChange={(value) => update('qrOffsetXmm', value)} /><RangeField label="Geser QR atas ↕ bawah" value={design.qrOffsetYmm} min={-12} max={12} unit=" mm" step={0.5} onChange={(value) => update('qrOffsetYmm', value)} /></div>
+          <div className="santri-id-card-editor__two-col"><ColorField label="Warna QR" value={design.qrColor} onChange={(value) => update('qrColor', value)} /><ColorField label="Latar QR" value={design.qrBackgroundColor} onChange={(value) => update('qrBackgroundColor', value)} /></div>
         </ControlGroup>
 
         <ControlGroup title="Bingkai luar" description="Garis interior sengaja dihapus agar background tetap bersih.">
