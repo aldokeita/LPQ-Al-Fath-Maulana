@@ -40,6 +40,8 @@ export const DEFAULT_ID_CARD_DESIGN = Object.freeze({
   photoSizeMm: 26,
   photoOffsetXmm: 0,
   photoOffsetYmm: -2,
+  photoBorderColor: '#ffffff',
+  photoBorderWidthMm: 0.5,
   nameFontFamily: 'Montserrat, Arial, sans-serif',
   nameColor: '#f59e0b',
   nameSizePt: 13,
@@ -84,6 +86,7 @@ export const normalizeIdCardDesign = (value = {}) => {
     photoSizeMm: clampDesignNumber(design.photoSizeMm, DEFAULT_ID_CARD_DESIGN.photoSizeMm, 22, 32),
     photoOffsetXmm: clampDesignNumber(design.photoOffsetXmm, DEFAULT_ID_CARD_DESIGN.photoOffsetXmm, -12, 12),
     photoOffsetYmm: clampDesignNumber(design.photoOffsetYmm, DEFAULT_ID_CARD_DESIGN.photoOffsetYmm, -12, 12),
+    photoBorderWidthMm: clampDesignNumber(design.photoBorderWidthMm, DEFAULT_ID_CARD_DESIGN.photoBorderWidthMm, 0, 2),
     nameSizePt: clampDesignNumber(design.nameSizePt, DEFAULT_ID_CARD_DESIGN.nameSizePt, 9, 18),
     nameGapMm: clampDesignNumber(design.nameGapMm, DEFAULT_ID_CARD_DESIGN.nameGapMm, 0, 8),
     nameOffsetYmm: clampDesignNumber(design.nameOffsetYmm, DEFAULT_ID_CARD_DESIGN.nameOffsetYmm, -8, 8),
@@ -143,8 +146,14 @@ const renderImage = ({ alt, className, src }) => {
 };
 
 export const renderIdCardMarkup = ({ card, designConfig, logoRightUrl, logoUrl, qrDataUrl = '' }) => {
+  const design = normalizeIdCardDesign(designConfig);
   const name = card?.nama_panggilan || card?.nama_lengkap || 'Nama Santri';
   const nomorInduk = card?.nomor_induk_qiroati || '';
+  const background = renderImage({
+    alt: '',
+    className: 'id-card__background',
+    src: design.backgroundUrl,
+  });
   const photo = renderImage({
     alt: `Foto ${name}`,
     className: 'id-card__photo',
@@ -169,6 +178,7 @@ export const renderIdCardMarkup = ({ card, designConfig, logoRightUrl, logoUrl, 
     : `<span class="id-card__qr-fallback">QR tidak tersedia</span>`;
 
   return `<article class="id-card" aria-label="ID Card ${escapeIdCardHtml(name)}">
+    ${background}
     <div class="id-card__decor id-card__decor--one" aria-hidden="true"></div>
     <div class="id-card__decor id-card__decor--two" aria-hidden="true"></div>
     <div class="id-card__decor id-card__decor--three" aria-hidden="true"></div>
@@ -209,8 +219,9 @@ export const ID_CARD_PRINT_STYLES = ({ designConfig, paperSize = 'A4' } = {}) =>
     .id-card-toolbar button { min-height: 40px; padding: 0 18px; border: 0; border-radius: 999px; color: #fff; background: linear-gradient(135deg,#0d9488,#2563eb); font-weight: 800; cursor: pointer; }
     .id-card-sheet { display: grid; width: var(--id-card-page-width); min-height: var(--id-card-page-height); grid-template-columns: repeat(${paper.columns}, var(--id-card-width)); grid-template-rows: repeat(${paper.rows}, var(--id-card-height)); align-content: start; justify-content: center; gap: var(--id-card-gap); padding: var(--id-card-padding); margin: 0 auto 18px; background: #fff; box-shadow: 0 20px 48px rgba(15,23,42,.18); break-after: page; page-break-after: always; }
     .id-card-sheet:last-child { break-after: auto; page-break-after: auto; }
-    .id-card { position: relative; display: flex; width: var(--id-card-width); height: var(--id-card-height); flex-direction: column; align-items: center; overflow: hidden; page-break-inside: avoid; break-inside: avoid; border: ${borderCss}; border-radius: ${design.cardRadiusMm}mm; background: #fff ${backgroundCss} center / 100% 100% no-repeat; box-shadow: 0 1.4mm 3mm rgba(15,118,110,.17); }
+    .id-card { position: relative; display: flex; width: var(--id-card-width); height: var(--id-card-height); flex-direction: column; align-items: center; overflow: hidden; page-break-inside: avoid; break-inside: avoid; border: ${borderCss}; border-radius: ${design.cardRadiusMm}mm; background: #fff ${backgroundCss} center / 100% 100% no-repeat; box-shadow: 0 1.4mm 3mm rgba(15,118,110,.17); print-color-adjust: exact; -webkit-print-color-adjust: exact; }
     .id-card::before { content: ""; position: absolute; inset: 0; background: transparent; pointer-events: none; }
+    .id-card__background { position: absolute; z-index: 0; inset: 0; width: 100%; height: 100%; object-fit: fill; pointer-events: none; }
     .id-card__decor { position: absolute; z-index: 0; width: 13mm; height: 1mm; border-radius: 999px; opacity: .78; transform: rotate(-28deg); }
     .id-card__decor--one { top: 20mm; left: -3mm; background: #14b8a6; }
     .id-card__decor--two { top: 10mm; right: -2mm; background: #eab308; transform: rotate(26deg); }
@@ -223,7 +234,7 @@ export const ID_CARD_PRINT_STYLES = ({ designConfig, paperSize = 'A4' } = {}) =>
     .id-card__logo { width: ${design.logoSizeMm}mm; height: ${design.logoSizeMm}mm; object-fit: contain; }
     .id-card__logo--right { width: ${design.logoRightSizeMm}mm; height: ${design.logoRightSizeMm}mm; }
     .id-card__brand-fallback { display: grid; width: 17mm; height: 9mm; place-items: center; border-radius: 2mm; color: #0f766e; background: rgba(204,251,241,.9); font-size: 6.2pt; font-weight: 900; letter-spacing: .06em; }
-    .id-card__photo-frame { position: relative; z-index: 1; display: grid; width: ${design.photoSizeMm}mm; height: ${design.photoSizeMm}mm; place-items: center; margin-top: 3.5mm; padding: 0; border: 0; border-radius: 50%; background: transparent; box-shadow: none; transform: translate(${design.photoOffsetXmm}mm, ${design.photoOffsetYmm}mm); }
+    .id-card__photo-frame { position: relative; z-index: 1; display: grid; width: ${design.photoSizeMm}mm; height: ${design.photoSizeMm}mm; place-items: center; margin-top: 3.5mm; padding: 0; border: ${design.photoBorderWidthMm}mm solid ${design.photoBorderColor}; border-radius: 50%; background: transparent; box-shadow: none; transform: translate(${design.photoOffsetXmm}mm, ${design.photoOffsetYmm}mm); }
     .id-card__photo { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
     .id-card__photo-fallback { display: grid; width: 100%; height: 100%; place-items: center; border-radius: 50%; color: #0f766e; background: #dff7f2; font-size: 22pt; font-weight: 900; }
     .id-card__name { position: relative; z-index: 1; width: 100%; min-height: 0; margin: ${design.nameGapMm}mm 5mm 0; color: ${design.nameColor}; font-family: ${design.nameFontFamily}; font-size: ${design.nameSizePt}pt; font-weight: 900; line-height: 1.05; text-align: center; overflow-wrap: anywhere; transform: translateY(${design.nameOffsetYmm}mm); }
