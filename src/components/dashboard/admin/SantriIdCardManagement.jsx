@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import QRCode from 'qrcode';
 import {
   Check,
-  CalendarDays,
   CreditCard,
   Printer,
   RefreshCw,
@@ -44,6 +43,14 @@ const getInitial = (name) => String(name || 'S').trim().charAt(0).toUpperCase() 
 
 const normalizeEntryDate = (value) => String(value || '').slice(0, 10);
 
+const getEntryDateTimestamp = (value) => {
+  const normalized = normalizeEntryDate(value);
+  if (!normalized) return null;
+
+  const timestamp = Date.parse(`${normalized}T00:00:00`);
+  return Number.isNaN(timestamp) ? null : timestamp;
+};
+
 const formatEntryDate = (value) => {
   const normalized = normalizeEntryDate(value);
   if (!normalized) return 'Tanggal masuk belum diatur';
@@ -58,7 +65,7 @@ const SantriIdCardManagement = () => {
   const { role } = useAuth();
   const [santri, setSantri] = useState([]);
   const [selectedIds, setSelectedIds] = useState(() => new Set());
-  const [filters, setFilters] = useState({ search: '', kategori: 'all', jenisKelamin: 'all', tanggalMasuk: '', sesi: 'all' });
+  const [filters, setFilters] = useState({ search: '', kategori: 'all', tanggalMasuk: 'newest', sesi: 'all' });
   const [paperSize, setPaperSize] = useState('A4');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -109,15 +116,28 @@ const SantriIdCardManagement = () => {
 
   const filteredSantri = useMemo(() => {
     const query = filters.search.trim().toLowerCase();
-    return santri.filter((item) => {
+    const matchingSantri = santri.filter((item) => {
       const session = getSessionName(item.sesi_mengaji);
       const searchMatches = !query || [item.nama_lengkap, item.nama_panggilan, item.nomor_induk_qiroati]
         .some((value) => String(value || '').toLowerCase().includes(query));
       const categoryMatches = filters.kategori === 'all' || String(item.kategori || '').toLowerCase() === filters.kategori.toLowerCase();
-      const genderMatches = filters.jenisKelamin === 'all' || String(item.jenis_kelamin || '').toLowerCase() === filters.jenisKelamin.toLowerCase();
-      const entryDateMatches = !filters.tanggalMasuk || normalizeEntryDate(item.tanggal_pendaftaran) === filters.tanggalMasuk;
       const sessionMatches = filters.sesi === 'all' || session === filters.sesi;
-      return searchMatches && categoryMatches && genderMatches && entryDateMatches && sessionMatches;
+      return searchMatches && categoryMatches && sessionMatches;
+    });
+
+    if (!['newest', 'oldest'].includes(filters.tanggalMasuk)) return matchingSantri;
+
+    return [...matchingSantri].sort((left, right) => {
+      const leftTimestamp = getEntryDateTimestamp(left.tanggal_pendaftaran);
+      const rightTimestamp = getEntryDateTimestamp(right.tanggal_pendaftaran);
+
+      if (leftTimestamp === null && rightTimestamp === null) return 0;
+      if (leftTimestamp === null) return 1;
+      if (rightTimestamp === null) return -1;
+
+      return filters.tanggalMasuk === 'oldest'
+        ? leftTimestamp - rightTimestamp
+        : rightTimestamp - leftTimestamp;
     });
   }, [filters, santri]);
 
@@ -283,24 +303,13 @@ const SantriIdCardManagement = () => {
             <SelectItem value="Dewasa">Santri Dewasa</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={filters.jenisKelamin} onValueChange={(value) => setFilters((current) => ({ ...current, jenisKelamin: value }))}>
-          <SelectTrigger aria-label="Filter jenis kelamin"><SelectValue placeholder="Jenis kelamin" /></SelectTrigger>
+        <Select value={filters.tanggalMasuk} onValueChange={(value) => setFilters((current) => ({ ...current, tanggalMasuk: value }))}>
+          <SelectTrigger aria-label="Urutan tanggal masuk"><SelectValue placeholder="Tanggal masuk" /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Semua gender</SelectItem>
-            <SelectItem value="Laki-laki">Laki-laki</SelectItem>
-            <SelectItem value="Perempuan">Perempuan</SelectItem>
+            <SelectItem value="newest">Masuk terbaru</SelectItem>
+            <SelectItem value="oldest">Masuk terlama</SelectItem>
           </SelectContent>
         </Select>
-        <div className="santri-id-card__date-filter">
-          <CalendarDays aria-hidden="true" />
-          <Input
-            type="date"
-            value={filters.tanggalMasuk}
-            onChange={(event) => setFilters((current) => ({ ...current, tanggalMasuk: event.target.value }))}
-            aria-label="Filter tanggal masuk"
-            title="Filter tanggal masuk"
-          />
-        </div>
         <Select value={filters.sesi} onValueChange={(value) => setFilters((current) => ({ ...current, sesi: value }))}>
           <SelectTrigger aria-label="Filter sesi mengaji"><SelectValue placeholder="Sesi" /></SelectTrigger>
           <SelectContent>
@@ -313,8 +322,7 @@ const SantriIdCardManagement = () => {
       <div className="santri-id-card__workspace">
         <div className="santri-id-card__preview-panel">
           <div className="santri-id-card__preview-header">
-            <div><p>Preview & cetak</p><h3>{selectedSantri.length === 0 ? 'Belum ada kartu dipilih' : `${selectedSantri.length} ID Card siap dibuat`}</h3></div>
-            <div className="santri-id-card__paper-controls">
+            <div className="santri-id-card__preview-heading">
               <Button
                 type="button"
                 variant="outline"
@@ -327,6 +335,9 @@ const SantriIdCardManagement = () => {
                 <span>Seleksi Santri</span>
                 <strong aria-live="polite">{selectedSantri.length}</strong>
               </Button>
+              <div><p>Preview & cetak</p><h3>{selectedSantri.length === 0 ? 'Belum ada kartu dipilih' : `${selectedSantri.length} ID Card siap dibuat`}</h3></div>
+            </div>
+            <div className="santri-id-card__paper-controls">
               <Select value={paperSize} onValueChange={setPaperSize}>
                 <SelectTrigger aria-label="Pilih ukuran kertas"><SelectValue /></SelectTrigger>
                 <SelectContent>{Object.entries(ID_CARD_PAPER_OPTIONS).map(([value, option]) => <SelectItem key={value} value={value}>{option.label}</SelectItem>)}</SelectContent>
