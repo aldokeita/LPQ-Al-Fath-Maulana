@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import QRCode from 'qrcode';
 import {
   Check,
+  CalendarDays,
   CreditCard,
   Printer,
   RefreshCw,
@@ -13,6 +14,14 @@ import {
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/components/ui/use-toast';
@@ -33,11 +42,23 @@ import '@/styles/santri-id-card.css';
 
 const getInitial = (name) => String(name || 'S').trim().charAt(0).toUpperCase() || 'S';
 
+const normalizeEntryDate = (value) => String(value || '').slice(0, 10);
+
+const formatEntryDate = (value) => {
+  const normalized = normalizeEntryDate(value);
+  if (!normalized) return 'Tanggal masuk belum diatur';
+
+  const parsed = new Date(`${normalized}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) return 'Tanggal masuk belum diatur';
+
+  return parsed.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+};
+
 const SantriIdCardManagement = () => {
   const { role } = useAuth();
   const [santri, setSantri] = useState([]);
   const [selectedIds, setSelectedIds] = useState(() => new Set());
-  const [filters, setFilters] = useState({ search: '', kategori: 'all', jenisKelamin: 'all', sesi: 'all' });
+  const [filters, setFilters] = useState({ search: '', kategori: 'all', jenisKelamin: 'all', tanggalMasuk: '', sesi: 'all' });
   const [paperSize, setPaperSize] = useState('A4');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -52,6 +73,7 @@ const SantriIdCardManagement = () => {
   });
   const [qrDataUrls, setQrDataUrls] = useState({});
   const [isGeneratingQr, setIsGeneratingQr] = useState(false);
+  const [isSelectionOpen, setIsSelectionOpen] = useState(false);
 
   const loadSantri = useCallback(async () => {
     if (role !== 'admin') return;
@@ -93,8 +115,9 @@ const SantriIdCardManagement = () => {
         .some((value) => String(value || '').toLowerCase().includes(query));
       const categoryMatches = filters.kategori === 'all' || String(item.kategori || '').toLowerCase() === filters.kategori.toLowerCase();
       const genderMatches = filters.jenisKelamin === 'all' || String(item.jenis_kelamin || '').toLowerCase() === filters.jenisKelamin.toLowerCase();
+      const entryDateMatches = !filters.tanggalMasuk || normalizeEntryDate(item.tanggal_pendaftaran) === filters.tanggalMasuk;
       const sessionMatches = filters.sesi === 'all' || session === filters.sesi;
-      return searchMatches && categoryMatches && genderMatches && sessionMatches;
+      return searchMatches && categoryMatches && genderMatches && entryDateMatches && sessionMatches;
     });
   }, [filters, santri]);
 
@@ -241,7 +264,7 @@ const SantriIdCardManagement = () => {
 
       {error && <AdminErrorState message={error} onRetry={loadSantri} className="mb-5" />}
 
-      <div className="santri-id-card__toolbar" aria-label="Filter dan ukuran cetak ID Card">
+      <div className="santri-id-card__toolbar" aria-label="Filter santri untuk ID Card">
         <div className="santri-id-card__search">
           <Search aria-hidden="true" />
           <Input
@@ -268,6 +291,16 @@ const SantriIdCardManagement = () => {
             <SelectItem value="Perempuan">Perempuan</SelectItem>
           </SelectContent>
         </Select>
+        <div className="santri-id-card__date-filter">
+          <CalendarDays aria-hidden="true" />
+          <Input
+            type="date"
+            value={filters.tanggalMasuk}
+            onChange={(event) => setFilters((current) => ({ ...current, tanggalMasuk: event.target.value }))}
+            aria-label="Filter tanggal masuk"
+            title="Filter tanggal masuk"
+          />
+        </div>
         <Select value={filters.sesi} onValueChange={(value) => setFilters((current) => ({ ...current, sesi: value }))}>
           <SelectTrigger aria-label="Filter sesi mengaji"><SelectValue placeholder="Sesi" /></SelectTrigger>
           <SelectContent>
@@ -278,46 +311,27 @@ const SantriIdCardManagement = () => {
       </div>
 
       <div className="santri-id-card__workspace">
-        <aside className="santri-id-card__selection" aria-label="Daftar santri untuk ID Card">
-          <div className="santri-id-card__selection-header">
-            <div><p>Seleksi santri</p><span>{filteredSantri.length} hasil · {selectedSantri.length} dipilih</span></div>
-            <Users aria-hidden="true" />
-          </div>
-          <div className="santri-id-card__selection-actions">
-            <Button type="button" variant="outline" size="sm" onClick={toggleSelectAllFiltered} disabled={filteredSantri.length === 0}>
-              {allFilteredSelected ? <X aria-hidden="true" /> : <Check aria-hidden="true" />}
-              {allFilteredSelected ? 'Batalkan hasil' : 'Pilih semua hasil'}
-            </Button>
-            <Button type="button" variant="ghost" size="sm" onClick={clearSelection} disabled={selectedSantri.length === 0}>Deselect all</Button>
-          </div>
-          {isLoading ? (
-            <div className="santri-id-card__loading" role="status" aria-live="polite"><RefreshCw className="animate-spin" aria-hidden="true" /> Memuat data santri…</div>
-          ) : filteredSantri.length === 0 ? (
-            <AdminEmptyState icon={Users} title="Santri tidak ditemukan" description="Coba ubah pencarian atau filter yang digunakan." />
-          ) : (
-            <div className="santri-id-card__list">
-              {filteredSantri.map((item) => (
-                <label key={item.id} className={`santri-id-card__student ${selectedIds.has(item.id) ? 'is-selected' : ''}`}>
-                  <Checkbox checked={selectedIds.has(item.id)} onCheckedChange={() => toggleSantri(item.id)} aria-label={`Pilih ${item.nama_lengkap}`} />
-                  <span className="santri-id-card__student-avatar">
-                    {item.foto_url ? <img src={item.foto_url} alt="" loading="lazy" /> : <span aria-hidden="true">{getInitial(item.nama_lengkap)}</span>}
-                  </span>
-                  <span className="santri-id-card__student-copy"><strong>{item.nama_lengkap || 'Tanpa nama'}</strong><small>{item.nomor_induk_qiroati || 'Nomor induk belum tersedia'} · {getSessionName(item.sesi_mengaji) || 'Sesi belum diatur'}</small></span>
-                </label>
-              ))}
-            </div>
-          )}
-        </aside>
-
         <div className="santri-id-card__preview-panel">
           <div className="santri-id-card__preview-header">
             <div><p>Preview & cetak</p><h3>{selectedSantri.length === 0 ? 'Belum ada kartu dipilih' : `${selectedSantri.length} ID Card siap dibuat`}</h3></div>
             <div className="santri-id-card__paper-controls">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsSelectionOpen(true)}
+                className="santri-id-card__selection-trigger"
+                aria-haspopup="dialog"
+                aria-expanded={isSelectionOpen}
+              >
+                <Users aria-hidden="true" />
+                <span>Seleksi Santri</span>
+                <strong aria-live="polite">{selectedSantri.length}</strong>
+              </Button>
               <Select value={paperSize} onValueChange={setPaperSize}>
                 <SelectTrigger aria-label="Pilih ukuran kertas"><SelectValue /></SelectTrigger>
                 <SelectContent>{Object.entries(ID_CARD_PAPER_OPTIONS).map(([value, option]) => <SelectItem key={value} value={value}>{option.label}</SelectItem>)}</SelectContent>
               </Select>
-              <Button type="button" onClick={handlePrint} disabled={selectedSantri.length === 0 || isGeneratingQr} className="santri-id-card__print-button"><Printer aria-hidden="true" />{isGeneratingQr ? 'Menyiapkan QR…' : `Cetak ${selectedSantri.length || ''} ID Card`}</Button>
+              <Button type="button" onClick={handlePrint} disabled={selectedSantri.length === 0 || isGeneratingQr} className="santri-id-card__print-button" aria-label={`Cetak ${selectedSantri.length} ID Card`}><Printer aria-hidden="true" />{isGeneratingQr ? 'Menyiapkan QR…' : 'Cetak'}</Button>
             </div>
           </div>
           <div className="santri-id-card__print-status" role="status">
@@ -336,6 +350,45 @@ const SantriIdCardManagement = () => {
           )}
         </div>
       </div>
+
+      <Dialog open={isSelectionOpen} onOpenChange={setIsSelectionOpen}>
+        <DialogContent className="santri-id-card__selection-dialog">
+          <DialogHeader>
+            <DialogTitle className="santri-id-card__selection-dialog-title"><Users aria-hidden="true" /> Seleksi Santri</DialogTitle>
+            <DialogDescription>{filteredSantri.length} hasil sesuai filter · {selectedSantri.length} santri dipilih</DialogDescription>
+          </DialogHeader>
+
+          <div className="santri-id-card__selection-actions">
+            <Button type="button" variant="outline" size="sm" onClick={toggleSelectAllFiltered} disabled={filteredSantri.length === 0}>
+              {allFilteredSelected ? <X aria-hidden="true" /> : <Check aria-hidden="true" />}
+              {allFilteredSelected ? 'Batalkan hasil' : 'Pilih semua hasil'}
+            </Button>
+            <Button type="button" variant="ghost" size="sm" onClick={clearSelection} disabled={selectedSantri.length === 0}>Deselect all</Button>
+          </div>
+
+          {isLoading ? (
+            <div className="santri-id-card__loading" role="status" aria-live="polite"><RefreshCw className="animate-spin" aria-hidden="true" /> Memuat data santri…</div>
+          ) : filteredSantri.length === 0 ? (
+            <AdminEmptyState icon={Users} title="Santri tidak ditemukan" description="Coba ubah pencarian atau filter yang digunakan." />
+          ) : (
+            <div className="santri-id-card__list santri-id-card__selection-list">
+              {filteredSantri.map((item) => (
+                <label key={item.id} className={`santri-id-card__student ${selectedIds.has(item.id) ? 'is-selected' : ''}`}>
+                  <Checkbox checked={selectedIds.has(item.id)} onCheckedChange={() => toggleSantri(item.id)} aria-label={`Pilih ${item.nama_lengkap}`} />
+                  <span className="santri-id-card__student-avatar">
+                    {item.foto_url ? <img src={item.foto_url} alt="" loading="lazy" /> : <span aria-hidden="true">{getInitial(item.nama_lengkap)}</span>}
+                  </span>
+                  <span className="santri-id-card__student-copy"><strong>{item.nama_lengkap || 'Tanpa nama'}</strong><small>{item.nomor_induk_qiroati || 'Nomor induk belum tersedia'} · {getSessionName(item.sesi_mengaji) || 'Sesi belum diatur'} · Masuk {formatEntryDate(item.tanggal_pendaftaran)}</small></span>
+                </label>
+              ))}
+            </div>
+          )}
+
+          <DialogFooter className="santri-id-card__selection-dialog-footer">
+            <Button type="button" onClick={() => setIsSelectionOpen(false)}>Selesai</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 };

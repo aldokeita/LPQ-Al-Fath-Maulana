@@ -10,12 +10,14 @@ export const SANTRI_ID_CARD_SELECT = [
   'jenis_kelamin',
   'kategori',
   'tanggal_lahir',
+  'tanggal_pendaftaran',
   'sesi_mengaji',
   'jilid',
   'foto_url',
   'avatar_path',
   'status',
   'deleted_at',
+  'created_at',
 ].join(', ');
 
 const BATCH_SIZE = 500;
@@ -44,6 +46,7 @@ export const fetchSantriForIdCards = async () => {
   const resolvedRows = await resolveAvatarRecords(rows, { ownerType: 'santri' });
   return resolvedRows.map((row) => ({
     ...row,
+    tanggal_pendaftaran: row.tanggal_pendaftaran || row.created_at?.slice(0, 10) || null,
     sesi_label: getSessionName(row.sesi_mengaji),
   }));
 };
