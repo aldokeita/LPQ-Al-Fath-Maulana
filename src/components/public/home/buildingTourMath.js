@@ -1,7 +1,8 @@
-export const BUILDING_ASSET_REVISION = 2;
+export const BUILDING_ASSET_REVISION = 3;
 
 export const TOUR_STAGES = [
   { id: 'exterior', label: 'Tampak depan', progress: 0 },
+  { id: 'admin', label: 'Kantor admin', progress: 0.16 },
   { id: 'ground', label: 'Kelas lantai 1', progress: 0.31 },
   { id: 'stairs', label: 'Tangga dan selasar', progress: 0.55 },
   { id: 'upper', label: 'Kelas lantai 2', progress: 0.77 },

@@ -15,6 +15,11 @@
       "progress": 0
     },
     {
+      "id": "admin",
+      "label": "Kantor admin",
+      "progress": 0.16
+    },
+    {
       "id": "ground",
       "label": "Kelas lantai 1",
       "progress": 0.31
@@ -51,7 +56,7 @@
       "fov": 34.3316
     },
     {
-      "progress": 0.065,
+      "progress": 0.04,
       "position": [
         24,
         8,
@@ -65,39 +70,137 @@
       "fov": 34.3316
     },
     {
+      "progress": 0.07,
+      "position": [
+        16.75,
+        1.75,
+        6.3
+      ],
+      "target": [
+        18,
+        1.7,
+        1
+      ],
+      "fov": 41.6682
+    },
+    {
+      "progress": 0.085,
+      "position": [
+        16.75,
+        1.75,
+        4.5
+      ],
+      "target": [
+        19.15,
+        1.7,
+        2
+      ],
+      "fov": 41.6682
+    },
+    {
+      "progress": 0.1,
+      "position": [
+        19.15,
+        1.72,
+        4.05
+      ],
+      "target": [
+        19.15,
+        1.7,
+        1.2
+      ],
+      "fov": 41.6682
+    },
+    {
       "progress": 0.12,
       "position": [
-        16.75,
-        1.75,
-        6.2
+        19.15,
+        1.72,
+        1.2
       ],
       "target": [
-        13,
+        18,
         1.7,
-        0.5
+        -0.5
       ],
       "fov": 41.6682
     },
     {
-      "progress": 0.15,
+      "progress": 0.14,
       "position": [
-        16.75,
-        1.75,
-        3.8
+        18,
+        1.7,
+        1.15
       ],
       "target": [
-        8,
-        1.8,
-        1.1
+        18,
+        1.5,
+        -4
       ],
-      "fov": 41.6682
+      "fov": 49.4184
     },
     {
-      "progress": 0.19,
+      "progress": 0.16,
+      "position": [
+        18.2,
+        1.65,
+        -0.8
+      ],
+      "target": [
+        17.25,
+        1.1,
+        -2.5
+      ],
+      "fov": 60.2569
+    },
+    {
+      "progress": 0.175,
+      "position": [
+        18.4,
+        1.65,
+        -1.55
+      ],
+      "target": [
+        18,
+        1.4,
+        -5.2
+      ],
+      "fov": 60.2569
+    },
+    {
+      "progress": 0.185,
+      "position": [
+        18,
+        1.7,
+        -0.4
+      ],
+      "target": [
+        18,
+        1.5,
+        -5.5
+      ],
+      "fov": 49.4184
+    },
+    {
+      "progress": 0.195,
+      "position": [
+        18,
+        1.7,
+        1.2
+      ],
+      "target": [
+        7,
+        1.7,
+        1.2
+      ],
+      "fov": 43.946
+    },
+    {
+      "progress": 0.21,
       "position": [
         7,
         1.7,
-        1.1
+        1.2
       ],
       "target": [
         2,
@@ -321,7 +424,7 @@
       "position": [
         4.2,
         5.25,
-        -3.2
+        -3.45
       ],
       "target": [
         1.8,
@@ -335,26 +438,26 @@
       "position": [
         2.8,
         5.25,
-        -3.2
+        -3.45
       ],
       "target": [
-        -2.8,
+        -1.4,
         4.8,
-        -3.4
+        -3.5
       ],
       "fov": 49.4184
     },
     {
       "progress": 0.77,
       "position": [
-        1.3,
+        2.5,
         5.2,
-        -3.2
+        -3.45
       ],
       "target": [
-        -2.8,
+        -1.4,
         4.8,
-        -3.4
+        -3.5
       ],
       "fov": 54.3032
     },
@@ -363,12 +466,12 @@
       "position": [
         3.1,
         5.25,
-        -3.2
+        -3.45
       ],
       "target": [
-        -2.8,
+        -1.4,
         4.8,
-        -3.4
+        -3.5
       ],
       "fov": 49.4184
     },
@@ -377,7 +480,7 @@
       "position": [
         4.2,
         5.25,
-        -3.2
+        -3.45
       ],
       "target": [
         4.2,
@@ -443,7 +546,7 @@
       "fov": 55.975
     }
   ],
-  "revision": 2,
+  "revision": 3,
   "layout": {
     "groundRoomOrder": [
       5,
@@ -458,11 +561,32 @@
     ],
     "frontWalkwayWidth": 1.8,
     "firstStairFlight": "inner",
-    "tableRoom": 5,
+    "tableRoom": 1,
     "tableRotationDegrees": 90,
     "porchShadeCenterX": 8.8,
     "treeCount": 7,
     "hasClimbers": true,
-    "peopleModelled": false
+    "peopleModelled": false,
+    "sideFenceClosed": true,
+    "adminRoom": 1,
+    "upperRoomWidth": 3.3,
+    "upperRoomLengths": [
+      5.5,
+      5.4
+    ],
+    "shelfDepth": 0.26,
+    "brandingPanels": 9,
+    "doorRacks": 5,
+    "stairsClosedUnderneath": true
+  },
+  "roomUses": {
+    "ground": {
+      "1": "admin",
+      "2": "classroom",
+      "3": "classroom",
+      "4": "classroom",
+      "5": "classroom"
+    },
+    "upper": "four classrooms"
   }
 }

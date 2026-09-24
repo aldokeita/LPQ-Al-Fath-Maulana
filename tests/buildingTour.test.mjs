@@ -59,7 +59,7 @@ test('camera interpolation stays on each collision-checked segment', () => {
     const pose = sampleCamera(tour.keyframes, (a.progress + b.progress) / 2);
     pose.position.forEach((value, axis) => assert.ok(Math.abs(value - (a.position[axis] + b.position[axis]) / 2) < 1e-8));
   }
-  assert.equal(stageAt(1), 4);
+  assert.equal(stageAt(1), 5);
   assert.equal(stageAt(0), 0);
 });
 
@@ -86,7 +86,7 @@ test('revised layout records the corrected numbering, table, staircase and flora
   assert.equal(tour.revision, BUILDING_ASSET_REVISION);
   assert.deepEqual(tour.layout.groundRoomOrder, [5, 4, 3, 2, 1]);
   assert.deepEqual(tour.layout.gateOpeningX, [16, 17.5]);
-  assert.equal(tour.layout.tableRoom, 5);
+  assert.equal(tour.layout.tableRoom, 1);
   assert.equal(tour.layout.tableRotationDegrees, 90);
   assert.equal(tour.layout.firstStairFlight, 'inner');
   assert.ok(tour.layout.frontWalkwayWidth >= 1.8);
@@ -120,7 +120,7 @@ test('camera travels through the revised exported geometry without crossing a su
 
 test('all four upstairs doors form real openings on the two sides of the aisle', async () => {
   const geometry = await exportedGeometry;
-  for (const depth of [3.2, 6]) {
+  for (const depth of [3.45, 6.75]) {
     for (const direction of [-1, 1]) {
       const doorway = new Raycaster(new Vector3(4.2, 5.2, -depth), new Vector3(direction, 0, 0), .001, 1);
       assert.equal(doorway.intersectObject(geometry, true).length, 0, `Door at depth ${depth}, side ${direction}`);
@@ -128,4 +128,25 @@ test('all four upstairs doors form real openings on the two sides of the aisle',
       assert.ok(adjacentWall.intersectObject(geometry, true).length, `Wall beside door at depth ${depth}, side ${direction}`);
     }
   }
+});
+
+test('revision 3 retains office identity, slender storage, and textured road', async () => {
+  assert.equal(tour.roomUses.ground['1'], 'admin');
+  assert.equal(tour.layout.brandingPanels, 9);
+  assert.equal(tour.layout.doorRacks, 5);
+  assert.ok(tour.layout.shelfDepth <= .3);
+  assert.ok(tour.layout.upperRoomWidth > 2.8);
+  assert.ok(tour.layout.upperRoomLengths.every((length) => length < 7));
+  const source = readFileSync(new URL('../public/models/lpq-building.glb', import.meta.url));
+  const data = JSON.parse(source.toString('utf8', 20, 20 + source.readUInt32LE(12)));
+  for (const title of ['Logo LPQ resmi', 'Logo Qiroati resmi']) {
+    assert.ok(data.materials.find((material) => material.name.startsWith(title))?.pbrMetallicRoughness.baseColorTexture);
+  }
+  assert.ok(data.materials.some((material) => /Aspal/.test(material.name) && material.normalTexture));
+  const geometry = await exportedGeometry;
+  const hits = (origin, direction, distance) => new Raycaster(new Vector3(...origin), new Vector3(...direction), .001, distance).intersectObject(geometry, true);
+  assert.ok(hits([21, .4, 2.4], [-1, 0, 0], 1).length, 'Right side fence closed');
+  assert.ok(hits([-1.15, .4, 2], [1, 0, 0], 1).length, 'Inner stair solid underside');
+  assert.ok(hits([-2.95, .8, 2], [1, 0, 0], 1).length, 'Outer stair solid underside');
+  assert.ok(hits([-4.2, 2, 2], [1, 0, 0], .6).length, 'Blue stair enclosure');
 });
