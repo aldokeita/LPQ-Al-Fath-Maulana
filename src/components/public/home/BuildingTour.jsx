@@ -1,6 +1,6 @@
 import React, { Component, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowDown, ArrowUpRight, Box, Loader2 } from 'lucide-react';
-import { TOUR_STAGES, scrollProgress, stageAt, validateTour } from './buildingTourMath';
+import { BUILDING_ASSET_REVISION, TOUR_STAGES, scrollProgress, stageAt, validateTour } from './buildingTourMath';
 import '@/styles/building-tour.css';
 
 const TourCanvas = React.lazy(() => import('./BuildingTourCanvas'));
@@ -56,7 +56,7 @@ export default function BuildingTour({ children }) {
     if (!requested || reduced) return undefined;
     const controller = new AbortController();
     setFailed(false);
-    fetch('/models/lpq-building-tour.json', { signal: controller.signal })
+    fetch(`/models/lpq-building-tour.json?v=${BUILDING_ASSET_REVISION}`, { signal: controller.signal })
       .then((response) => {
         if (!response.ok) throw new Error('Tur tidak dapat dimuat.');
         return response.json();
@@ -125,7 +125,7 @@ export default function BuildingTour({ children }) {
           <div className="building-tour__viewport" data-tour-ready={playing ? 'true' : 'false'}>
             <img
               className={`building-tour__poster ${playing ? 'is-hidden' : ''}`}
-              src={`/models/lpq-building-${TOUR_STAGES[active].id}.webp`}
+              src={`/models/lpq-building-${TOUR_STAGES[active].id}.webp?v=${BUILDING_ASSET_REVISION}`}
               alt={`Visualisasi konseptual LPQ Al-Fath Maulana: ${TOUR_STAGES[active].label.toLowerCase()}.`}
               width="1500" height="950" loading="eager"
             />

@@ -1,3 +1,5 @@
+export const BUILDING_ASSET_REVISION = 2;
+
 export const TOUR_STAGES = [
   { id: 'exterior', label: 'Tampak depan', progress: 0 },
   { id: 'ground', label: 'Kelas lantai 1', progress: 0.31 },

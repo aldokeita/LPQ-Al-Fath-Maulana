@@ -1,9 +1,33 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { sampleCamera, scrollProgress, stageAt, validateTour, TOUR_STAGES } from '../src/components/public/home/buildingTourMath.js';
+import { DoubleSide, Raycaster, Vector3 } from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { BUILDING_ASSET_REVISION, sampleCamera, scrollProgress, stageAt, validateTour, TOUR_STAGES } from '../src/components/public/home/buildingTourMath.js';
 
 const tour = JSON.parse(readFileSync(new URL('../public/models/lpq-building-tour.json', import.meta.url)));
+
+async function geometryForRayTests() {
+  const source = readFileSync(new URL('../public/models/lpq-building.glb', import.meta.url));
+  const jsonLength = source.readUInt32LE(12);
+  const data = JSON.parse(source.toString('utf8', 20, 20 + jsonLength));
+  // Geometry-only import avoids a DOM image decoder in Node; positions and indices are untouched.
+  delete data.images; delete data.textures; delete data.materials;
+  for (const mesh of data.meshes) for (const primitive of mesh.primitives) delete primitive.material;
+  const raw = Buffer.from(JSON.stringify(data));
+  const json = Buffer.alloc(Math.ceil(raw.length / 4) * 4, 0x20); raw.copy(json);
+  const bin = source.subarray(28 + jsonLength);
+  const glb = Buffer.alloc(28 + json.length + bin.length);
+  glb.write('glTF'); glb.writeUInt32LE(2, 4); glb.writeUInt32LE(glb.length, 8);
+  glb.writeUInt32LE(json.length, 12); glb.writeUInt32LE(0x4e4f534a, 16); json.copy(glb, 20);
+  glb.writeUInt32LE(bin.length, 20 + json.length); glb.writeUInt32LE(0x004e4942, 24 + json.length); bin.copy(glb, 28 + json.length);
+  const loaded = await new GLTFLoader().parseAsync(glb.buffer.slice(glb.byteOffset, glb.byteOffset + glb.byteLength), '');
+  loaded.scene.traverse((object) => { if (object.isMesh) object.material.side = DoubleSide; });
+  loaded.scene.updateMatrixWorld(true);
+  return loaded.scene;
+}
+
+const exportedGeometry = geometryForRayTests();
 
 test('exported route covers both floors and every presentation stop', () => {
   assert.equal(validateTour(tour), tour);
@@ -56,4 +80,52 @@ test('GLB is self-contained, within budget, and has independently revealable sha
   assert.ok(document.nodes.some((node) => node.extras?.tourReveal));
   assert.ok(document.images.every((image) => !image.uri && Number.isInteger(image.bufferView)));
   assert.ok(document.buffers.every((buffer) => !buffer.uri));
+});
+
+test('revised layout records the corrected numbering, table, staircase and flora', () => {
+  assert.equal(tour.revision, BUILDING_ASSET_REVISION);
+  assert.deepEqual(tour.layout.groundRoomOrder, [5, 4, 3, 2, 1]);
+  assert.deepEqual(tour.layout.gateOpeningX, [16, 17.5]);
+  assert.equal(tour.layout.tableRoom, 5);
+  assert.equal(tour.layout.tableRotationDegrees, 90);
+  assert.equal(tour.layout.firstStairFlight, 'inner');
+  assert.ok(tour.layout.frontWalkwayWidth >= 1.8);
+  assert.equal(tour.layout.porchShadeCenterX, 8.8);
+  assert.equal(tour.layout.treeCount, 7);
+  assert.equal(tour.layout.hasClimbers, true);
+  assert.equal(tour.layout.peopleModelled, false);
+});
+
+test('actual GLB keeps the fence closed and provides the right turn at the landing', async () => {
+  const geometry = await exportedGeometry;
+  const hits = (origin, direction, distance) => new Raycaster(new Vector3(...origin), new Vector3(...direction), .001, distance).intersectObject(geometry, true);
+  assert.ok(hits([6, .4, 6], [0, 0, -1], 1.2).length, 'Fence at classroom 4');
+  assert.ok(hits([18, .4, 6], [0, 0, -1], 1.2).length, 'Rightmost door frontage stays closed');
+  assert.equal(hits([16.75, .4, 6], [0, 0, -1], 1.2).length, 0, 'Single entrance beside rightmost door');
+  assert.ok(hits([-2.95, 5.25, -.8], [0, 0, -1], 1.2).length, 'Classroom wall ahead of landing');
+  assert.equal(hits([-2.95, 5.25, -.9], [1, 0, 0], 15.85).length, 0, 'Clear rightward walkway to hall');
+});
+
+test('camera travels through the revised exported geometry without crossing a surface', async () => {
+  const geometry = await exportedGeometry;
+  for (let i = 1; i < tour.keyframes.length; i += 1) {
+    const start = new Vector3(...tour.keyframes[i - 1].position);
+    const delta = new Vector3(...tour.keyframes[i].position).sub(start);
+    const distance = delta.length();
+    if (distance < .001) continue;
+    const hits = new Raycaster(start, delta.normalize(), .001, distance - .001).intersectObject(geometry, true);
+    assert.equal(hits.length, 0, `Camera segment ${i - 1}: ${hits[0]?.object.name}`);
+  }
+});
+
+test('all four upstairs doors form real openings on the two sides of the aisle', async () => {
+  const geometry = await exportedGeometry;
+  for (const depth of [3.2, 6]) {
+    for (const direction of [-1, 1]) {
+      const doorway = new Raycaster(new Vector3(4.2, 5.2, -depth), new Vector3(direction, 0, 0), .001, 1);
+      assert.equal(doorway.intersectObject(geometry, true).length, 0, `Door at depth ${depth}, side ${direction}`);
+      const adjacentWall = new Raycaster(new Vector3(4.2, 5.2, -(depth - 1)), new Vector3(direction, 0, 0), .001, 1);
+      assert.ok(adjacentWall.intersectObject(geometry, true).length, `Wall beside door at depth ${depth}, side ${direction}`);
+    }
+  }
 });

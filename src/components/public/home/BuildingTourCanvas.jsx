@@ -3,10 +3,10 @@ import { Suspense, useEffect, useMemo, useRef } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { useGLTF } from '@react-three/drei';
 import { ACESFilmicToneMapping, SRGBColorSpace } from 'three';
-import { sampleCamera } from './buildingTourMath';
+import { BUILDING_ASSET_REVISION, sampleCamera } from './buildingTourMath';
 
 function TourScene({ tour, progressRef, invalidateRef, onReady, onFailure, attempt }) {
-  const { scene } = useGLTF(`/models/lpq-building.glb${attempt ? `?retry=${attempt}` : ''}`);
+  const { scene } = useGLTF(`/models/lpq-building.glb?v=${BUILDING_ASSET_REVISION}${attempt ? `&retry=${attempt}` : ''}`);
   const { camera, gl, invalidate, size } = useThree();
   const current = useRef(progressRef.current);
   const visible = useRef(true);
