@@ -1,269 +1,72 @@
-import React, { Suspense, useEffect, useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
-import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import CardSwap, { Card } from '@/components/reactbits/CardSwap/CardSwap';
 import CountUp from '@/components/reactbits/CountUp/CountUp';
-import GradientText from '@/components/reactbits/GradientText/GradientText';
-import SplitText from '@/components/reactbits/SplitText/SplitText';
-import StarBorder from '@/components/reactbits/StarBorder/StarBorder';
-import SectionKicker from './SectionKicker';
+import BuildingTour from './BuildingTour';
 import { imageOf, LOCAL_LOGO, safeArray } from './homeUtils';
 
-const LightPillar = React.lazy(() => import('@/components/reactbits/LightPillar/LightPillar'));
-const ModelViewer = React.lazy(() => import('@/components/reactbits/ModelViewer/ModelViewer'));
-
-const getQuality = () => {
-  if (typeof window === 'undefined') return 'medium';
-  if (window.matchMedia('(max-width: 640px)').matches) return 'low';
-  if (window.matchMedia('(max-width: 1024px)').matches) return 'medium';
-  return 'high';
-};
-
 const HeroSection = ({ content, currentSlide, setCurrentSlide, stats }) => {
-  const model3dSettings = content?.model3dSettings || {};
-  const autoRotate = model3dSettings.autoRotate === true;
-  const autoRotateSpeed = autoRotate ? (model3dSettings.autoRotateSpeed || 0.34) : 0;
-  const modelRotation = [
-    model3dSettings.rotationX || 0,
-    model3dSettings.rotationY || 0,
-    model3dSettings.rotationZ || 0,
-  ];
   const slides = safeArray(content.heroSlides);
   const activeSlide = slides[currentSlide] || slides[0] || {};
   const heroText = activeSlide.text || 'Masuki ruang belajar Al-Qur’an yang hangat, tertata, dan dekat dengan keluarga.';
   const heroSubtext = activeSlide.author || 'Metode Qiroati, pembinaan adab, dan informasi lembaga yang mudah diikuti wali santri.';
   const logoUrl = content.logoUrl || LOCAL_LOGO;
-  const quality = useMemo(getQuality, []);
-  // 3D decorations are heavy: skip them entirely on phones so the
-  // three.js chunks are never fetched. Synchronous initial value prevents a
-  // flash (and a wasted download) on the first render.
-  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
-  useEffect(() => {
-    const onResize = () => setIsMobile(window.innerWidth < 768);
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
-  }, []);
-  const sessionCount = Math.max(safeArray(content.schedules).length, 0);
+  const sessionCount = safeArray(content.schedules).length;
   const heroCards = useMemo(() => {
-    const heroItems = slides.map((slide, index) => ({
-      id: slide.id || `hero-${index}`,
-      source: 'Cerita utama',
-      title: slide.text || 'Kegiatan belajar LPQ',
-      description: slide.author || 'Dokumentasi yang dikelola dari konten website.',
-      image: imageOf(slide),
-      slideIndex: index,
-    }));
-    const supportingItems = [
-      ...safeArray(content.galleryPhotos),
-      ...safeArray(content.facilities),
-    ].map((item, index) => ({
-      id: item.id || `support-${index}`,
-      source: 'Kegiatan LPQ',
-      title: item.title || item.name || 'Suasana belajar',
-      description: item.description || 'Foto kegiatan yang dikelola dari konten website.',
-      image: imageOf(item),
-      slideIndex: null,
-    }));
-    const usedImages = new Set();
-    const cards = [...heroItems, ...supportingItems]
-      .filter((item) => item.image)
-      .filter((item) => {
-        if (usedImages.has(item.image)) return false;
-        usedImages.add(item.image);
-        return true;
-      })
-      .slice(0, 4);
-
-    if (cards.length) return cards;
-
-    return [{
-      id: 'hero-fallback',
-      source: 'LPQ Al-Fath Maulana',
-      title: 'Ruang belajar Al-Qur’an',
-      description: 'Masuki ruang belajar Al-Qur’an yang hangat dan terarah.',
-      image: '/institution/hero-learning.webp',
-      slideIndex: null,
-      isLogo: false,
-    }];
-  }, [content.facilities, content.galleryPhotos, slides]);
+    const items = [
+      ...safeArray(content.heroSlides).map((slide, index) => ({
+        id: slide.id || `hero-${index}`, title: slide.text || 'Kegiatan belajar LPQ',
+        description: slide.author || '', image: imageOf(slide), slideIndex: index,
+      })),
+      ...[...safeArray(content.galleryPhotos), ...safeArray(content.facilities)].map((item, index) => ({
+        id: item.id || `support-${index}`, title: item.title || item.name || 'Suasana belajar',
+        description: item.description || '', image: imageOf(item), slideIndex: null,
+      })),
+    ];
+    const used = new Set();
+    return items.filter((item) => {
+      if (!item.image || used.has(item.image)) return false;
+      used.add(item.image);
+      return true;
+    }).slice(0, 4);
+  }, [content.heroSlides, content.facilities, content.galleryPhotos]);
 
   return (
-    <section className="home-hero" aria-labelledby="home-hero-title">
-      <div className="home-hero__backdrop" />
-      {!isMobile && (
-        <Suspense fallback={<div className="home-hero__pillar-fallback" aria-hidden="true" />}>
-          <LightPillar
-            topColor="#9dc1c7"
-            bottomColor="#00eb9d"
-            intensity={1}
-            rotationSpeed={0.4}
-            glowAmount={0.005}
-            pillarWidth={3}
-            pillarHeight={0.3}
-            noiseIntensity={0.3}
-            pillarRotation={53}
-            interactive={quality === 'high'}
-            mixBlendMode="color-dodge"
-            quality={quality}
-          />
-        </Suspense>
-      )}
-      <div className="home-hero__grain" aria-hidden="true" />
-      {!isMobile && (
-        <div className="home-hero__quran-model" aria-hidden="true">
-          <Suspense fallback={null}>
-            <ModelViewer
-              url="/models/quran_3d_free.glb"
-              width="100%"
-              height="100%"
-              environmentPreset="studio"
-              defaultZoom={3.05}
-              modelScale={1.36}
-              modelPosition={[0, -0.01, 0]}
-              modelRotation={modelRotation}
-              autoRotateSpeed={autoRotateSpeed}
-            />
-          </Suspense>
+    <>
+      <BuildingTour>
+        <p className="building-hero__eyebrow"><span aria-hidden="true" /> Lembaga Pendidikan Al-Qur’an</p>
+        <h1 id="home-hero-title" className="building-hero__title">Belajar Al-Qur’an<br /><span>terasa lebih hidup.</span></h1>
+        <p className="building-hero__lead">{heroText}</p>
+        <p className="building-hero__support">{heroSubtext}</p>
+        <div className="home-hero__actions">
+          <Button asChild size="lg" className="home-primary-cta"><Link to="/pendaftaran/informasi">Informasi Pendaftaran <ArrowRight className="ml-2 h-5 w-5" /></Link></Button>
+          <Button asChild size="lg" variant="outline" className="home-secondary-cta"><Link to="/profil">Kenali LPQ</Link></Button>
         </div>
-      )}
-      <div className="home-hero__inner">
-        <motion.div
-          className="home-hero__copy"
-          initial={{ opacity: 0, y: 36 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.78, ease: [0.22, 1, 0.36, 1] }}
-        >
-          <SectionKicker dark>A Living Journey of Learning</SectionKicker>
-          <h1 id="home-hero-title" className="home-hero__title">
-            <SplitText
-              text="Belajar Al-Qur’an"
-              tag="span"
-              className="home-hero__split-line"
-              delay={70}
-              duration={0.9}
-              ease="power3.out"
-              splitType="words"
-              from={{ opacity: 0, y: 46, filter: 'blur(10px)' }}
-              to={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-              textAlign="left"
-            />
-            <GradientText
-              colors={['#8af5cb', '#66d9ff', '#c6b8ff', '#f5c76a']}
-              animationSpeed={6.5}
-              direction="horizontal"
-              className="home-hero__gradient-line"
-            >
-              <SplitText
-                text="terasa lebih hidup."
-                tag="span"
-                className="home-hero__split-line"
-                delay={58}
-                duration={0.92}
-                ease="power3.out"
-                splitType="words"
-                from={{ opacity: 0, y: 42, filter: 'blur(10px)' }}
-                to={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-                textAlign="left"
-              />
-            </GradientText>
-          </h1>
-          <p className="home-hero__lead">{heroText}</p>
-          <p className="home-hero__support">{heroSubtext}</p>
-          <div className="home-hero__actions">
-            <StarBorder as="span">
-              <Button asChild size="lg" className="home-primary-cta">
-                <Link to="/pendaftaran/informasi">Informasi Pendaftaran <ArrowRight className="ml-2 h-5 w-5" /></Link>
-              </Button>
-            </StarBorder>
-            <Button asChild size="lg" variant="outline" className="home-secondary-cta">
-              <Link to="/profil">Kenali LPQ</Link>
-            </Button>
-          </div>
-          <div className="home-hero__stats" aria-label="Ringkasan lembaga">
-            <span className="home-hero-stat">
-              <strong><CountUp from={0} to={Number(stats.santri || 0)} separator="." duration={2.6} /></strong>
-              santri aktif
-            </span>
-            <span className="home-hero-stat">
-              <strong><CountUp from={0} to={Number(stats.guru || 0)} separator="." duration={2.4} delay={0.1} /></strong>
-              guru aktif
-            </span>
-            <span className="home-hero-stat">
-              <strong><CountUp from={0} to={sessionCount || 0} separator="." duration={2.2} delay={0.2} /></strong>
-              sesi belajar
-            </span>
-          </div>
-        </motion.div>
-        <motion.div
-          className="home-hero__visual"
-          initial={{ opacity: 0, x: 38, scale: 0.96 }}
-          animate={{ opacity: 1, x: 0, scale: 1 }}
-          transition={{ duration: 0.85, delay: 0.12, ease: [0.22, 1, 0.36, 1] }}
-        >
-          <div className="home-hero__swap-stage" aria-label="Dokumentasi kegiatan LPQ">
-            <CardSwap
-              width="min(82vw, 38rem)"
-              height="min(74vw, 31rem)"
-              cardDistance={56}
-              verticalDistance={60}
-              delay={content.slideshowTimer || 7000}
-              skewAmount={3.5}
-              easing="elastic"
-              onCardClick={(index) => {
-                const slideIndex = heroCards[index]?.slideIndex;
-                if (typeof slideIndex === 'number') setCurrentSlide(slideIndex);
-              }}
-            >
-              {heroCards.map((card, index) => (
-                <Card key={card.id} className={`home-hero-swap-card ${card.isLogo ? 'home-hero-swap-card--logo' : ''}`}>
-                  <div className="home-hero-swap-card__titlebar">
-                    <span className="home-hero-swap-card__traffic" aria-hidden="true">
-                      <i />
-                      <i />
-                      <i />
-                    </span>
-                    <span className="home-hero-swap-card__window-title">{card.source}</span>
-                  </div>
-                  <img
-                    src={card.image}
-                    alt={card.isLogo ? 'Logo LPQ Al-Fath Maulana' : `Dokumentasi ${card.title}`}
-                    loading={index === 0 ? 'eager' : 'lazy'}
-                    onError={(event) => {
-                      if (event.currentTarget.src.endsWith(logoUrl)) {
-                        event.currentTarget.style.display = 'none';
-                        return;
-                      }
-                      event.currentTarget.src = logoUrl;
-                    }}
-                  />
-                  <div className="home-hero-swap-card__veil" />
-                  <div className="home-hero-swap-card__content">
-                    <span>{index === 0 ? 'Sorotan utama' : card.source}</span>
-                    <h2>{card.title}</h2>
-                    <p>{card.description}</p>
-                  </div>
-                </Card>
-              ))}
-            </CardSwap>
-          </div>
-        </motion.div>
-      </div>
-      {slides.length > 1 && (
-        <div className="home-hero__dots" aria-label="Pilih slide utama">
-          {slides.map((slide, index) => (
-            <button
-              key={slide.id || index}
-              type="button"
-              aria-label={`Tampilkan cerita ${index + 1}`}
-              aria-current={currentSlide === index}
-              onClick={() => setCurrentSlide(index)}
-            />
-          ))}
+        <div className="home-hero__stats" aria-label="Ringkasan lembaga">
+          <span className="home-hero-stat"><strong><CountUp from={0} to={Number(stats.santri || 0)} separator="." duration={2.6} /></strong>santri aktif</span>
+          <span className="home-hero-stat"><strong><CountUp from={0} to={Number(stats.guru || 0)} separator="." duration={2.4} /></strong>guru aktif</span>
+          <span className="home-hero-stat"><strong><CountUp from={0} to={sessionCount} separator="." duration={2.2} /></strong>sesi belajar</span>
         </div>
-      )}
-    </section>
+        {slides.length > 1 && <div className="building-hero__story-picker" aria-label="Pilih cerita utama">
+          {slides.map((slide, index) => <button key={slide.id || index} type="button" aria-label={`Tampilkan cerita ${index + 1}`} aria-pressed={currentSlide === index} onClick={() => setCurrentSlide(index)}><span /></button>)}
+        </div>}
+      </BuildingTour>
+      <section id="home-stories" className="home-stories" aria-label="Dokumentasi kegiatan LPQ">
+        {heroCards.length > 0 && <>
+          <div className="home-stories__intro"><span>DARI KESEHARIAN KAMI</span><h2>Ruang untuk tumbuh bersama.</h2><Link to="/profil/galeri">Lihat galeri <ArrowRight size={16} /></Link></div>
+          <div className="home-stories__rail">{heroCards.map((card) => {
+            const body = <><img src={card.image} alt={card.title} loading="lazy" width="400" height="260" onError={(event) => {
+              if (event.currentTarget.dataset.fallback) return;
+              event.currentTarget.dataset.fallback = 'true'; event.currentTarget.src = logoUrl;
+            }} /><div><h3>{card.title}</h3>{card.description && <p>{card.description}</p>}</div></>;
+            return typeof card.slideIndex === 'number'
+              ? <button key={card.id} className="home-story" type="button" onClick={() => setCurrentSlide(card.slideIndex)} aria-label={`Pilih cerita: ${card.title}`}>{body}</button>
+              : <article key={card.id} className="home-story">{body}</article>;
+          })}</div>
+        </>}
+      </section>
+    </>
   );
 };
 
