@@ -45,7 +45,7 @@ test('scroll clamps before/after hero and maps reverse scroll consistently', () 
   assert.equal(scrollProgress(-1000, 3000, 1000), 0.5);
   assert.equal(scrollProgress(-4000, 3000, 1000), 1);
   assert.equal(scrollProgress(0, 500, 900), 0);
-  for (const p of [0, .31, .77, 1, .77, .31, 0]) {
+  for (const p of [...TOUR_STAGES, ...TOUR_STAGES.toReversed()].map((stage) => stage.progress)) {
     const actual = sampleCamera(tour.keyframes, p);
     const exact = tour.keyframes.find((frame) => frame.progress === p);
     assert.deepEqual(actual.position, exact.position);
@@ -149,4 +149,24 @@ test('revision 3 retains office identity, slender storage, and textured road', a
   assert.ok(hits([-1.15, .4, 2], [1, 0, 0], 1).length, 'Inner stair solid underside');
   assert.ok(hits([-2.95, .8, 2], [1, 0, 0], 1).length, 'Outer stair solid underside');
   assert.ok(hits([-4.2, 2, 2], [1, 0, 0], .6).length, 'Blue stair enclosure');
+});
+
+test('side roads and semi-outdoor return wall are present in the actual export', async () => {
+  const geometry = await exportedGeometry;
+  for (const x of [-6, 23]) {
+    const hits = new Raycaster(new Vector3(x, 1, 0), new Vector3(0, -1, 0), .001, 1.1).intersectObject(geometry, true);
+    assert.ok(hits.some((hit) => hit.object.name.includes('Aspal')), `Asphalt beside building at ${x}`);
+  }
+  for (const x of [10.5, 11.25, 12]) {
+    const hits = new Raycaster(new Vector3(x, 5.2, -6.9), new Vector3(0, 0, -1), .001, .6).intersectObject(geometry, true);
+    assert.ok(hits.length, `Rear wall joins across ${x}`);
+  }
+});
+
+test('floor-one pacing removes the short high-speed corridor segment', () => {
+  const officeExit = tour.keyframes.find((frame) => frame.position[0] === 18 && frame.position[2] === 1.2);
+  const corridorEnd = tour.keyframes.find((frame) => frame.position[0] === 7 && frame.position[2] === 1.2);
+  assert.ok(corridorEnd.progress - officeExit.progress > .07);
+  assert.ok(tour.pacing.scrollViewportHeights >= 8);
+  assert.ok(TOUR_STAGES.find((stage) => stage.id === 'ground').progress > .38);
 });

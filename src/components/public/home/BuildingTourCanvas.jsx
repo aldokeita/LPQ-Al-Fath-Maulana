@@ -54,14 +54,14 @@ function TourScene({ tour, progressRef, invalidateRef, onReady, onFailure, attem
     const remaining = progressRef.current - current.current;
     current.current = Math.abs(remaining) < 0.00001
       ? progressRef.current
-      : current.current + remaining * (1 - Math.exp(-Math.min(delta, 0.1) * 10));
+      : current.current + remaining * (1 - Math.exp(-Math.min(delta, 0.1) * 6));
     const pose = sampleCamera(tour.keyframes, current.current);
     camera.position.fromArray(pose.position);
     camera.lookAt(...pose.target);
     const aspect = size.width / Math.max(1, size.height);
     camera.fov = Math.min(85, 2 * Math.atan(Math.tan(pose.fov * Math.PI / 360) * Math.max(1, (1500 / 950) / aspect)) * 180 / Math.PI);
     camera.updateProjectionMatrix();
-    const opacity = 1 - Math.max(0, Math.min(1, (current.current - 0.70) / 0.08));
+    const opacity = 1 - Math.max(0, Math.min(1, (current.current - 0.73) / 0.08));
     model.traverse((object) => {
       if (!object.isMesh || !object.userData.tourReveal) return;
       object.material.opacity = opacity * object.userData.baseOpacity;

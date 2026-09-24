@@ -17,27 +17,27 @@
     {
       "id": "admin",
       "label": "Kantor admin",
-      "progress": 0.16
+      "progress": 0.174806
     },
     {
       "id": "ground",
       "label": "Kelas lantai 1",
-      "progress": 0.31
+      "progress": 0.396158
     },
     {
       "id": "stairs",
       "label": "Tangga dan selasar",
-      "progress": 0.55
+      "progress": 0.628875
     },
     {
       "id": "upper",
       "label": "Kelas lantai 2",
-      "progress": 0.77
+      "progress": 0.809171
     },
     {
       "id": "terrace",
       "label": "Ruang semi indoor",
-      "progress": 1
+      "progress": 1.0
     }
   ],
   "keyframes": [
@@ -56,7 +56,7 @@
       "fov": 34.3316
     },
     {
-      "progress": 0.04,
+      "progress": 0.023544,
       "position": [
         24,
         8,
@@ -70,7 +70,7 @@
       "fov": 34.3316
     },
     {
-      "progress": 0.07,
+      "progress": 0.053883,
       "position": [
         16.75,
         1.75,
@@ -84,7 +84,7 @@
       "fov": 41.6682
     },
     {
-      "progress": 0.085,
+      "progress": 0.075166,
       "position": [
         16.75,
         1.75,
@@ -98,7 +98,7 @@
       "fov": 41.6682
     },
     {
-      "progress": 0.1,
+      "progress": 0.104607,
       "position": [
         19.15,
         1.72,
@@ -112,7 +112,7 @@
       "fov": 41.6682
     },
     {
-      "progress": 0.12,
+      "progress": 0.13489,
       "position": [
         19.15,
         1.72,
@@ -126,7 +126,7 @@
       "fov": 41.6682
     },
     {
-      "progress": 0.14,
+      "progress": 0.151979,
       "position": [
         18,
         1.7,
@@ -140,7 +140,7 @@
       "fov": 49.4184
     },
     {
-      "progress": 0.16,
+      "progress": 0.174806,
       "position": [
         18.2,
         1.65,
@@ -154,7 +154,7 @@
       "fov": 60.2569
     },
     {
-      "progress": 0.175,
+      "progress": 0.186923,
       "position": [
         18.4,
         1.65,
@@ -168,7 +168,7 @@
       "fov": 60.2569
     },
     {
-      "progress": 0.185,
+      "progress": 0.197935,
       "position": [
         18,
         1.7,
@@ -182,7 +182,7 @@
       "fov": 49.4184
     },
     {
-      "progress": 0.195,
+      "progress": 0.231854,
       "position": [
         18,
         1.7,
@@ -196,7 +196,7 @@
       "fov": 43.946
     },
     {
-      "progress": 0.21,
+      "progress": 0.321327,
       "position": [
         7,
         1.7,
@@ -210,7 +210,7 @@
       "fov": 41.6682
     },
     {
-      "progress": 0.23,
+      "progress": 0.377807,
       "position": [
         2,
         1.7,
@@ -224,7 +224,7 @@
       "fov": 41.6682
     },
     {
-      "progress": 0.26,
+      "progress": 0.388643,
       "position": [
         2,
         1.7,
@@ -238,7 +238,7 @@
       "fov": 43.946
     },
     {
-      "progress": 0.31,
+      "progress": 0.396158,
       "position": [
         1.7,
         1.6,
@@ -252,7 +252,7 @@
       "fov": 54.3032
     },
     {
-      "progress": 0.35,
+      "progress": 0.404116,
       "position": [
         2,
         1.7,
@@ -266,7 +266,7 @@
       "fov": 43.946
     },
     {
-      "progress": 0.38,
+      "progress": 0.439599,
       "position": [
         2,
         1.7,
@@ -280,7 +280,7 @@
       "fov": 41.6682
     },
     {
-      "progress": 0.41,
+      "progress": 0.478156,
       "position": [
         -0.2,
         1.72,
@@ -294,7 +294,7 @@
       "fov": 41.6682
     },
     {
-      "progress": 0.42,
+      "progress": 0.515138,
       "position": [
         -0.2,
         1.72,
@@ -308,7 +308,7 @@
       "fov": 41.6682
     },
     {
-      "progress": 0.43,
+      "progress": 0.543642,
       "position": [
         -1.15,
         1.72,
@@ -322,7 +322,7 @@
       "fov": 41.6682
     },
     {
-      "progress": 0.48,
+      "progress": 0.561562,
       "position": [
         -1.15,
         2.8,
@@ -336,7 +336,7 @@
       "fov": 41.6682
     },
     {
-      "progress": 0.52,
+      "progress": 0.60466,
       "position": [
         -1.15,
         3.48,
@@ -350,7 +350,7 @@
       "fov": 43.946
     },
     {
-      "progress": 0.55,
+      "progress": 0.628875,
       "position": [
         -2.95,
         3.48,
@@ -364,7 +364,7 @@
       "fov": 43.946
     },
     {
-      "progress": 0.6,
+      "progress": 0.645847,
       "position": [
         -2.95,
         4.5,
@@ -378,7 +378,7 @@
       "fov": 41.6682
     },
     {
-      "progress": 0.64,
+      "progress": 0.667658,
       "position": [
         -2.95,
         5.25,
@@ -392,7 +392,7 @@
       "fov": 41.6682
     },
     {
-      "progress": 0.665,
+      "progress": 0.692925,
       "position": [
         -2.35,
         5.25,
@@ -406,7 +406,7 @@
       "fov": 41.6682
     },
     {
-      "progress": 0.695,
+      "progress": 0.755131,
       "position": [
         4.2,
         5.25,
@@ -420,7 +420,7 @@
       "fov": 43.946
     },
     {
-      "progress": 0.72,
+      "progress": 0.793884,
       "position": [
         4.2,
         5.25,
@@ -434,7 +434,7 @@
       "fov": 43.946
     },
     {
-      "progress": 0.75,
+      "progress": 0.804197,
       "position": [
         2.8,
         5.25,
@@ -448,7 +448,7 @@
       "fov": 49.4184
     },
     {
-      "progress": 0.77,
+      "progress": 0.809171,
       "position": [
         2.5,
         5.2,
@@ -462,7 +462,7 @@
       "fov": 54.3032
     },
     {
-      "progress": 0.8,
+      "progress": 0.814144,
       "position": [
         3.1,
         5.25,
@@ -476,7 +476,7 @@
       "fov": 49.4184
     },
     {
-      "progress": 0.82,
+      "progress": 0.842619,
       "position": [
         4.2,
         5.25,
@@ -490,7 +490,7 @@
       "fov": 43.946
     },
     {
-      "progress": 0.85,
+      "progress": 0.879957,
       "position": [
         4.2,
         5.25,
@@ -504,7 +504,7 @@
       "fov": 41.6682
     },
     {
-      "progress": 0.9,
+      "progress": 0.944287,
       "position": [
         12.9,
         5.25,
@@ -518,7 +518,7 @@
       "fov": 43.946
     },
     {
-      "progress": 0.95,
+      "progress": 0.993428,
       "position": [
         17.5,
         5.3,
@@ -532,7 +532,7 @@
       "fov": 52.6537
     },
     {
-      "progress": 1,
+      "progress": 1.0,
       "position": [
         18.3,
         5.5,
@@ -546,7 +546,7 @@
       "fov": 55.975
     }
   ],
-  "revision": 3,
+  "revision": 4,
   "layout": {
     "groundRoomOrder": [
       5,
@@ -577,7 +577,9 @@
     "shelfDepth": 0.26,
     "brandingPanels": 9,
     "doorRacks": 5,
-    "stairsClosedUnderneath": true
+    "stairsClosedUnderneath": true,
+    "sideRoads": true,
+    "hallRearReturnClosed": true
   },
   "roomUses": {
     "ground": {
@@ -588,5 +590,9 @@
       "5": "classroom"
     },
     "upper": "four classrooms"
+  },
+  "pacing": {
+    "scrollViewportHeights": 9,
+    "method": "distance and turn weighted; floor one emphasis"
   }
 }

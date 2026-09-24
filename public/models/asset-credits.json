@@ -1,0 +1,23 @@
+{
+  "license": "CC0-1.0",
+  "licenseUrl": "https://polyhaven.com/license",
+  "assets": [
+    {
+      "id": "jacaranda_tree",
+      "source": "https://polyhaven.com/a/jacaranda_tree",
+      "authors": [
+        "Rico Cilliers",
+        "Rob Tuytel"
+      ],
+      "changes": "Shared simplified meshes, leaf-card LOD derived from the native asset, 512px PBR textures, scaled and instanced."
+    },
+    {
+      "id": "potted_plant_01",
+      "source": "https://polyhaven.com/a/potted_plant_01",
+      "authors": [
+        "Rico Cilliers"
+      ],
+      "changes": "Mesh simplified, pebbles omitted, 512px textures, scaled and instanced."
+    }
+  ]
+}

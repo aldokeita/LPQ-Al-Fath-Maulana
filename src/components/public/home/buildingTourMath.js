@@ -1,12 +1,36 @@
-export const BUILDING_ASSET_REVISION = 3;
+export const BUILDING_ASSET_REVISION = 4;
 
 export const TOUR_STAGES = [
-  { id: 'exterior', label: 'Tampak depan', progress: 0 },
-  { id: 'admin', label: 'Kantor admin', progress: 0.16 },
-  { id: 'ground', label: 'Kelas lantai 1', progress: 0.31 },
-  { id: 'stairs', label: 'Tangga dan selasar', progress: 0.55 },
-  { id: 'upper', label: 'Kelas lantai 2', progress: 0.77 },
-  { id: 'terrace', label: 'Ruang semi indoor', progress: 1 },
+  {
+    "id": "exterior",
+    "label": "Tampak depan",
+    "progress": 0
+  },
+  {
+    "id": "admin",
+    "label": "Kantor admin",
+    "progress": 0.174806
+  },
+  {
+    "id": "ground",
+    "label": "Kelas lantai 1",
+    "progress": 0.396158
+  },
+  {
+    "id": "stairs",
+    "label": "Tangga dan selasar",
+    "progress": 0.628875
+  },
+  {
+    "id": "upper",
+    "label": "Kelas lantai 2",
+    "progress": 0.809171
+  },
+  {
+    "id": "terrace",
+    "label": "Ruang semi indoor",
+    "progress": 1.0
+  }
 ];
 
 export const clampProgress = (value) => Math.max(0, Math.min(1, Number.isFinite(value) ? value : 0));
