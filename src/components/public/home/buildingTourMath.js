@@ -39,6 +39,11 @@ export function scrollProgress(top, height, viewportHeight) {
   return clampProgress(-top / Math.max(1, height - viewportHeight));
 }
 
+export function videoTimeAt(progress, duration) {
+  if (!Number.isFinite(duration) || duration <= 0) return 0;
+  return clampProgress(progress) * Math.max(0, duration - 0.04);
+}
+
 export function stageAt(progress) {
   const p = clampProgress(progress);
   return TOUR_STAGES.reduce((best, stage, index) => (

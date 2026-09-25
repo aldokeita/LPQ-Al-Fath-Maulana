@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { DoubleSide, Raycaster, Vector3 } from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { BUILDING_ASSET_REVISION, sampleCamera, scrollProgress, stageAt, validateTour, TOUR_STAGES } from '../src/components/public/home/buildingTourMath.js';
+import { BUILDING_ASSET_REVISION, sampleCamera, scrollProgress, stageAt, validateTour, videoTimeAt, TOUR_STAGES } from '../src/components/public/home/buildingTourMath.js';
 
 const tour = JSON.parse(readFileSync(new URL('../public/models/lpq-building-tour.json', import.meta.url)));
 
@@ -50,6 +50,17 @@ test('scroll clamps before/after hero and maps reverse scroll consistently', () 
     const exact = tour.keyframes.find((frame) => frame.progress === p);
     assert.deepEqual(actual.position, exact.position);
     assert.deepEqual(actual.target, exact.target);
+  }
+});
+
+test('video seeking follows the same route forward and backward', () => {
+  assert.equal(videoTimeAt(0, 40), 0);
+  assert.equal(videoTimeAt(1, 40), 39.96);
+  assert.equal(videoTimeAt(.5, 40), 19.98);
+  assert.equal(videoTimeAt(-1, 40), 0);
+  assert.equal(videoTimeAt(.5, NaN), 0);
+  for (const stage of [...TOUR_STAGES, ...TOUR_STAGES.toReversed()]) {
+    assert.ok(Math.abs(videoTimeAt(stage.progress, 40) - stage.progress * 39.96) < 1e-8);
   }
 });
 

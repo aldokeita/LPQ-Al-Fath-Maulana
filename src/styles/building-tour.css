@@ -2,12 +2,13 @@
   --tour-accent: #a5edcd;
   --tour-muted: #aebfca;
   overflow: clip;
-  background: radial-gradient(ellipse at 75% 35%, #1a414b 0%, transparent 52%), linear-gradient(125deg, #09161f, #10232e 62%, #18242e);
+  background: #10232e;
   min-height: 100svh;
 }
 .building-hero--scroll { height: 900svh; }
-.building-hero__sticky { position: sticky; top: 0; width: min(100% - 4rem, 100rem); height: 100svh; min-height: 100svh; margin-inline: auto; padding-block: 7.5rem 2.5rem; display: grid; grid-template-columns: minmax(19rem, .82fr) minmax(0, 1.4fr); align-items: center; gap: clamp(2rem, 4vw, 4.5rem); }
-.building-hero__copy { position: relative; z-index: 2; }
+.building-hero__sticky { position: sticky; top: 0; width: 100%; height: 100svh; min-height: 100svh; padding: 7.5rem clamp(1.5rem, 5vw, 6rem) 2.5rem; display: flex; align-items: center; isolation: isolate; }
+.building-hero__sticky::before { content: ''; position: absolute; inset: 0; z-index: 1; pointer-events: none; background: linear-gradient(90deg, #0b1d28ed 0%, #0b1d28bd 29%, #0b1d2850 58%, #0b1d280f 100%), linear-gradient(0deg, #0b1d28ac, transparent 35%); }
+.building-hero__copy { position: relative; z-index: 2; width: min(42vw, 34rem); min-width: 18rem; }
 .building-hero__eyebrow { display: flex; align-items: center; gap: .65rem; margin: 0 0 1.7rem; color: #c8dbdd; font-size: .71rem; font-weight: 650; letter-spacing: .10em; text-transform: uppercase; }
 .building-hero__eyebrow span { width: .4rem; height: .4rem; background: var(--tour-accent); border-radius: 50%; }
 .building-hero__title { font-size: clamp(2.5rem, 4.1vw, 4.8rem); font-weight: 650; letter-spacing: -.055em; line-height: 1.10; margin: 0 0 1.8rem; color: #f1f7f6; }
@@ -23,20 +24,19 @@
 .building-hero__story-picker button { width: 2.2rem; height: 2.2rem; display: grid; place-items: center; }
 .building-hero__story-picker button span { width: 1.2rem; height: 2px; background: #527078; }
 .building-hero__story-picker button[aria-pressed="true"] span { background: var(--tour-accent); }
-.building-tour { position: relative; min-width: 0; }
+.building-tour { position: absolute; z-index: 2; right: clamp(1.5rem, 5vw, 6rem); bottom: clamp(1.2rem, 3vh, 2.5rem); width: min(48vw, 45rem); min-width: 0; padding: 1rem 1.3rem .65rem; border: 1px solid #d0eef22b; border-radius: .85rem; background: #0b1e29b8; box-shadow: 0 16px 48px #0005; backdrop-filter: blur(14px); }
 .building-tour__heading { display: flex; justify-content: space-between; align-items: center; gap: .75rem; color: #d4e6e8; font-size: .59rem; font-weight: 650; letter-spacing: .13em; padding-bottom: .9rem; border-bottom: 1px solid #d0eef226; }
 .building-tour__heading i { margin-inline: .45rem; color: #7caaa9; font-style: normal; }
 .building-tour__dimension { color: #afc5d0; }
-.building-tour__viewport { position: relative; width: 100%; aspect-ratio: 1500 / 1100; max-height: calc(100svh - 23rem); min-height: 15rem; isolation: isolate; overflow: hidden; border-radius: .7rem; }
-.building-tour__poster, .building-tour__canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
-.building-tour__poster { object-fit: contain; opacity: 1; transition: opacity .4s ease; }
+.building-tour__viewport { position: absolute; inset: 0; z-index: 0; overflow: hidden; background: #10232e; }
+.building-tour__poster, .building-tour__video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center; }
+.building-tour__poster { opacity: 1; transition: opacity .4s ease; }
 .building-tour__poster.is-hidden { opacity: 0; pointer-events: none; }
-.building-tour__canvas { opacity: 0; transition: opacity .4s ease; }
-.building-tour__canvas.is-ready { opacity: 1; }
-.building-tour__canvas canvas { touch-action: pan-y; pointer-events: none; }
-.building-tour__start { position: absolute; bottom: 1rem; left: 50%; transform: translateX(-50%); display: inline-flex; align-items: center; justify-content: center; gap: .6rem; min-height: 2.9rem; padding: .6rem 1rem; border: 1px solid #bce2e066; border-radius: 999px; background: #102c35e8; color: #f0fff9; font-size: .8rem; white-space: nowrap; box-shadow: 0 8px 28px #0004; }
+.building-tour__video { opacity: 0; pointer-events: none; transition: opacity .4s ease; }
+.building-tour__video.is-ready { opacity: 1; }
+.building-tour__start { position: absolute; z-index: 3; bottom: 12rem; right: 7vw; display: inline-flex; align-items: center; justify-content: center; gap: .6rem; min-height: 2.9rem; padding: .6rem 1rem; border: 1px solid #bce2e066; border-radius: 999px; background: #102c35e8; color: #f0fff9; font-size: .8rem; white-space: nowrap; box-shadow: 0 8px 28px #0004; }
 .building-tour__start:disabled { cursor: wait; color: #c4d9d6; }
-.building-tour__status { position: absolute; inset-inline: 1rem; bottom: 4.5rem; color: #eff8f5; padding: .6rem; background: #10232eee; font-size: .75rem; text-align: center; border-radius: .4rem; }
+.building-tour__status { position: absolute; z-index: 3; right: 7vw; bottom: 12rem; max-width: 19rem; color: #eff8f5; padding: .7rem 1rem; background: #10232eee; font-size: .75rem; border-radius: .4rem; }
 .building-tour__spinner { animation: tour-spin 1s linear infinite; }
 @keyframes tour-spin { to { transform: rotate(360deg); } }
 .building-tour__caption, .building-tour__caption > div { display: flex; align-items: center; gap: .85rem; }
@@ -66,17 +66,18 @@
 .dark .home-stories { background: #11212a; color: #dfefed; }
 .dark .home-stories__intro > span, .dark .home-story p { color: #aec6c5; }
 @media (min-width: 768px) and (max-height: 850px) {
-  .building-hero__sticky { padding-top: 6.2rem; padding-bottom: 1rem; gap: 2rem; }
+  .building-hero__sticky { padding-top: 6.2rem; padding-bottom: 1rem; }
   .building-hero__title { font-size: clamp(2rem, 3.5vw, 3.6rem); margin-bottom: 1rem; }
   .building-hero__eyebrow { margin-bottom: 1rem; }
   .building-hero__lead { font-size: .92rem; }
   .building-hero__support { font-size: .78rem; margin-bottom: 1rem; }
   .building-hero .home-hero__stats { margin-top: 1.1rem; }
-  .building-tour__viewport { max-height: 49svh; min-height: 15rem; }
   .building-tour__steps { margin-top: .65rem; }
 }
 @media (min-width: 768px) and (max-width: 1100px) {
-  .building-hero__sticky { width: calc(100% - 2.5rem); grid-template-columns: minmax(16rem,.8fr) minmax(0,1fr); gap: 1.5rem; }
+  .building-hero__sticky { padding-inline: 2rem; }
+  .building-hero__copy { width: min(42vw, 26rem); }
+  .building-tour { right: 1.25rem; width: 40vw; min-width: 18rem; padding-inline: .85rem; }
   .building-hero__title { font-size: 2.7rem; }
   .building-tour__dimension { display: none; }
   .building-tour__hint { max-width: 7rem; }
@@ -84,7 +85,10 @@
 }
 @media (max-width: 767px) {
   .home-hero.building-hero { height: auto; min-height: auto; }
-  .building-hero__sticky { position: relative; height: auto; min-height: auto; width: calc(100% - 2.25rem); padding: 7rem 0 2rem; grid-template-columns: 1fr; gap: 2.2rem; }
+  .building-hero__sticky { position: relative; display: flex; flex-direction: column; align-items: stretch; height: auto; min-height: auto; padding: 6.5rem 1.125rem 2rem; }
+  .building-hero__sticky::before { display: none; }
+  .building-hero__copy { width: 100%; min-width: 0; margin-top: 1.6rem; }
+  .building-tour { position: relative; right: auto; bottom: auto; width: 100%; margin-top: 1.8rem; padding: .75rem 0; background: none; border: 0; box-shadow: none; backdrop-filter: none; }
   .building-hero__eyebrow { font-size: .62rem; margin-bottom: 1.3rem; }
   .building-hero__title { font-size: clamp(2.6rem, 9.3vw, 4rem); margin-bottom: 1.3rem; }
   .building-hero__lead { font-size: 1rem; }
@@ -93,7 +97,10 @@
   .building-hero .home-hero-stat { padding: 0; border: 0; font-size: .68rem; }
   .building-tour__heading { font-size: .53rem; }
   .building-tour__dimension { display: none; }
-  .building-tour__viewport { aspect-ratio: 1.25; min-height: 17rem; max-height: none; }
+  .building-tour__viewport { position: relative; width: 100%; aspect-ratio: 1.25; min-height: 17rem; border-radius: .8rem; }
+  .building-tour__video { pointer-events: auto; }
+  .building-tour__start { left: 50%; right: auto; bottom: 1rem; transform: translateX(-50%); }
+  .building-tour__status { left: 1rem; right: 1rem; bottom: 4.5rem; max-width: none; text-align: center; }
   .building-tour__caption h2 { font-size: .9rem; }
   .building-tour__hint { font-size: .6rem; }
   .building-tour__steps { gap: .55rem; }
@@ -103,7 +110,7 @@
   .home-story img { height: 7.5rem; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .building-tour__poster, .building-tour__canvas, .building-tour__steps button { transition: none; }
+  .building-tour__poster, .building-tour__video, .building-tour__steps button { transition: none; }
   .building-tour__spinner { animation: none; }
 }
 
