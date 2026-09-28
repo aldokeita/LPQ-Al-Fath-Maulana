@@ -66,7 +66,8 @@ $expectedNames = @(
   "20260810000200_change_santri_jilid_v2.sql",
   "20260820000100_guru_global_random_name_access.sql",
   "20260820000200_remove_legacy_numeric_points_rpc.sql",
-  "20260820000300_normalize_global_points_rpc_types.sql"
+  "20260820000300_normalize_global_points_rpc_types.sql",
+  "20260928000100_stop_jilid_conflict_retries.sql"
 )
 
 $actualNames = $files | ForEach-Object { $_.Name }

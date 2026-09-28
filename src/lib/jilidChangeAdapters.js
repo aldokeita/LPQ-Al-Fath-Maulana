@@ -9,7 +9,7 @@ export const getJilidChangeErrorMessage = (error) => {
   if (error?.code === '42501' || message.toLowerCase().includes('tidak memiliki akses')) {
     return 'Anda hanya dapat mengubah jilid santri yang berada di kelas Anda.';
   }
-  if (error?.code === '40001' || message.toLowerCase().includes('sudah berubah')) {
+  if (error?.code === 'PT409' || error?.code === '40001' || message.toLowerCase().includes('sudah berubah')) {
     return 'Jilid santri sudah berubah. Muat ulang data lalu coba kembali.';
   }
   if (error?.code === 'P0002') {
