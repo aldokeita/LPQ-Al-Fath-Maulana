@@ -53,7 +53,7 @@
 .building-tour__skip { display: flex; align-items: center; gap: .4rem; min-height: 2.25rem; margin-top: .15rem; color: #c4dcd7; font-size: .67rem; text-decoration: underline; text-underline-offset: .22em; }
 .building-tour button:focus-visible, .building-hero__story-picker button:focus-visible { outline: 2px solid #b5fbd7; outline-offset: 4px; border-radius: .25rem; }
 .home-hero.building-hero--morning { --tour-accent: #08717d; --tour-muted: #365a63; background: #e5f1f2; }
-.building-hero--morning .building-hero__sticky::before { background: linear-gradient(90deg, #eff8f5f2 0%, #eaf5f1dc 28%, #dcefe68c 52%, #dcefe600 78%), linear-gradient(0deg, #e7f4ef7a, transparent 35%); }
+.building-hero--morning .building-hero__sticky::before { background: linear-gradient(90deg, #eff8f5ef 0%, #eaf5f1c4 25%, #dcefe63b 44%, #dcefe600 63%), linear-gradient(0deg, #e7f4ef38, transparent 35%); }
 .building-hero--morning .building-hero__eyebrow { color: #28545b; }
 .building-hero--morning .building-hero__title { color: #123d49; }
 .building-hero--morning .building-hero__lead { color: #183f49; }

@@ -4,11 +4,13 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { BUILDING_ASSET_REVISION, TOUR_STAGES, scrollProgress, stageAt, videoTimeAt } from './buildingTourMath';
 import '@/styles/building-tour.css';
 
+const MORNING_ASSET_REVISION = 2;
 const TOUR_MEDIA = {
   morning: {
-    video: '/models/lpq-building-tour-pagi-720p.mp4',
-    poster: '/models/lpq-building-pagi-exterior.webp',
-    stagePoster: (id) => `/models/lpq-building-pagi-${id}.webp`,
+    video: `/models/lpq-building-tour-pagi-1080p.mp4?v=${MORNING_ASSET_REVISION}`,
+    mobileVideo: `/models/lpq-building-tour-pagi-720p.mp4?v=${MORNING_ASSET_REVISION}`,
+    poster: `/models/lpq-building-pagi-exterior.webp?v=${MORNING_ASSET_REVISION}`,
+    stagePoster: (id) => `/models/lpq-building-pagi-${id}.webp?v=${MORNING_ASSET_REVISION}`,
     label: 'pagi',
   },
   night: {
@@ -28,18 +30,19 @@ export default function BuildingTour({ children }) {
   const videoRef = useRef(null);
   const wantedProgress = useRef(0);
   const [mobile, setMobile] = useState(() => !mediaMatches('(min-width: 768px)'));
+  const videoSource = mobile && media.mobileVideo ? media.mobileVideo : media.video;
   const [reduced, setReduced] = useState(() => mediaMatches('(prefers-reduced-motion: reduce)'));
   const [requested, setRequested] = useState(false);
   const [readyFor, setReadyFor] = useState(null);
   const [failedFor, setFailedFor] = useState(null);
   const [active, setActive] = useState(0);
-  const ready = readyFor === variant;
-  const failed = failedFor === variant;
+  const ready = readyFor === videoSource;
+  const failed = failedFor === videoSource;
 
   useLayoutEffect(() => {
     setReadyFor(null);
     setFailedFor(null);
-  }, [variant]);
+  }, [videoSource]);
 
   const syncVideo = useCallback(() => {
     const video = videoRef.current;
@@ -108,9 +111,9 @@ export default function BuildingTour({ children }) {
 
   useEffect(() => {
     if (!requested || ready || failed || reduced) return undefined;
-    const timeout = window.setTimeout(() => setFailedFor(variant), 25000);
+    const timeout = window.setTimeout(() => setFailedFor(videoSource), 25000);
     return () => window.clearTimeout(timeout);
-  }, [requested, ready, failed, reduced, variant]);
+  }, [requested, ready, failed, reduced, videoSource]);
 
   const selectStage = (index) => {
     const progress = TOUR_STAGES[index].progress;
@@ -148,10 +151,10 @@ export default function BuildingTour({ children }) {
           />
           {requested && !reduced && !failed && (
             <video
-              key={variant}
+              key={videoSource}
               ref={videoRef}
               className={'building-tour__video' + (ready ? ' is-ready' : '')}
-              src={media.video}
+              src={videoSource}
               poster={media.poster}
               preload="metadata"
               muted
@@ -159,10 +162,10 @@ export default function BuildingTour({ children }) {
               controls={mobile}
               aria-hidden={!mobile}
               aria-label={mobile ? `Video tur bangunan LPQ Al-Fath Maulana saat ${media.label}` : undefined}
-              onLoadedData={() => { setReadyFor(variant); syncVideo(); }}
+              onLoadedData={() => { setReadyFor(videoSource); syncVideo(); }}
               onSeeked={mobile ? onMobileTime : syncVideo}
               onTimeUpdate={mobile ? onMobileTime : undefined}
-              onError={() => { setFailedFor(variant); setReadyFor(null); }}
+              onError={() => { setFailedFor(videoSource); setReadyFor(null); }}
             />
           )}
           {!playing && !reduced && (
