@@ -1,22 +1,45 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ArrowDown, ArrowUpRight, Film, Loader2 } from 'lucide-react';
+import { useTheme } from '@/contexts/ThemeContext';
 import { BUILDING_ASSET_REVISION, TOUR_STAGES, scrollProgress, stageAt, videoTimeAt } from './buildingTourMath';
 import '@/styles/building-tour.css';
 
-const VIDEO_URL = '/models/lpq-building-tour-1080p.mp4?v=1';
-const VIDEO_POSTER = '/models/lpq-building-video-poster.webp?v=1';
+const TOUR_MEDIA = {
+  morning: {
+    video: '/models/lpq-building-tour-pagi-720p.mp4',
+    poster: '/models/lpq-building-pagi-exterior.webp',
+    stagePoster: (id) => `/models/lpq-building-pagi-${id}.webp`,
+    label: 'pagi',
+  },
+  night: {
+    video: '/models/lpq-building-tour-1080p.mp4?v=1',
+    poster: '/models/lpq-building-video-poster.webp?v=1',
+    stagePoster: (id) => `/models/lpq-building-${id}.webp?v=${BUILDING_ASSET_REVISION}`,
+    label: 'malam',
+  },
+};
 const mediaMatches = (query) => typeof window !== 'undefined' && window.matchMedia(query).matches;
 
 export default function BuildingTour({ children }) {
+  const { isDark } = useTheme();
+  const variant = isDark ? 'night' : 'morning';
+  const media = TOUR_MEDIA[variant];
   const sectionRef = useRef(null);
   const videoRef = useRef(null);
   const wantedProgress = useRef(0);
   const [mobile, setMobile] = useState(() => !mediaMatches('(min-width: 768px)'));
   const [reduced, setReduced] = useState(() => mediaMatches('(prefers-reduced-motion: reduce)'));
   const [requested, setRequested] = useState(false);
-  const [ready, setReady] = useState(false);
-  const [failed, setFailed] = useState(false);
+  const [readyFor, setReadyFor] = useState(null);
+  const [failedFor, setFailedFor] = useState(null);
   const [active, setActive] = useState(0);
+  const ready = readyFor === variant;
+  const failed = failedFor === variant;
+
+  useLayoutEffect(() => {
+    setReadyFor(null);
+    setFailedFor(null);
+  }, [variant]);
 
   const syncVideo = useCallback(() => {
     const video = videoRef.current;
@@ -85,9 +108,9 @@ export default function BuildingTour({ children }) {
 
   useEffect(() => {
     if (!requested || ready || failed || reduced) return undefined;
-    const timeout = window.setTimeout(() => setFailed(true), 25000);
+    const timeout = window.setTimeout(() => setFailedFor(variant), 25000);
     return () => window.clearTimeout(timeout);
-  }, [requested, ready, failed, reduced]);
+  }, [requested, ready, failed, reduced, variant]);
 
   const selectStage = (index) => {
     const progress = TOUR_STAGES[index].progress;
@@ -106,39 +129,40 @@ export default function BuildingTour({ children }) {
   };
 
   const start = () => {
-    setFailed(false);
-    setReady(false);
+    setFailedFor(null);
+    setReadyFor(null);
     setRequested(true);
   };
   const loading = requested && !ready && !failed && !reduced;
-  const staticPoster = reduced || failed || (navigator.connection?.saveData && !requested);
+  const staticPoster = reduced || failed || (!playing && active !== 0) || (navigator.connection?.saveData && !requested);
 
   return (
-    <section ref={sectionRef} className={'home-hero building-hero' + (scrollEnabled ? ' building-hero--scroll' : '')} aria-labelledby="home-hero-title">
+    <section ref={sectionRef} className={'home-hero building-hero building-hero--' + variant + (scrollEnabled ? ' building-hero--scroll' : '')} aria-labelledby="home-hero-title">
       <div className="building-hero__sticky">
         <div className="building-tour__viewport" data-tour-ready={playing ? 'true' : 'false'}>
           <img
             className={'building-tour__poster' + (playing ? ' is-hidden' : '')}
-            src={staticPoster ? '/models/lpq-building-' + TOUR_STAGES[active].id + '.webp?v=' + BUILDING_ASSET_REVISION : VIDEO_POSTER}
-            alt={'Visualisasi konseptual LPQ Al-Fath Maulana: ' + TOUR_STAGES[active].label.toLowerCase() + '.'}
+            src={staticPoster ? media.stagePoster(TOUR_STAGES[active].id) : media.poster}
+            alt={'Visualisasi konseptual LPQ Al-Fath Maulana saat ' + media.label + ': ' + TOUR_STAGES[active].label.toLowerCase() + '.'}
             width="1920" height="1080" loading="eager"
           />
           {requested && !reduced && !failed && (
             <video
+              key={variant}
               ref={videoRef}
               className={'building-tour__video' + (ready ? ' is-ready' : '')}
-              src={VIDEO_URL}
-              poster={VIDEO_POSTER}
+              src={media.video}
+              poster={media.poster}
               preload="metadata"
               muted
               playsInline
               controls={mobile}
               aria-hidden={!mobile}
-              aria-label={mobile ? 'Video tur bangunan LPQ Al-Fath Maulana' : undefined}
-              onLoadedData={() => { setReady(true); syncVideo(); }}
+              aria-label={mobile ? `Video tur bangunan LPQ Al-Fath Maulana saat ${media.label}` : undefined}
+              onLoadedData={() => { setReadyFor(variant); syncVideo(); }}
               onSeeked={mobile ? onMobileTime : syncVideo}
               onTimeUpdate={mobile ? onMobileTime : undefined}
-              onError={() => { setFailed(true); setReady(false); }}
+              onError={() => { setFailedFor(variant); setReadyFor(null); }}
             />
           )}
           {!playing && !reduced && (
@@ -154,7 +178,7 @@ export default function BuildingTour({ children }) {
         <div className="building-tour" aria-label="Jelajah konsep bangunan LPQ">
           <div className="building-tour__heading">
             <span>AL-FATH MAULANA <i aria-hidden="true">/</i> BATURAJA</span>
-            <span className="building-tour__dimension">TUR BANGUNAN · VIDEO</span>
+            <span className="building-tour__dimension">TUR BANGUNAN · {isDark ? 'MALAM' : 'PAGI'}</span>
           </div>
           <div className="building-tour__caption">
             <div><span className="building-tour__number">0{active + 1}</span><h2>{TOUR_STAGES[active].label}</h2></div>

@@ -52,6 +52,33 @@
 .building-tour__note { color: #a7bdc7; font-size: .64rem; line-height: 1.5; margin-top: .9rem; max-width: 30rem; }
 .building-tour__skip { display: flex; align-items: center; gap: .4rem; min-height: 2.25rem; margin-top: .15rem; color: #c4dcd7; font-size: .67rem; text-decoration: underline; text-underline-offset: .22em; }
 .building-tour button:focus-visible, .building-hero__story-picker button:focus-visible { outline: 2px solid #b5fbd7; outline-offset: 4px; border-radius: .25rem; }
+.home-hero.building-hero--morning { --tour-accent: #08717d; --tour-muted: #365a63; background: #e5f1f2; }
+.building-hero--morning .building-hero__sticky::before { background: linear-gradient(90deg, #eff8f5f2 0%, #eaf5f1dc 28%, #dcefe68c 52%, #dcefe600 78%), linear-gradient(0deg, #e7f4ef7a, transparent 35%); }
+.building-hero--morning .building-hero__eyebrow { color: #28545b; }
+.building-hero--morning .building-hero__title { color: #123d49; }
+.building-hero--morning .building-hero__lead { color: #183f49; }
+.building-hero--morning .building-hero__support { color: #365a63; }
+.building-hero--morning .home-primary-cta { background: #14586a; color: #fff; }
+.building-hero--morning .home-primary-cta:hover { background: #0e4352; color: #fff; }
+.building-hero--morning .home-secondary-cta { background: #ffffffcf; border-color: #28707a77; color: #174d5b; }
+.building-hero--morning .home-secondary-cta:hover { background: #fff; color: #0e4352; }
+.building-hero--morning .home-hero__stats { background: #f7fcfae0; border-color: #245a672b; }
+.building-hero--morning .home-hero-stat { color: #365a63; border-color: #245a672b; }
+.building-hero--morning .home-hero-stat strong { color: #123d49; }
+.building-hero--morning .building-hero__story-picker button span { background: #72949a; }
+.building-hero--morning .building-tour__viewport { background: #b8d9e2; }
+.building-hero--morning .building-tour { background: #f6fbf9e8; border-color: #24637138; box-shadow: 0 16px 48px #1d4b5d2b; }
+.building-hero--morning .building-tour__heading { color: #234c56; border-color: #27637030; }
+.building-hero--morning .building-tour__heading i, .building-hero--morning .building-tour__dimension { color: #4c7179; }
+.building-hero--morning .building-tour__caption h2 { color: #163f4b; }
+.building-hero--morning .building-tour__hint, .building-hero--morning .building-tour__note { color: #41656c; }
+.building-hero--morning .building-tour__steps button { color: #375b64; border-color: #24637138; }
+.building-hero--morning .building-tour__steps button > span:first-child { color: #587780; }
+.building-hero--morning .building-tour__steps button[aria-pressed="true"] { color: #075565; border-color: var(--tour-accent); }
+.building-hero--morning .building-tour__steps button:hover { color: #073e4b; border-color: #08717d; }
+.building-hero--morning .building-tour__skip { color: #125665; }
+.building-hero--morning .building-tour__start, .building-hero--morning .building-tour__status { background: #f5fbf9ed; border-color: #23657375; color: #174b59; box-shadow: 0 8px 28px #23506029; }
+.building-hero--morning .building-tour button:focus-visible, .building-hero--morning .building-hero__story-picker button:focus-visible { outline-color: #08717d; }
 .home-stories { scroll-margin-top: 6rem; display: grid; grid-template-columns: minmax(12rem,.65fr) minmax(0,2fr); gap: 2rem; padding: 2rem max(2rem, calc((100vw - 96rem) / 2)); background: var(--home-surface, #f3f7f5); color: var(--home-text, #142d30); }
 .home-stories:empty { padding: 0; }
 .home-stories__intro > span { font-size: .62rem; letter-spacing: .12em; color: #59726e; font-weight: 650; }
@@ -115,3 +142,4 @@
 }
 
 @media (max-width: 767px) { .building-tour__steps { grid-template-columns: repeat(3, minmax(0,1fr)); } }
+@media (max-width: 767px) { .building-hero--morning .building-tour { background: none; border: 0; box-shadow: none; } }
