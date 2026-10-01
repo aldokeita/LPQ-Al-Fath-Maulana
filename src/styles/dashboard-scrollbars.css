@@ -1,0 +1,140 @@
+:is(html.lpq-admin-context, body.lpq-admin-context) {
+  --dashboard-scroll-size: 10px;
+  --dashboard-scroll-track: rgb(15 118 110 / 0.06);
+  --dashboard-scroll-start: #0f766e;
+  --dashboard-scroll-end: #2563eb;
+  --dashboard-scroll-hover-start: #0d9488;
+  --dashboard-scroll-hover-end: #1d4ed8;
+  --dashboard-scroll-active: #155e75;
+  --dashboard-scroll-highlight: rgb(255 255 255 / 0.36);
+}
+
+html.dark.lpq-admin-context,
+.dark body.lpq-admin-context {
+  --dashboard-scroll-track: rgb(148 163 184 / 0.08);
+  --dashboard-scroll-start: #22d3ee;
+  --dashboard-scroll-end: #818cf8;
+  --dashboard-scroll-hover-start: #67e8f9;
+  --dashboard-scroll-hover-end: #a5b4fc;
+  --dashboard-scroll-active: #38bdf8;
+  --dashboard-scroll-highlight: rgb(255 255 255 / 0.22);
+}
+
+/* Keep intentionally hidden navigation and Radix-managed viewports hidden. */
+:is(html.lpq-admin-context, body.lpq-admin-context, body.lpq-admin-context *):not(:where(
+  .no-scrollbar, .admin-nav-scroll, .admin-module-nav > div,
+  [data-radix-scroll-area-viewport], [data-radix-select-viewport]
+)) {
+  scrollbar-width: thin;
+  scrollbar-color: var(--dashboard-scroll-start) var(--dashboard-scroll-track);
+}
+
+@supports selector(::-webkit-scrollbar) {
+  :is(html.lpq-admin-context, body.lpq-admin-context, body.lpq-admin-context *):not(:where(
+    .no-scrollbar, .admin-nav-scroll, .admin-module-nav > div,
+    [data-radix-scroll-area-viewport], [data-radix-select-viewport]
+  )) {
+    /* Chromium's standard properties otherwise override its gradient thumb. */
+    scrollbar-width: auto;
+    scrollbar-color: auto;
+  }
+
+  :is(html.lpq-admin-context, body.lpq-admin-context, body.lpq-admin-context *)::-webkit-scrollbar {
+    width: var(--dashboard-scroll-size);
+    height: var(--dashboard-scroll-size);
+  }
+
+  :is(html.lpq-admin-context, body.lpq-admin-context, body.lpq-admin-context *)::-webkit-scrollbar-track {
+    margin: 6px;
+    border-radius: 999px;
+    background: var(--dashboard-scroll-track);
+  }
+
+  :is(html.lpq-admin-context, body.lpq-admin-context, body.lpq-admin-context *)::-webkit-scrollbar-thumb {
+    border: 2px solid transparent;
+    border-radius: 999px;
+    background: linear-gradient(180deg, var(--dashboard-scroll-start), var(--dashboard-scroll-end)) padding-box;
+    box-shadow: inset 0 0 0 1px var(--dashboard-scroll-highlight);
+  }
+
+  :is(html.lpq-admin-context, body.lpq-admin-context, body.lpq-admin-context *)::-webkit-scrollbar-thumb:horizontal {
+    background-image: linear-gradient(90deg, var(--dashboard-scroll-start), var(--dashboard-scroll-end));
+  }
+
+  :is(html.lpq-admin-context, body.lpq-admin-context, body.lpq-admin-context *)::-webkit-scrollbar-thumb:hover {
+    background-image: linear-gradient(180deg, var(--dashboard-scroll-hover-start), var(--dashboard-scroll-hover-end));
+  }
+
+  :is(html.lpq-admin-context, body.lpq-admin-context, body.lpq-admin-context *)::-webkit-scrollbar-thumb:active {
+    background: var(--dashboard-scroll-active) padding-box;
+  }
+
+  :is(html.lpq-admin-context, body.lpq-admin-context, body.lpq-admin-context *)::-webkit-scrollbar-thumb:horizontal:hover:not(:active) {
+    background-image: linear-gradient(90deg, var(--dashboard-scroll-hover-start), var(--dashboard-scroll-hover-end));
+  }
+
+  :is(html.lpq-admin-context, body.lpq-admin-context, body.lpq-admin-context *)::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  :is(html.lpq-admin-context, body.lpq-admin-context, body.lpq-admin-context *)::-webkit-scrollbar-button {
+    display: none;
+  }
+}
+
+body.lpq-admin-context .lpq-scrollbar {
+  padding: 2px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--dashboard-scroll-track);
+}
+
+body.lpq-admin-context .lpq-scrollbar[data-orientation="vertical"] {
+  width: var(--dashboard-scroll-size);
+}
+
+body.lpq-admin-context .lpq-scrollbar[data-orientation="horizontal"] {
+  height: var(--dashboard-scroll-size);
+}
+
+body.lpq-admin-context .lpq-scrollbar-thumb {
+  background: linear-gradient(180deg, var(--dashboard-scroll-start), var(--dashboard-scroll-end));
+  box-shadow: inset 0 0 0 1px var(--dashboard-scroll-highlight);
+}
+
+body.lpq-admin-context .lpq-scrollbar[data-orientation="horizontal"] .lpq-scrollbar-thumb {
+  background-image: linear-gradient(90deg, var(--dashboard-scroll-start), var(--dashboard-scroll-end));
+}
+
+body.lpq-admin-context .lpq-scrollbar-thumb:hover {
+  background-image: linear-gradient(180deg, var(--dashboard-scroll-hover-start), var(--dashboard-scroll-hover-end));
+}
+
+body.lpq-admin-context .lpq-scrollbar-thumb:active {
+  background: var(--dashboard-scroll-active);
+}
+
+body.lpq-admin-context .lpq-scrollbar[data-orientation="horizontal"] .lpq-scrollbar-thumb:hover:not(:active) {
+  background-image: linear-gradient(90deg, var(--dashboard-scroll-hover-start), var(--dashboard-scroll-hover-end));
+}
+
+body.lpq-admin-context .lpq-scrollbar-corner {
+  background: transparent;
+}
+
+@media (pointer: coarse) {
+  :is(html.lpq-admin-context, body.lpq-admin-context) {
+    --dashboard-scroll-size: 12px;
+  }
+}
+
+@media (forced-colors: active) {
+  :is(html.lpq-admin-context, body.lpq-admin-context, body.lpq-admin-context *) {
+    scrollbar-color: auto;
+  }
+  :is(html.lpq-admin-context, body.lpq-admin-context, body.lpq-admin-context *)::-webkit-scrollbar-thumb,
+  body.lpq-admin-context .lpq-scrollbar-thumb {
+    background: CanvasText;
+    box-shadow: none;
+  }
+}

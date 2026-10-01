@@ -13,6 +13,7 @@ const PentashihDashboard = lazy(() => import('@/components/dashboard/PentashihDa
 import SideRays from '@/components/reactbits/SideRays/SideRays';
 import { supabase } from '@/lib/customSupabaseClient';
 import '@/styles/admin-dashboard.css';
+import '@/styles/dashboard-scrollbars.css';
 
 // Shown briefly while the role dashboard chunk downloads.
 const RoleLoading = () => (
