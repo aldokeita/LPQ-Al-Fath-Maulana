@@ -26,6 +26,7 @@ import { resolveAvatarRecord, resolveAvatarRecords } from '@/lib/storageAdapters
 import { getAdjacentQiroatiJilid, QIROATI_JILID_OPTIONS } from '@/lib/qiroatiJilid';
 import { changeSantriJilid, getJilidChangeErrorMessage } from '@/lib/jilidChangeAdapters';
 import { transferSantriClass } from '@/lib/classTransferAdapters';
+import ClassDragScrollAssist from './ClassDragScrollAssist';
 
 const ItemTypes = {
   SANTRI: 'santri',
@@ -1008,6 +1009,7 @@ const ClassManagementWrapper = ({ userRole = 'admin' }) => {
 
   return (
       <div>
+        <ClassDragScrollAssist />
         <div className="flex justify-center mb-6">
             <div className="admin-segmented-control">
                 {subTabs.map((tab) => (

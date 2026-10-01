@@ -1,0 +1,57 @@
+.class-drag-scroll-assist {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+}
+
+.class-drag-scroll-assist__edge {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 128px;
+  display: flex;
+  justify-content: center;
+  color: #0e7490;
+}
+
+.class-drag-scroll-assist__edge--top {
+  top: 0;
+  align-items: flex-start;
+  padding-top: 16px;
+  background: linear-gradient(to bottom, rgb(6 182 212 / 0.16), transparent);
+}
+
+.class-drag-scroll-assist__edge--bottom {
+  bottom: 0;
+  align-items: flex-end;
+  padding-bottom: 16px;
+  background: linear-gradient(to top, rgb(37 99 235 / 0.16), transparent);
+}
+
+.class-drag-scroll-assist p {
+  position: absolute;
+  bottom: 48px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: calc(100% - 32px);
+  box-sizing: border-box;
+  margin: 0;
+  padding: 10px 16px;
+  border: 1px solid rgb(14 116 144 / 0.32);
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.94);
+  box-shadow: 0 8px 26px rgb(15 23 42 / 0.14);
+  color: #164e63;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+.dark .class-drag-scroll-assist__edge { color: #67e8f9; }
+.dark .class-drag-scroll-assist p {
+  color: #cffafe;
+  background: rgb(15 23 42 / 0.94);
+  border-color: rgb(103 232 249 / 0.38);
+}
