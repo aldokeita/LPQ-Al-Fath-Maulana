@@ -1,0 +1,57 @@
+.santri-import-dialog {
+  width: calc(100vw - 2rem);
+  max-width: 64rem;
+  max-height: calc(100dvh - 2rem);
+  overflow-y: auto;
+  padding: clamp(1rem, 3vw, 2rem);
+  border-radius: 1.5rem;
+  color: #163344;
+  border: 1px solid rgb(14 116 144 / 0.22);
+  background: linear-gradient(135deg, #effcfc, #fff 38%, #f3f6fd);
+  box-shadow: 0 24px 72px rgb(15 23 42 / 0.2), inset 0 1px 0 #fff;
+}
+.santri-import-dialog h3 { font-weight: 700; margin-bottom: .5rem; }
+.santri-import-dialog p, .santri-import-dialog label { font-size: .875rem; line-height: 1.6; }
+.santri-import-dialog :is(p, small, .santri-import-review span) { overflow-wrap: anywhere; }
+.santri-import-dialog label { display: grid; gap: .4rem; font-weight: 600; min-width: 0; }
+.santri-import-dialog button { min-height: 44px; min-width: 44px; }
+.santri-import-dialog select, .santri-import-dialog textarea, .santri-import-dialog input[type="file"] {
+  width: 100%; min-width: 0; min-height: 44px; border-radius: .75rem; border: 1px solid #647f90;
+  padding: .65rem; color: inherit; background: rgb(255 255 255 / .85); font-weight: 400;
+}
+.santri-import-dialog :is(select, textarea, input, summary):focus-visible { outline: 3px solid #0891b2; outline-offset: 3px; }
+.santri-import-dialog progress { width: 100%; height: 12px; accent-color: #0e7490; }
+.santri-import-dialog small { display: block; font-weight: 400; }
+.santri-import-stack { display: grid; gap: 1.25rem; min-width: 0; }
+.santri-import-step { color: #0e7490; font-weight: 700; padding-bottom: .75rem; border-bottom: 1px solid #c9e0e8; }
+.santri-import-mapping { display: grid; gap: .75rem; }
+.santri-import-mapping label { padding-bottom: .75rem; border-bottom: 1px solid #d3e4ea; overflow-wrap: anywhere; }
+.santri-import-settings { display: grid; gap: 1rem; }
+.santri-import-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: .75rem; margin-top: .75rem; }
+.santri-import-counts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
+.santri-import-counts p { padding: .75rem; border-radius: .75rem; background: rgb(14 116 144 / .07); }
+.santri-import-counts strong { display: block; font-size: 1.5rem; }
+.santri-import-upload { padding: 1.25rem; border: 1px dashed #829faf; border-radius: 1rem; }
+.santri-import-issues { max-height: 14rem; overflow: auto; list-style: disc; padding: .5rem 1.5rem; font-size: .875rem; }
+.santri-import-issues li { margin-bottom: .75rem; overflow-wrap: anywhere; }
+.santri-import-review { gap: .75rem; margin: .75rem 0; padding: 1rem; border: 1px solid #be8e45; border-radius: .75rem; }
+.santri-import-dialog .santri-import-check { display: flex; gap: .75rem; align-items: center; min-height: 44px; }
+.santri-import-record { border-bottom: 1px solid #c9e0e8; padding: .75rem 0; }
+.santri-import-record summary { cursor: pointer; min-height: 44px; overflow-wrap: anywhere; }
+.santri-import-record summary span { display: block; font-size: .8rem; margin: .25rem 0; }
+.santri-import-record dl { display: grid; gap: .75rem; padding: 1rem; font-size: .8rem; }
+.santri-import-record dd { overflow-wrap: anywhere; }
+.santri-import-record dt { font-weight: 700; }
+.santri-import-error { padding: .75rem 1rem; background: #fff1f2; border: 1px solid #be123c; color: #9f1239; border-radius: .75rem; }
+.santri-import-status { font-weight: 600; }
+@media (min-width: 640px) {
+  .santri-import-mapping label { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; }
+  .santri-import-settings, .santri-import-record dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .santri-import-counts { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+.dark .santri-import-dialog { color: #e1eff8; background: linear-gradient(135deg, #122d37, #111c30 40%, #1c2440); border-color: #476873; box-shadow: 0 24px 72px rgb(0 0 0 / .4); }
+.dark .santri-import-dialog :is(select, textarea, input[type="file"]) { background: #17293a; border-color: #6b8797; }
+.dark .santri-import-dialog .santri-import-step { color: #67e8f9; border-color: #476873; }
+.dark .santri-import-dialog :is(.santri-import-record, .santri-import-mapping label) { border-color: #476873; }
+.dark .santri-import-dialog .santri-import-counts p { background: rgb(103 232 249 / .09); }
+.dark .santri-import-dialog .santri-import-error { background: #421627; color: #fecdd3; border-color: #fb7185; }
