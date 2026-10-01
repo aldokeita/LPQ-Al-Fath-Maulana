@@ -25,6 +25,7 @@ import { mapClassForLegacyUi, mapSantriForLegacyUi } from '@/lib/dataMasterAdapt
 import { resolveAvatarRecord, resolveAvatarRecords } from '@/lib/storageAdapters';
 import { getAdjacentQiroatiJilid, QIROATI_JILID_OPTIONS } from '@/lib/qiroatiJilid';
 import { changeSantriJilid, getJilidChangeErrorMessage } from '@/lib/jilidChangeAdapters';
+import { transferSantriClass } from '@/lib/classTransferAdapters';
 
 const ItemTypes = {
   SANTRI: 'santri',
@@ -624,20 +625,13 @@ const GenericClassManagement = ({ userRole, kategori = 'Anak', configKey = 'anak
       toast({ title: 'Akses ditolak', description: 'Hanya admin yang boleh memindahkan kelas santri.', variant: 'destructive' });
       return;
     }
-    if (!toClassId) {
-      toast({
-        title: 'Kelas tujuan belum dipilih',
-        description: 'Mengeluarkan santri dari kelas perlu operasi backend terpisah dan masih ditunda.',
-        variant: 'destructive'
-      });
-      return;
-    }
-
     const targetClass = classes.find(c => c.id === toClassId);
-    const { data, error } = await supabase.rpc('move_santri_to_class', {
-      p_santri_id: item.santriId,
-      p_to_class_id: toClassId,
-      p_reason: `Mutasi kelas melalui dashboard admin${targetClass ? ` ke ${targetClass.nama_kelas}` : ''}`,
+    const { data, error } = await transferSantriClass({
+      santriId: item.santriId,
+      toClassId,
+      reason: toClassId == null
+        ? 'Dikeluarkan ke daftar Belum Masuk Kelas melalui dashboard admin'
+        : `Mutasi kelas melalui dashboard admin${targetClass ? ` ke ${targetClass.nama_kelas}` : ''}`,
     });
 
     if (error) {

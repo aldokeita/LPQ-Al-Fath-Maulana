@@ -21,6 +21,7 @@ import { Badge } from '@/components/ui/badge';
 import { mapSantriForLegacyUi } from '@/lib/dataMasterAdapters';
 import { getAdjacentQiroatiJilid, QIROATI_JILID_OPTIONS } from '@/lib/qiroatiJilid';
 import { changeSantriJilid, getJilidChangeErrorMessage } from '@/lib/jilidChangeAdapters';
+import { transferSantriClass } from '@/lib/classTransferAdapters';
 import { getSessionName } from '@/utils/sessionMapping';
 
 const ItemTypes = { SANTRI: 'santri', CLASS: 'class', SESSION: 'session', CLASS_ORDER: 'class_order' };
@@ -514,19 +515,21 @@ const AdultClassManagement = () => {
     const santri = santriList.find(s => s.id === santriId);
     const targetClass = classes.find(c => c.id === toClassId);
 
-    if (!toClassId || !targetClass) {
+    if (toClassId != null && !targetClass) {
       toast({
         title: 'Kelas tujuan diperlukan',
-        description: 'Mutasi harus menuju kelas aktif. Pengeluaran santri dari kelas belum didukung oleh operasi mutasi.',
+        description: 'Kelas tujuan tidak ditemukan. Muat ulang daftar kelas.',
         variant: 'destructive'
       });
       return;
     }
 
-    const { data, error } = await supabase.rpc('move_santri_to_class', {
-      p_santri_id: santriId,
-      p_to_class_id: toClassId,
-      p_reason: `Mutasi kelas dewasa: ${santri?.nama_lengkap || 'santri'} ke ${targetClass.nama_kelas}`
+    const { data, error } = await transferSantriClass({
+      santriId,
+      toClassId,
+      reason: toClassId == null
+        ? 'Dikeluarkan ke daftar Belum Masuk Kelas melalui dashboard admin dewasa'
+        : `Mutasi kelas dewasa: ${santri?.nama_lengkap || 'santri'} ke ${targetClass.nama_kelas}`
     });
 
     if (error) {
@@ -535,7 +538,8 @@ const AdultClassManagement = () => {
       return;
     }
 
-    toast({ title: 'Mutasi berhasil', description: data?.[0]?.message || `${santri?.nama_lengkap || 'Santri'} dipindahkan ke ${targetClass.nama_kelas}.` });
+    const result = Array.isArray(data) ? data[0] : data;
+    toast({ title: 'Mutasi berhasil', description: result?.message || 'Mutasi kelas selesai.' });
     await fetchAllData();
   };
 

@@ -68,7 +68,8 @@ $expectedNames = @(
   "20260820000200_remove_legacy_numeric_points_rpc.sql",
   "20260820000300_normalize_global_points_rpc_types.sql",
   "20260928000100_stop_jilid_conflict_retries.sql",
-  "20261001000100_active_membership_start_date.sql"
+  "20261001000100_active_membership_start_date.sql",
+  "20261001000200_remove_santri_from_class.sql"
 )
 
 $actualNames = $files | ForEach-Object { $_.Name }
