@@ -67,7 +67,8 @@ $expectedNames = @(
   "20260820000100_guru_global_random_name_access.sql",
   "20260820000200_remove_legacy_numeric_points_rpc.sql",
   "20260820000300_normalize_global_points_rpc_types.sql",
-  "20260928000100_stop_jilid_conflict_retries.sql"
+  "20260928000100_stop_jilid_conflict_retries.sql",
+  "20261001000100_active_membership_start_date.sql"
 )
 
 $actualNames = $files | ForEach-Object { $_.Name }
