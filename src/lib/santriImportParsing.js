@@ -162,6 +162,7 @@ export const parseSantriImport = (source, { mapping = source.mapping, dateOrder 
       });
       name = record.nama_lengkap || name;
       if (!record.nama_lengkap) throw new Error('Nama Lengkap wajib diisi.');
+      record.nama_panggilan ||= record.nama_lengkap.split(/\s+/)[0];
       record.jenis_kelamin = normalizeImportGender(record.jenis_kelamin);
       record.jilid = normalizeImportJilid(record.jilid, category);
       record.sesi_mengaji = normalizeImportSession(record.sesi_mengaji || defaultSession);

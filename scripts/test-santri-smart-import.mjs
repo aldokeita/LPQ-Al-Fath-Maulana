@@ -37,9 +37,9 @@ test('missing session is an error; chosen fallback fills only empty session cell
   assert.deepEqual(parse(source).records.map(r=>r.sesi_mengaji),['0','3']);
   assert.equal(parse(createImportSource([['Nama Lengkap','Sesi'],['Fixture','Tidak dikenal']])).errors.length,1);
 });
-test('optional missing fields including nickname stay empty instead of guessing',()=>{
+test('missing nickname uses first name while other optional fields remain empty',()=>{
   const r=parse(createImportSource([['Nama Lengkap'],['Fixture Satu']])).records[0];
-  assert.equal(r.nama_panggilan,undefined);assert.equal(r.jilid,null);assert.equal(r.jenis_kelamin,null);assert.equal(r.tanggal_pendaftaran,undefined);
+  assert.equal(r.nama_panggilan,'Fixture');assert.equal(r.jilid,null);assert.equal(r.jenis_kelamin,null);assert.equal(r.tanggal_pendaftaran,undefined);
   assert.equal(buildSantriImportPayload({...r,nomor_induk_qiroati:'1234567'}).profile.tanggal_pendaftaran,null);
 });
 test('calendar validation, ISO, serial dates and the Excel 1904 epoch',()=>{
