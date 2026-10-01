@@ -48,6 +48,10 @@ test('calendar validation, ISO, serial dates and the Excel 1904 epoch',()=>{
   for(const v of ['2023-02-29','31/04/2026','garbage'])assert.throws(()=>parseImportDate(v,'dmy'));
   assert.throws(()=>parseImportDate(60));assert.throws(()=>parseImportDate('09/07/2026'));
 });
+test('row errors retain the mapped student name even when another column fails first',()=>{
+  const s=createImportSource([['Tanggal Lahir','Nama Lengkap'],['31/02/2026','Fixture Tanggal Salah']]);
+  const result=parse(s);assert.equal(result.errors[0].row,2);assert.equal(result.errors[0].name,'Fixture Tanggal Salah');
+});
 test('ambiguous date order requires selection, mixed signals do not silently guess',()=>{
   const s=createImportSource([['Nama Lengkap','Tanggal Lahir'],['Fixture','09/07/2019']]);assert.equal(inferImportDateOrder(s,s.mapping).needsChoice,true);
   assert.throws(()=>parse(s),/Pilih/);assert.equal(parse(s,{dateOrder:'dmy'}).records[0].tanggal_lahir,'2019-07-09');

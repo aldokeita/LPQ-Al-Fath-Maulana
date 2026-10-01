@@ -146,7 +146,7 @@ export const parseSantriImport = (source, { mapping = source.mapping, dateOrder 
   const records = [], errors = [], warnings = [];
   const identityFields = new Set(['nomor_induk_qiroati', 'no_nik', 'no_kk', 'no_hp_ortu', 'rfid_tag']);
   for (const entry of source.entries) {
-    let name = 'Tanpa nama';
+    let name = String(entry.cells[mapping.indexOf('nama_lengkap')] ?? '').trim() || 'Tanpa nama';
     try {
       const record = { kategori: category, status: 'Aktif', points: 0, current_class_id: null, __importRow: entry.row };
       mapping.forEach((field, column) => {
