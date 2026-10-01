@@ -53,6 +53,7 @@ const html = buildClassAttendanceHtml({
       institutionName: 'LPQ <Pilihan>',
       documentCategory: 'DAFTAR HADIR',
       nameColumn: 'NAMA SANTRI',
+      createdLabel: 'STAMP DIHAPUS',
     },
     typography: {
       headerFont: 'cinzel',
@@ -86,6 +87,7 @@ assert.match(html, /--attendance-address-offset-y: 2mm/);
 assert.match(html, /--attendance-header-text: #334455/);
 assert.match(html, /--attendance-table-head: #123456/);
 assert.doesNotMatch(html, /Halaman 1\/1/);
+assert.doesNotMatch(html, /STAMP DIHAPUS|DIBUAT|Dibuat/);
 assert.doesNotMatch(html, /https?:\/\//);
 
 const normalizedConfig = normalizeClassAttendancePrintConfig({
@@ -141,6 +143,10 @@ assert.match(bundleHtml, /Kelas Sore/);
 assert.equal((bundleHtml.match(/class="attendance-page/g) || []).length, 2);
 assert.match(bundleHtml, /break-after: page/);
 assert.match(bundleHtml, /window\.print\(\)/);
+assert.doesNotMatch(bundleHtml, /DIBUAT|Dibuat/);
+for (const [, metadata] of bundleHtml.matchAll(/<dl class="class-meta">([\s\S]*?)<\/dl>/g)) {
+  assert.equal((metadata.match(/<dt>/g) || []).length, 3);
+}
 assert.doesNotMatch(bundleHtml, /Kelas Pagi <A>/);
 assert.doesNotMatch(bundleHtml, /https?:\/\//);
 assert.throws(

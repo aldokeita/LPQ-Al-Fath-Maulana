@@ -130,7 +130,6 @@ const renderPrintPage = ({
   classData,
   config,
   dateSlots,
-  generatedAtLabel,
   lpqLogoDataUrl,
   monthLabel,
   page,
@@ -162,7 +161,6 @@ const renderPrintPage = ({
       <div><dt>${escapeAttendanceHtml(content.teacherLabel)}</dt><dd>: ${escapeAttendanceHtml(formatClassAttendanceTeacherName(classData.guru?.nama))}</dd></div>
       <div><dt>${escapeAttendanceHtml(content.classLabel)}</dt><dd>: ${escapeAttendanceHtml(classData.nama_kelas || 'Tanpa nama')}</dd></div>
       <div><dt>${escapeAttendanceHtml(content.sessionLabel)}</dt><dd>: ${escapeAttendanceHtml(classData.sesi || 'Belum ditentukan')}</dd></div>
-      <div><dt>${escapeAttendanceHtml(content.createdLabel)}</dt><dd>: ${escapeAttendanceHtml(generatedAtLabel)}</dd></div>
     </dl>
 
     <table class="attendance-table">
@@ -207,7 +205,6 @@ const buildClassAttendanceDocument = ({
   bundle = false,
   classDataList,
   dateSlots,
-  generatedAt = new Date(),
   logoDataUrl,
   lpqLogoDataUrl = logoDataUrl,
   monthIndex,
@@ -222,10 +219,6 @@ const buildClassAttendanceDocument = ({
 
   const config = normalizeClassAttendancePrintConfig(printConfig);
   const monthLabel = getClassAttendanceMonthLabel(monthIndex, year);
-  const generatedAtLabel = new Intl.DateTimeFormat('id-ID', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(generatedAt);
   const classPages = classes.map((classData) => ({
     classData,
     pages: createClassAttendancePages(classData.roster),
@@ -235,7 +228,6 @@ const buildClassAttendanceDocument = ({
       classData,
       config,
       dateSlots,
-      generatedAtLabel,
       lpqLogoDataUrl,
       monthLabel,
       page,

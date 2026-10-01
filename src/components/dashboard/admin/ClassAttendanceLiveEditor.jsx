@@ -42,7 +42,6 @@ const META_FIELDS = [
   ['teacherLabel', 'Label nama guru'],
   ['classLabel', 'Label kelas'],
   ['sessionLabel', 'Label sesi'],
-  ['createdLabel', 'Label waktu dibuat'],
 ];
 
 const COLUMN_FIELDS = [
