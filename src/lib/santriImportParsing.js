@@ -132,13 +132,14 @@ export const normalizeImportJilid = (value, category = 'Anak') => {
 };
 export const normalizeImportSession = value => {
   const text = String(value ?? '').trim();
+  if (!text) return null;
   if (Object.hasOwn(SESSION_MAP, text)) return text;
   const match = Object.entries(SESSION_MAP).find(([, name]) => name.toLowerCase() === text.toLowerCase());
   if (!match) throw new Error('Sesi tidak dikenal. Pilih Pagi, Pagi 2, Siang, Sore, atau Malam.');
   return match[0];
 };
 
-export const parseSantriImport = (source, { mapping = source.mapping, dateOrder = 'auto', defaultSession = '', category = 'Anak' } = {}) => {
+export const parseSantriImport = (source, { mapping = source.mapping, dateOrder = 'auto', category = 'Anak' } = {}) => {
   validateImportMapping(mapping);
   const detected = inferImportDateOrder(source, mapping);
   if (dateOrder === 'auto' && detected.needsChoice) throw new Error(detected.reason);
@@ -165,7 +166,7 @@ export const parseSantriImport = (source, { mapping = source.mapping, dateOrder 
       record.nama_panggilan ||= record.nama_lengkap.split(/\s+/)[0];
       record.jenis_kelamin = normalizeImportGender(record.jenis_kelamin);
       record.jilid = normalizeImportJilid(record.jilid, category);
-      record.sesi_mengaji = normalizeImportSession(record.sesi_mengaji || defaultSession);
+      record.sesi_mengaji = normalizeImportSession(record.sesi_mengaji);
       if (record.nomor_induk_qiroati && /\s/.test(record.nomor_induk_qiroati)) throw new Error('Nomor Induk Qiroati tidak boleh mengandung spasi.');
       records.push(record);
     } catch (error) { errors.push({ row: entry.row, name, reason: error.message }); }

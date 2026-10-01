@@ -5,7 +5,7 @@ import { loadXlsx } from '@/lib/xlsxLoader';
 import { importSantriAccounts, loadSantriImportIdentities } from '@/lib/santriBulkImportAdapters';
 import { createImportSource, IMPORT_FIELDS, inferImportDateOrder, parseSantriImport, readImportWorkbook } from '@/lib/santriImportParsing';
 import { validateSantriImport } from '@/lib/santriImportWorkflow';
-import { SESSION_MAP, getSessionName } from '@/utils/sessionMapping';
+import { getSessionName } from '@/utils/sessionMapping';
 import '@/styles/santri-import.css';
 
 const defaultServices = { loadIdentities: loadSantriImportIdentities, importAccounts: importSantriAccounts };
@@ -15,8 +15,8 @@ const RecordPreview = ({ records }) => {
   const current = Math.min(page, Math.max(0, Math.ceil(records.length / 10) - 1));
   return <>
     {records.slice(current * 10, current * 10 + 10).map(record => <details className="santri-import-record" key={record.__importRow}>
-      <summary><strong>Baris {record.__importRow}: {record.nama_lengkap}</strong><span>{record.jilid || 'Jilid belum diisi'} · {getSessionName(record.sesi_mengaji)}</span><span>NIQ {record.nomor_induk_qiroati} {record.is_auto_niq ? '(otomatis)' : ''}</span></summary>
-      <dl>{IMPORT_FIELDS.map(field => <div key={field.key}><dt>{field.label}</dt><dd>{field.key === 'sesi_mengaji' ? getSessionName(record[field.key]) : String(record[field.key] ?? '') || 'Belum diisi'}</dd></div>)}</dl>
+      <summary><strong>Baris {record.__importRow}: {record.nama_lengkap}</strong><span>{record.jilid || 'Jilid belum diisi'} · {getSessionName(record.sesi_mengaji) || 'Sesi mengikuti kelas'}</span><span>NIQ {record.nomor_induk_qiroati} {record.is_auto_niq ? '(otomatis)' : ''}</span></summary>
+      <dl>{IMPORT_FIELDS.map(field => <div key={field.key}><dt>{field.label}</dt><dd>{field.key === 'sesi_mengaji' ? getSessionName(record[field.key]) || 'Belum diisi' : String(record[field.key] ?? '') || 'Belum diisi'}</dd></div>)}</dl>
     </details>)}
     {records.length > 10 && <div className="santri-import-actions"><Button variant="outline" disabled={current === 0} onClick={() => setPage(current - 1)}>Sebelumnya</Button><span>Halaman {current + 1}/{Math.ceil(records.length / 10)}</span><Button variant="outline" disabled={(current + 1) * 10 >= records.length} onClick={() => setPage(current + 1)}>Berikutnya</Button></div>}
   </>;
@@ -29,7 +29,6 @@ const SantriImportDialog = ({ open, onOpenChange, category = 'Anak', userRole, o
   const [source, setSource] = useState(null);
   const [mapping, setMapping] = useState([]);
   const [dateOrder, setDateOrder] = useState('auto');
-  const [defaultSession, setDefaultSession] = useState('');
   const [parsed, setParsed] = useState(null);
   const [identities, setIdentities] = useState(null);
   const [decisions, setDecisions] = useState({});
@@ -50,7 +49,7 @@ const SantriImportDialog = ({ open, onOpenChange, category = 'Anak', userRole, o
 
   const acceptSource = next => {
     setSource(next); setMapping(next.mapping); setStage('mapping'); setError(''); setDecisions({});
-    setDateOrder('auto'); setDefaultSession(''); setParsed(null); setIdentities(null); setAckWarnings(false);
+    setDateOrder('auto'); setParsed(null); setIdentities(null); setAckWarnings(false);
     niqCache.current.clear();
   };
   const readFile = async event => {
@@ -82,7 +81,7 @@ const SantriImportDialog = ({ open, onOpenChange, category = 'Anak', userRole, o
     if (lock.current || userRole !== 'admin') return;
     lock.current = true; setBusy('validating'); setError(''); setIdentities(null);
     try {
-      const next = parseSantriImport(source, { mapping, dateOrder, defaultSession, category });
+      const next = parseSantriImport(source, { mapping, dateOrder, category });
       const existing = await services.loadIdentities();
       setParsed(next); setIdentities(existing); setDecisions({}); setStage('preview'); setAckWarnings(false);
     } catch (e) { setError(e.message || 'Validasi gagal. Coba lagi.'); }
@@ -143,8 +142,8 @@ const SantriImportDialog = ({ open, onOpenChange, category = 'Anak', userRole, o
           <p>{source.entries.length} baris terdeteksi{source.sheetName ? ` di sheet ${source.sheetName}` : ''}. Kolom yang tidak dipakai akan diabaikan.</p>
           <div className="santri-import-mapping">{source.headers.map((header, index) => <label key={index}><span>{header || `Kolom ${index + 1} tanpa nama`}</span><select aria-label={`Pemetaan kolom ${index + 1}: ${header}`} value={mapping[index] || ''} onChange={e => { const next = [...mapping]; next[index] = e.target.value; setMapping(next); }} disabled={Boolean(busy)}><option value="">Abaikan kolom</option>{IMPORT_FIELDS.map(f => <option key={f.key} value={f.key}>{f.label}</option>)}</select></label>)}</div>
           <div className="santri-import-settings">
-            <label>Sesi untuk baris tanpa sesi<select value={defaultSession} onChange={e => setDefaultSession(e.target.value)} disabled={Boolean(busy)}><option value="">Pilih sesi jika diperlukan</option>{Object.entries(SESSION_MAP).map(([key, name]) => <option key={key} value={key}>{name}</option>)}</select></label>
             <label>Format tanggal teks<select value={dateOrder} onChange={e => setDateOrder(e.target.value)} disabled={Boolean(busy)}><option value="auto">Deteksi otomatis</option><option value="dmy">Hari / Bulan / Tahun</option><option value="mdy">Bulan / Hari / Tahun</option></select></label>
+            <p>Sesi yang tidak tersedia atau kosong diterima sebagai kosong. Sesi akan mengikuti kelas ketika santri dimasukkan ke kelas yang memiliki sesi.</p>
           </div>
           <p>{detected?.needsChoice ? detected.reason : detected?.order ? `Format terdeteksi: ${detected.order === 'mdy' ? 'Bulan/Hari/Tahun' : 'Hari/Bulan/Tahun'}.` : 'Tanggal Excel dan YYYY-MM-DD dibaca langsung.'}</p>
           <p>Kolom Kelas dipakai sebagai jilid, bukan penempatan kelas guru. NIQ kosong dibuat otomatis. Kolom opsional kosong tidak ditebak.</p>

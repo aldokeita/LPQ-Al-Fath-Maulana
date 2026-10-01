@@ -7,7 +7,7 @@ import { allocateImportNiq, buildSantriImportPayload, fetchSantriImportIdentitie
 
 const headers = ['Nama Lengkap', 'Kelas', 'Nama Panggilan', 'Jenis Kelamin', 'Tempat Lahir', 'Tanggal Lahir', 'Nama Ayah', 'Alamat', 'No WA', 'Tanggal Masuk Pendaftaran', 'Nama Ibu'];
 const rows = [headers, ...Array.from({length:4}, (_,i)=>[`Fixture ${i+1}`, '1 A', `Fixture${i+1}`, i===0?'Wanita':'Pria', 'Kota fixture', '09/15/2019', 'Ayah fixture', 'Alamat fixture', '082100000000', '09/07/2026', 'Ibu fixture'])];
-const parse = (source = createImportSource(rows), options = {}) => parseSantriImport(source, {defaultSession:'3', ...options});
+const parse = (source = createImportSource(rows), options = {}) => parseSantriImport(source, options);
 const record = (extra = {}) => ({nama_lengkap:'Fixture Satu',tanggal_lahir:'2019-09-15',nomor_induk_qiroati:'001234',sesi_mengaji:'3',__importRow:2,...extra});
 const parsed = records => ({records,errors:[],warnings:[],ignoredColumns:[]});
 const sequentialGenerator = () => {let i=2600000;return used => {while(used.has(String(++i))) {} const value=String(i);used.add(value);return value;};};
@@ -31,11 +31,16 @@ test('missing and ambiguous header mappings require correction',()=>{
   assert.throws(()=>validateImportMapping(['nama_lengkap','jilid','jilid']),/Dua kolom/);
   assert.throws(()=>createImportSource([['Nama Lengkap']]),/Tidak ada baris/);
 });
-test('missing session is an error; chosen fallback fills only empty session cells',()=>{
-  assert.equal(parse(createImportSource(rows),{defaultSession:''}).errors.length,4);
+test('missing or blank session is accepted as null, supplied valid sessions are retained',()=>{
+  const noSession=parse(createImportSource(rows));assert.equal(noSession.errors.length,0);assert.ok(noSession.records.every(r=>r.sesi_mengaji===null));
   const source=createImportSource([['Nama Lengkap','Sesi'],['Fixture 1','Pagi'],['Fixture 2','']]);
-  assert.deepEqual(parse(source).records.map(r=>r.sesi_mengaji),['0','3']);
+  assert.deepEqual(parse(source).records.map(r=>r.sesi_mengaji),['0',null]);
+  assert.equal(buildSantriImportPayload(noSession.records[0]).profile.sesi_mengaji,null);
   assert.equal(parse(createImportSource([['Nama Lengkap','Sesi'],['Fixture','Tidak dikenal']])).errors.length,1);
+});
+test('existing admin class-assignment RPC fills session from target class, without import defaults',async()=>{
+  const sql=await readFile(new URL('../supabase/migrations/20260624001900_move_santri_to_class_rpc.sql',import.meta.url),'utf8');
+  assert.match(sql,/sesi_mengaji = coalesce\(v_target_class.sesi, s.sesi_mengaji\)/);
 });
 test('missing nickname uses first name while other optional fields remain empty',()=>{
   const r=parse(createImportSource([['Nama Lengkap'],['Fixture Satu']])).records[0];
