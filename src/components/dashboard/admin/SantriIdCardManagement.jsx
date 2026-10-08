@@ -369,6 +369,18 @@ const SantriIdCardManagement = () => {
             <DialogDescription>{filteredSantri.length} hasil sesuai filter · {selectedSantri.length} santri dipilih</DialogDescription>
           </DialogHeader>
 
+          <div className="santri-id-card__search">
+            <Search aria-hidden="true" />
+            <Input
+              type="search"
+              value={filters.search}
+              onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))}
+              placeholder="Cari nama lengkap, panggilan, atau nomor induk…"
+              aria-label="Cari santri dalam modal seleksi"
+              autoFocus
+            />
+          </div>
+
           <div className="santri-id-card__selection-actions">
             <Button type="button" variant="outline" size="sm" onClick={toggleSelectAllFiltered} disabled={filteredSantri.length === 0}>
               {allFilteredSelected ? <X aria-hidden="true" /> : <Check aria-hidden="true" />}
