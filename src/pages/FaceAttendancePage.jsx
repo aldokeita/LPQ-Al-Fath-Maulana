@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
-import { ArrowLeft, Sun, Moon } from 'lucide-react';
+import { ArrowLeft, Sun, Moon, ScanFace, Fingerprint, ShieldCheck } from 'lucide-react';
 import { MotionConfig } from 'framer-motion';
 import { useTheme } from '@/contexts/ThemeContext';
 import { supabase } from '@/lib/customSupabaseClient';
@@ -59,13 +59,36 @@ export default function FaceAttendancePage() {
     <div className="attendance-page__bg" aria-hidden="true" />
     <header className="face-page__header">
       <Link className="attendance-header__back" to="/absensi-digital"><ArrowLeft aria-hidden="true" /> Absensi Digital</Link>
-      <button type="button" className="attendance-header__icon-btn" onClick={toggleTheme} aria-label={isDark ? 'Mode terang' : 'Mode gelap'}>{isDark ? <Sun /> : <Moon />}</button>
+      <button type="button" className="attendance-header__icon-btn face-page__theme" onClick={toggleTheme} aria-label={isDark ? 'Mode terang' : 'Mode gelap'}>{isDark ? <Sun /> : <Moon />}</button>
     </header>
     <main className="face-page__main">
-      <div className="face-page__intro"><h1>Absensi Wajah</h1><p>Satu wajah. Ikuti panduan kamera, lalu tunggu kehadiran dikonfirmasi.</p></div>
-      {facePilotEnabled ? <FaceCameraCapture onCapture={capture} /> : <p role="status">Halaman ini memerlukan backend pilot terpisah. Kartu RFID tetap dapat digunakan.</p>}
-      {notice && <p className="face-page__notice" role="status">{notice}</p>}
-      <div className="face-page__result" aria-live="polite">{card ? <MotionConfig reducedMotion="user"><AttendanceProfileCard {...card} showSuccessBadge /></MotionConfig> : <p className="face-page__result-hint">Profile Card tampil setelah kehadiran tersimpan.</p>}</div>
+      <div className="face-page__intro">
+        <p className="face-page__eyebrow"><ShieldCheck aria-hidden="true" /> Pilot terawasi</p>
+        <h1>Absensi Wajah</h1>
+        <p>Satu wajah. Ikuti panduan kamera, lalu tunggu kehadiran dikonfirmasi.</p>
+      </div>
+      <div className="face-page__stage">
+        {facePilotEnabled ? <FaceCameraCapture onCapture={capture} /> : <section className="face-page__panel face-page__disabled" aria-labelledby="face-disabled-title">
+          <Fingerprint aria-hidden="true" />
+          <h2 id="face-disabled-title">Mode pilot belum aktif</h2>
+          <p role="status">Halaman ini memerlukan backend pilot terpisah. Kartu RFID tetap dapat digunakan.</p>
+          <Link className="face-page__link" to="/absensi-digital">Kembali ke absensi RFID</Link>
+        </section>}
+        <aside className="face-page__aside" aria-label="Hasil absensi">
+          {notice && <p className="face-page__notice" role="status">{notice}</p>}
+          <div className="face-page__result" aria-live="polite">{card ? <MotionConfig reducedMotion="user"><AttendanceProfileCard {...card} showSuccessBadge /></MotionConfig>
+            : <div className="face-page__panel face-page__empty">
+              <span className="face-page__empty-icon" aria-hidden="true"><ScanFace /></span>
+              <p className="face-page__result-hint">Profile Card tampil setelah kehadiran tersimpan.</p>
+              <ol className="face-page__steps">
+                <li><span>Tekan <strong>Mulai kamera</strong>.</span></li>
+                <li><span>Ikuti arah pada jalur gerakan di bagian bawah layar kamera.</span></li>
+                <li><span>Tunggu konfirmasi, lalu bergantian dengan santri berikutnya.</span></li>
+              </ol>
+            </div>}
+          </div>
+        </aside>
+      </div>
     </main>
   </div>;
 }

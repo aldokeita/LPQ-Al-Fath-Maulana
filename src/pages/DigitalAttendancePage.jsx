@@ -1011,7 +1011,7 @@ const DigitalAttendancePage = () => {
           </div>
           <div className="attendance-header__right">
             {facePilotEnabled && (
-              <button type="button" className="attendance-header__action-btn" onClick={() => navigate('/absensi-wajah')}>
+              <button type="button" className="attendance-header__action-btn attendance-header__action-btn--face" onClick={() => navigate('/absensi-wajah')}>
                 <Camera className="w-4 h-4" aria-hidden="true" /><span>Absensi Wajah</span>
               </button>
             )}

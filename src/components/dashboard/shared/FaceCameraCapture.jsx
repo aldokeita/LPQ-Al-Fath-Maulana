@@ -1,16 +1,23 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Camera, RefreshCw, Square } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, ArrowRight, Camera, CheckCircle2, Circle, Loader2, RefreshCw, ScanFace, ShieldCheck, Square } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { loadFaceEngine, frameQuality, facePose } from '@/lib/faceCameraEngine';
 import { faceAttendanceRequest } from '@/lib/faceAttendanceApi';
 import { captureSteps, descriptorDistance, FACE_MODEL_VERSION, getCameraErrorMessage } from '../../../../supabase/functions/_shared/faceCapture.js';
 
 const instructions = { center: 'Hadapkan wajah ke tengah', left: 'Putar wajah perlahan ke kiri layar', right: 'Putar wajah perlahan ke kanan layar' };
+const poseLabels = { center: 'Tengah', left: 'Kiri', right: 'Kanan' };
+const poseIcons = { center: Circle, left: ArrowLeft, right: ArrowRight };
+const stateIcons = { idle: Camera, permission: Loader2, loading: Loader2, active: ScanFace, detected: ScanFace, waiting: ScanFace,
+  recognizing: Loader2, success: CheckCircle2, unrecognized: AlertTriangle, error: AlertTriangle };
+const spinningStates = ['permission', 'loading', 'recognizing'];
 
 export default function FaceCameraCapture({ purpose = 'attendance', santriId, consent, onCapture }) {
   const video = useRef(null); const stream = useRef(null); const generation = useRef(0);
   const callback = useRef(onCapture); callback.current = onCapture;
   const [state, setState] = useState('idle'); const [message, setMessage] = useState('Kamera hanya aktif setelah Anda menekan Mulai kamera.');
+  // Mirrors the capture loop so the operator sees which pose comes next; it never feeds back into the loop.
+  const [poseSteps, setPoseSteps] = useState([]); const [posesDone, setPosesDone] = useState(0);
   const stop = () => {
     generation.current++;
     stream.current?.getTracks().forEach(track => track.stop()); stream.current = null;
@@ -40,9 +47,10 @@ export default function FaceCameraCapture({ purpose = 'attendance', santriId, co
       if (ticket !== generation.current) return;
       let challenge = await faceAttendanceRequest({ action: 'challenge', purpose, santriId, consent });
       let steps = captureSteps(challenge.firstDirection); let step = 0; let poseStart = 0;
+      setPoseSteps(steps); setPosesDone(0);
       let began = performance.now(); let evidence = []; let waitingUntil = 0; let waitForExit = false; let reference = null;
       const canvas = document.createElement('canvas');
-      setState('active');
+      setState('active'); setMessage('Kamera aktif. Posisikan satu wajah pada panduan.');
       while (ticket === generation.current && stream.current?.active) {
         const results = await engine.detect(video.current);
         if (ticket !== generation.current) break;
@@ -54,18 +62,19 @@ export default function FaceCameraCapture({ purpose = 'attendance', santriId, co
             challenge = await faceAttendanceRequest({ action: 'challenge', purpose, santriId, consent });
             steps = captureSteps(challenge.firstDirection); step = 0; evidence = []; descriptors = []; poseSamples = [];
             began = performance.now(); poseStart = 0; waitForExit = false; reference = null; setState('active');
+            setPoseSteps(steps); setPosesDone(0);
           } else { await new Promise(resolve => setTimeout(resolve, 160)); continue; }
         }
         if (Date.now() >= Date.parse(challenge.expiresAt)) throw new Error('Tantangan kedaluwarsa. Tekan Mulai lagi.');
         if (results.length !== 1) {
-          step = 0; evidence = []; descriptors.forEach(row => row.fill(0)); descriptors = [];
+          step = 0; setPosesDone(0); evidence = []; descriptors.forEach(row => row.fill(0)); descriptors = [];
           poseSamples.forEach(row => row.fill(0)); poseSamples = []; poseStart = 0; reference = null;
           setMessage(results.length > 1 ? 'Beberapa wajah terdeteksi. Satu santri saja di depan kamera.' : 'Kamera aktif. Posisikan satu wajah pada panduan.');
           await new Promise(resolve => setTimeout(resolve, 160)); continue;
         }
         const face = results[0];
         if (!frameQuality(video.current, face, canvas)) {
-          step = 0; evidence = []; poseStart = 0; reference = null;
+          step = 0; setPosesDone(0); evidence = []; poseStart = 0; reference = null;
           poseSamples.forEach(row => row.fill(0)); poseSamples = [];
           descriptors.forEach(row => row.fill(0)); descriptors = []; setMessage('Dekatkan wajah dan pastikan pencahayaan cukup serta gambar tidak kabur.');
           await new Promise(resolve => setTimeout(resolve, 160)); continue;
@@ -73,7 +82,7 @@ export default function FaceCameraCapture({ purpose = 'attendance', santriId, co
         const pose = facePose(face); const now = performance.now();
         const currentDescriptor = Array.from(face.descriptor);
         if (reference && descriptorDistance(currentDescriptor, reference) > 0.45) {
-          step = 0; evidence = []; poseStart = 0; reference.fill(0); reference = null;
+          step = 0; setPosesDone(0); evidence = []; poseStart = 0; reference.fill(0); reference = null;
           poseSamples.forEach(row => row.fill(0)); poseSamples = [];
           descriptors.forEach(row => row.fill(0)); descriptors = [];
           setMessage('Wajah berubah atau hasil tidak konsisten. Ulangi dari posisi tengah.'); continue;
@@ -85,7 +94,7 @@ export default function FaceCameraCapture({ purpose = 'attendance', santriId, co
           if (!poseStart) poseStart = now;
           if (now - poseStart >= 350 && step < 4) {
             poseSamples.push(currentDescriptor);
-            evidence.push({ pose, elapsedMs: now - began, faceCount: 1, quality: true }); step++; poseStart = 0;
+            evidence.push({ pose, elapsedMs: now - began, faceCount: 1, quality: true }); step++; poseStart = 0; setPosesDone(step);
           } else if (step === 4) {
             const descriptor = Array.from(face.descriptor);
             if (descriptors.length && descriptorDistance(descriptor, descriptors[0]) > 0.25) {
@@ -93,7 +102,7 @@ export default function FaceCameraCapture({ purpose = 'attendance', santriId, co
               setMessage('Hasil wajah belum stabil. Tetap menghadap ke tengah.');
             } else descriptors.push(descriptor);
             if (descriptors.length === 5) {
-              evidence.push({ pose, elapsedMs: now - began, faceCount: 1, quality: true });
+              evidence.push({ pose, elapsedMs: now - began, faceCount: 1, quality: true }); setPosesDone(5);
               setState('recognizing'); setMessage(purpose === 'enroll' ? 'Menyimpan registrasi wajah...' : 'Mengenali wajah dan mengonfirmasi pencatatan...');
               const samples = purpose === 'enroll' ? [...poseSamples, descriptors[descriptors.length - 1]] : descriptors;
               const result = await callback.current({ challengeId: challenge.id, modelVersion: FACE_MODEL_VERSION, descriptors:samples, evidence });
@@ -120,17 +129,33 @@ export default function FaceCameraCapture({ purpose = 'attendance', santriId, co
   }
 
   const running = !['idle','error'].includes(state);
-  return <section className="face-camera" aria-label="Kamera pengenalan wajah">
+  const StatusIcon = stateIcons[state] || ScanFace;
+  const tracking = poseSteps.length > 0 && running;
+  const halt = () => { stop(); setState('idle'); setPoseSteps([]); setPosesDone(0); setMessage('Kamera dihentikan.'); };
+  return <section className={`face-camera face-camera--${state}`} aria-label="Kamera pengenalan wajah">
     <div className="face-camera__viewport">
       <video ref={video} muted playsInline aria-label="Pratinjau kamera langsung, tidak direkam" />
       <div className="face-camera__guide" aria-hidden="true" />
-      {state === 'idle' && <Camera className="face-camera__placeholder" aria-hidden="true" />}
+      {state === 'idle' && <div className="face-camera__placeholder" aria-hidden="true"><ScanFace /><span>Kamera belum aktif</span></div>}
+      {tracking && <ol className="face-camera__track" aria-label="Urutan gerakan wajah">
+        {poseSteps.map((pose, index) => {
+          const PoseIcon = poseIcons[pose];
+          const status = index < posesDone ? 'done' : index === posesDone ? 'current' : 'pending';
+          return <li key={index} className={`face-camera__track-step is-${status}`} aria-current={status === 'current' ? 'step' : undefined}>
+            <span className="face-camera__track-dot" aria-hidden="true">{status === 'done' ? <CheckCircle2 /> : <PoseIcon />}</span>
+            <span className="face-camera__track-label">{poseLabels[pose]}<span className="sr-only">{status === 'done' ? ', selesai' : status === 'current' ? ', sekarang' : ''}</span></span>
+          </li>;
+        })}
+      </ol>}
     </div>
-    <div className="face-camera__status" role="status" aria-live="polite" aria-atomic="true"><p>{message}</p></div>
+    <div className="face-camera__status" role="status" aria-live="polite" aria-atomic="true">
+      <span className="face-camera__status-icon" aria-hidden="true"><StatusIcon className={spinningStates.includes(state) ? 'is-spinning' : undefined} /></span>
+      <p>{message}</p>
+    </div>
     <div className="face-camera__controls">
-      <Button type="button" onClick={start} disabled={running}>{state === 'error' ? <RefreshCw /> : <Camera />}{state === 'error' ? 'Mulai lagi' : 'Mulai kamera'}</Button>
-      <Button type="button" variant="outline" onClick={() => { stop(); setState('idle'); setMessage('Kamera dihentikan.'); }} disabled={!running}><Square /> Hentikan</Button>
+      <Button type="button" className="face-camera__primary" onClick={start} disabled={running}>{state === 'error' ? <RefreshCw /> : <Camera />}{state === 'error' ? 'Mulai lagi' : 'Mulai kamera'}</Button>
+      <Button type="button" variant="outline" className="face-camera__secondary" onClick={halt} disabled={!running}><Square /> Hentikan</Button>
     </div>
-    <p className="face-camera__privacy">Pilot terawasi. Foto/video tidak disimpan. Jika sulit dikenali, gunakan kartu RFID.</p>
+    <p className="face-camera__privacy"><ShieldCheck aria-hidden="true" />Pilot terawasi. Foto/video tidak disimpan. Jika sulit dikenali, gunakan kartu RFID.</p>
   </section>;
 }
