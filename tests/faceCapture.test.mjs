@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { captureSteps, validateCapture, validateConsent, FACE_MODEL_VERSION, getCameraErrorMessage } from '../supabase/functions/_shared/faceCapture.js';
+import { captureSteps, isUuid, validateCapture, validateConsent, FACE_MODEL_VERSION, getCameraErrorMessage } from '../supabase/functions/_shared/faceCapture.js';
 
 const valid = () => ({ modelVersion:FACE_MODEL_VERSION, descriptors:Array.from({length:5},()=>Array(128).fill(0.01)),
   evidence:captureSteps('left').map((pose,i)=>({pose,faceCount:1,quality:true,elapsedMs:(i+1)*500})) });
@@ -40,5 +40,12 @@ test('only three approved models exist, with integrity hashes',async()=>{
     assert.doesNotMatch(name,/age|gender|expression/);assert.match(meta.sha256,/^[a-f0-9]{64}$/);
     const {createHash}=await import('node:crypto');const bytes=await readFile(new URL('../public/face-models/1.7.15/'+name,import.meta.url));
     assert.equal(createHash('sha256').update(bytes).digest('hex'),meta.sha256);
+  }
+});
+test('request ids accept seeded non-v4 UUIDs and reject malformed values',()=>{
+  assert.ok(isUuid('a1fa7a10-0000-0000-0000-000000000101'));
+  assert.ok(isUuid('3F2504E0-4F89-41D3-9A0C-0305E82C3301'));
+  for (const value of ['', 'a1fa7a10-0000-0000-0000-00000000010', 'a1fa7a10000000000000000000000101', 'g1fa7a10-0000-0000-0000-000000000101', null, 42]) {
+    assert.equal(isUuid(value),false);
   }
 });

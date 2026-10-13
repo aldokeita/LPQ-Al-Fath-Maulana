@@ -2,6 +2,8 @@ export const FACE_MODEL_VERSION = 'faceapi-1.7.15-resnet128';
 export const FACE_DESCRIPTOR_SIZE = 128;
 export const CAPTURE_SAMPLE_COUNT = 5;
 export const captureSteps = (first) => ['center', first, 'center', first === 'left' ? 'right' : 'left', 'center'];
+// Any canonical UUID is accepted: seeded and imported rows are not always version 4.
+export const isUuid = (value) => typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 
 export const validateConsent = (consent, today) => {
   const parsed = new Date((consent?.date || '') + 'T00:00:00Z');

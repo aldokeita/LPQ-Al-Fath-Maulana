@@ -2,7 +2,7 @@ import { getUserFromRequest } from '../_shared/auth.ts';
 import { getServiceRoleClient } from '../_shared/supabaseAdmin.ts';
 import { handleOptions } from '../_shared/cors.ts';
 import { ok, fail } from '../_shared/response.ts';
-import { validateCapture, validateConsent } from '../_shared/faceCapture.js';
+import { isUuid as uuid, validateCapture, validateConsent } from '../_shared/faceCapture.js';
 import { getAttendanceSessionTimes } from '../_shared/attendanceConfiguration.js';
 import { getJakartaDateString, normalizeAttendanceSessionName, resolveSantriAttendanceSession } from '../_shared/attendanceRules.js';
 import { computeAttendancePointAward } from '../_shared/attendancePoints.js';
@@ -12,11 +12,11 @@ const messages: Record<string, string> = {
   CONSENT_REQUIRED: 'Persetujuan wali tertulis dan data formulir yang valid wajib dilengkapi.',
   INVALID_CHALLENGE: 'Tantangan kamera kedaluwarsa atau sudah digunakan. Mulai lagi.',
   INVALID_CAPTURE: 'Tangkapan belum valid. Pastikan hanya satu wajah dan ikuti petunjuk kamera.',
+  INVALID_REQUEST: 'Permintaan tidak valid. Muat ulang halaman lalu coba lagi.',
   UNSTABLE_CAPTURE: 'Hasil beberapa frame belum konsisten. Silakan ulangi.',
   RATE_LIMITED: 'Terlalu banyak percobaan. Tunggu sebentar sebelum mencoba lagi.',
   ACTIVE_SANTRI_REQUIRED: 'Santri aktif tidak ditemukan.',
 };
-const uuid = (value: unknown) => typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 
 async function readBody(req: Request) {
   const reader = req.body?.getReader();
@@ -58,20 +58,20 @@ Deno.serve(async (req) => {
       return data;
     };
     if (['status', 'delete', 'calibrate'].includes(payload.action)) {
-      if (payload.action !== 'calibrate' && !uuid(payload.santriId)) throw new Error('INVALID_CAPTURE');
+      if (payload.action !== 'calibrate' && !uuid(payload.santriId)) throw new Error('INVALID_REQUEST');
       return ok(req, await operation(payload.action, payload));
     }
     if (payload.action === 'challenge') {
       if (!['enroll', 'attendance'].includes(payload.purpose)) throw new Error('INVALID_CAPTURE');
       if (payload.purpose === 'enroll') {
-        if (!uuid(payload.santriId)) throw new Error('INVALID_CAPTURE');
+        if (!uuid(payload.santriId)) throw new Error('INVALID_REQUEST');
         validateConsent(payload.consent, getJakartaDateString());
       }
       return ok(req, await operation('challenge', payload));
     }
     let santriId; let receiptId; let source;
     if (payload.action === 'enroll' || payload.action === 'recognize') {
-      if (!uuid(payload.challengeId)) throw new Error('INVALID_CAPTURE');
+      if (!uuid(payload.challengeId)) throw new Error('INVALID_REQUEST');
       const challenge = await operation('inspect', { challengeId: payload.challengeId });
       validateCapture(payload, challenge);
       if (payload.action === 'enroll') {
@@ -82,11 +82,11 @@ Deno.serve(async (req) => {
       if (match.state !== 'matched') return ok(req, match);
       santriId = match.santriId; receiptId = match.receiptId; source = 'face';
     } else if (payload.action === 'retry') {
-      if (!uuid(payload.receiptId)) throw new Error('INVALID_CAPTURE');
+      if (!uuid(payload.receiptId)) throw new Error('INVALID_REQUEST');
       const match = await operation('resume', payload);
       santriId = match.santriId; receiptId = match.receiptId; source = 'face';
     } else if (payload.action === 'rfid') {
-      if (typeof payload.rfidTag !== 'string' || !payload.rfidTag.trim() || payload.rfidTag.length > 64 || !uuid(payload.receiptId)) throw new Error('INVALID_CAPTURE');
+      if (typeof payload.rfidTag !== 'string' || !payload.rfidTag.trim() || payload.rfidTag.length > 64 || !uuid(payload.receiptId)) throw new Error('INVALID_REQUEST');
       const { data, error } = await client.from('santri').select('id').eq('rfid_tag', payload.rfidTag.trim()).maybeSingle();
       if (error || !data) throw new Error('ACTIVE_SANTRI_REQUIRED');
       santriId = data.id; receiptId = payload.receiptId; source = 'rfid';
