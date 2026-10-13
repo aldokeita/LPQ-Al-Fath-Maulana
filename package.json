@@ -10,6 +10,7 @@
     "preview": "vite preview --host :: --port 3000",
     "prepare:face-models": "node tools/prepare-face-models.mjs",
     "test": "node --test",
+    "test:face": "node scripts/test-face-attendance-local.mjs --require-backend && node scripts/test-face-attendance-http.mjs --require-backend",
     "lint": "eslint . --quiet"
   },
   "overrides": {
