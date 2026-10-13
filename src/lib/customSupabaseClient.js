@@ -1,10 +1,19 @@
 import { createClient } from '@supabase/supabase-js';
 
-export const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-export const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+const facePilot = import.meta.env.VITE_FACE_ATTENDANCE_PILOT === 'true';
+const normalUrl = import.meta.env.VITE_SUPABASE_URL || '';
+const pilotUrl = import.meta.env.VITE_FACE_PILOT_SUPABASE_URL || '';
+// A Preview branch must never silently inherit the existing production backend.
+const isolatedPilot = pilotUrl && (pilotUrl !== normalUrl || /^https?:\/\/(localhost|127\.0\.0\.1)(:|\/)/.test(pilotUrl));
+export const supabaseUrl = facePilot ? (isolatedPilot ? pilotUrl : '') : normalUrl;
+export const supabaseAnonKey = facePilot
+  ? (isolatedPilot ? import.meta.env.VITE_FACE_PILOT_SUPABASE_ANON_KEY || '' : '')
+  : import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
 export const supabaseConfigurationMessage =
-  'Supabase belum dikonfigurasi. Isi VITE_SUPABASE_URL dan VITE_SUPABASE_ANON_KEY di .env.local.';
+  facePilot
+    ? 'Mode pilot membutuhkan Supabase uji terpisah. Isi VITE_FACE_PILOT_SUPABASE_URL dan VITE_FACE_PILOT_SUPABASE_ANON_KEY.'
+    : 'Supabase belum dikonfigurasi. Isi VITE_SUPABASE_URL dan VITE_SUPABASE_ANON_KEY di .env.local.';
 
 const notConfiguredError = {
   message: supabaseConfigurationMessage,

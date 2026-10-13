@@ -229,7 +229,7 @@ const uploadDirectlyToStorage = async ({ bucket, path, file }) => {
 
 const normalizeLocalSignedUrl = (signedUrl) => {
   try {
-    const configuredUrl = import.meta.env.VITE_SUPABASE_URL;
+    const configuredUrl = supabaseUrl;
     const targetUrl = new URL(signedUrl);
     if (configuredUrl && targetUrl.hostname === 'kong') {
       const publicBaseUrl = new URL(configuredUrl);

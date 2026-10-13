@@ -8,6 +8,7 @@
     "generate:llms": "node tools/generate-llms.js",
     "build": "node tools/build.js",
     "preview": "vite preview --host :: --port 3000",
+    "prepare:face-models": "node tools/prepare-face-models.mjs",
     "test": "node --test",
     "lint": "eslint . --quiet"
   },
@@ -48,6 +49,7 @@
     "@react-three/drei": "^9.122.0",
     "@react-three/fiber": "^8.18.0",
     "@supabase/supabase-js": "2.30.0",
+    "@vladmandic/face-api": "1.7.15",
     "canvas-confetti": "^1.9.3",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.0.0",

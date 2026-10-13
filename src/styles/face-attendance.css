@@ -1,0 +1,36 @@
+/* Camera guidance stays above the existing, unmodified success Profile Card. */
+.face-page__header { position:relative; z-index:1; display:flex; align-items:center; justify-content:space-between; gap:1rem; padding:1rem clamp(1rem,4vw,3rem); }
+.face-page__header svg { width:20px; height:20px; }
+.face-page .attendance-page__bg::after { background-image:none; }
+.face-page__main { position:relative; z-index:1; width:min(100% - 2rem,800px); margin:0 auto; padding-bottom:2rem; display:grid; gap:1.25rem; }
+.face-page__intro h1 { font-size:clamp(1.8rem,4vw,2.6rem); font-weight:750; color:hsl(var(--att-text-primary)); margin-bottom:.35rem; }
+.face-page__intro p,.face-camera__privacy,.face-page__result-hint { color:hsl(var(--att-text-secondary)); }
+.face-camera { border:1px solid hsl(var(--att-border-subtle)); border-radius:24px; padding:clamp(.8rem,2vw,1.5rem); background:hsl(var(--att-surface)/.85); box-shadow:0 12px 40px hsl(var(--att-accent)/.08); backdrop-filter:blur(16px); }
+.face-camera__viewport { position:relative; overflow:hidden; aspect-ratio:16/9; background:#111827; border-radius:16px; }
+.face-camera__viewport video { display:block; width:100%; height:100%; object-fit:contain; }
+.face-camera__guide { position:absolute; inset:12% 34%; border:2px dashed #67e8f9; border-radius:48%; pointer-events:none; }
+.face-camera__placeholder { position:absolute; width:48px; height:48px; top:calc(50% - 24px); left:calc(50% - 24px); color:#cbd5e1; }
+.face-camera__status { min-height:3.7rem; padding:1rem 0 .5rem; font-weight:600; color:hsl(var(--att-text-primary)); }
+.face-camera__controls { display:flex; flex-wrap:wrap; gap:.65rem; }
+.face-camera__controls button { min-height:44px; gap:.5rem; }
+.face-camera__controls svg { width:18px; height:18px; }
+.face-camera__privacy { font-size:.82rem; line-height:1.55; margin-top:1rem; }
+.face-page__result { display:flex; justify-content:center; width:100%; min-width:0; }
+.face-page .attendance-profile-card__name--gradient { background-image:linear-gradient(135deg,#1f2937,#374151); }
+.dark .face-page .attendance-profile-card__name--gradient { background-image:linear-gradient(135deg,#e2e8f0,#f8fafc); }
+.face-page .attendance-profile-card__time-chip { color:hsl(var(--att-text-primary)); }
+.face-page__result-hint { text-align:center; padding:1rem; }
+.face-page__notice,.face-enrollment__notice { padding:.8rem 1rem; border-radius:12px; background:hsl(var(--att-accent)/.08); color:hsl(var(--att-text-primary)); }
+.face-enrollment { width:min(94vw,720px); max-width:720px; max-height:90dvh; overflow:auto; }
+.face-enrollment__fields { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+.face-enrollment__fields legend { padding-bottom:.75rem; font-weight:650; }
+.face-enrollment label { display:grid; gap:.45rem; font-size:.9rem; }
+.face-enrollment__fields .face-enrollment__agreement { grid-column:1/-1; display:flex; align-items:flex-start; gap:.65rem; }
+.face-enrollment__agreement input { margin-top:.2rem; width:18px; height:18px; flex-shrink:0; accent-color:#0891b2; }
+.face-enrollment__calibration { border-top:1px solid hsl(var(--border)); padding-top:1rem; }
+.face-enrollment__calibration summary { cursor:pointer; font-weight:650; min-height:44px; }
+.face-enrollment__calibration p { font-size:.85rem; line-height:1.55; margin-bottom:1rem; }
+.face-enrollment__calibration form { display:grid; gap:.85rem; }
+@media(max-width:480px) { .face-enrollment__fields { grid-template-columns:1fr; } .face-page__main { width:calc(100% - 1.25rem); gap:1rem; } .face-camera { border-radius:20px; } }
+@media(orientation:portrait) and (min-width:700px) { .face-page__main { gap:1.5rem; } .face-page__intro { padding:1rem 0; } }
+@media(prefers-reduced-motion:reduce) { .face-page *, .face-enrollment * { scroll-behavior:auto; } }

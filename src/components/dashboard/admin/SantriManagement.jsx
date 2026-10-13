@@ -27,6 +27,8 @@ import { copyTextToClipboard } from '@/lib/clipboardUtils';
 import SantriImportDialog from './SantriImportDialog';
 import SantriArchiveDialog from '@/components/dashboard/admin/SantriArchiveDialog';
 import DataPagination from '@/components/dashboard/shared/DataPagination';
+import FaceEnrollmentDialog from './FaceEnrollmentDialog';
+import { facePilotEnabled } from '@/lib/faceAttendanceApi';
 
 const PAGE_SIZE = 10;
 
@@ -73,6 +75,7 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
   const photoInputRef = React.useRef(null);
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', description: '', onConfirm: () => {} });
   const [previewImage, setPreviewImage] = useState(null);
+  const [faceSantri, setFaceSantri] = useState(null);
   const [isBirthdayModalOpen, setIsBirthdayModalOpen] = useState(false);
   const [isArchiveOpen, setIsArchiveOpen] = useState(false);
   const [birthdayCount, setBirthdayCount] = useState(0);
@@ -697,6 +700,7 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
 
   return (
     <div>
+      {faceSantri && role === 'admin' && <FaceEnrollmentDialog santri={faceSantri} onClose={() => setFaceSantri(null)} />}
       <div className="admin-panel-header">
           <div className="flex items-center gap-3">
              <div className="admin-panel-header-icon">
@@ -858,7 +862,9 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
                 <td className="p-3"><Badge variant="secondary" className="bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200">{santri.jilid}</Badge></td>
                 <td className="p-3"><span className="text-xs font-medium px-2 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">{getSessionName(santri.sesi_mengaji)}</span></td>
                 <td className="p-3"><div className="flex items-center justify-center w-8 h-8 rounded-full bg-slate-50 dark:bg-slate-900 border"><FileCheck className={`w-4 h-4 ${santri.berkas_foto && santri.berkas_akta && santri.berkas_kk && santri.berkas_form ? 'text-green-500' : 'text-slate-300'}`} /></div></td>
-                <td className="p-3"><Button onClick={() => handleEdit(santri)} size="sm" variant="ghost" className="h-8 w-8 p-0 hover:bg-blue-50 hover:text-blue-600 rounded-full"><Edit className="w-4 h-4" /></Button></td>
+                <td className="p-3"><Button onClick={() => handleEdit(santri)} size="sm" variant="ghost" className="h-8 w-8 p-0 hover:bg-blue-50 hover:text-blue-600 rounded-full"><Edit className="w-4 h-4" /></Button>
+                  {role === 'admin' && facePilotEnabled && <Button type="button" size="sm" variant="outline" onClick={() => setFaceSantri(santri)} aria-label={`Registrasi wajah ${santri.nama_lengkap}`}>Wajah</Button>}
+                </td>
               </tr>
             ))}
           </tbody>

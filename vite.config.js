@@ -278,6 +278,9 @@ logger.error = (msg, options) => {
 }
 
 export default defineConfig({
+	// This prototype is pilot-only, even when a host omits its Git environment variables.
+	// Removing this guard belongs to a separately approved production rollout.
+	define: { 'import.meta.env.VITE_FACE_ATTENDANCE_PILOT': JSON.stringify('true') },
 	customLogger: logger,
 	plugins: [
 		...(isDev ? [inlineEditPlugin(), editModeDevPlugin(), iframeRouteRestorationPlugin(), selectionModePlugin()] : []),

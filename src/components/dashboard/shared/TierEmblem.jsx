@@ -3,6 +3,8 @@ import { Award } from 'lucide-react';
 import { resolveSantriTier } from '@/lib/santriTier';
 
 const TIER_SYMBOL_DIMENSION = 144;
+// React 18 forwards the standard lowercase attribute without the React 19 warning.
+const priorityAttribute = { fetchpriority: 'high' };
 
 const TierEmblem = ({ levelInfo, points, hasTierData = true }) => {
   const tier = hasTierData
@@ -36,7 +38,7 @@ const TierEmblem = ({ levelInfo, points, hasTierData = true }) => {
           width={TIER_SYMBOL_DIMENSION}
           height={TIER_SYMBOL_DIMENSION}
           loading="eager"
-          fetchPriority="high"
+          {...priorityAttribute}
           decoding="async"
           onError={() => setFailedSource(tier.assetSrc)}
         />
