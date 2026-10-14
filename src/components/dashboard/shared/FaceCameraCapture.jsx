@@ -27,8 +27,11 @@ const gestureReadyMessage = 'Kamera aktif. Hadapkan wajah, lalu acungkan ðŸ‘, â
 // Always-on kiosks recover from camera, model and network failures on their own.
 const AUTO_RETRY_MS = 5000;
 
-export default function FaceCameraCapture({ purpose = 'attendance', mode = 'passive', alwaysOn = false, smileCalibration = false, santriId, consent, onCapture }) {
+export default function FaceCameraCapture({ purpose = 'attendance', mode = 'passive', alwaysOn = false, smileCalibration = false, santriId, guruId, consent, onCapture }) {
   const gestureMode = purpose === 'attendance' && mode === 'gesture';
+  // 'enroll' (admin registers a santri), 'self_enroll' (a guru registers themself) and 'guru_enroll'
+  // (admin registers a guru) share the head-turn capture.
+  const enrolling = purpose !== 'attendance';
   // Both kiosk modes draw the HUD overlay; only enrollment keeps the head-turn guide ring.
   const hudMode = purpose === 'attendance';
   const overlay = useRef(null);
@@ -90,7 +93,7 @@ export default function FaceCameraCapture({ purpose = 'attendance', mode = 'pass
       const engine = await loadFaceEngine();
       if (ticket !== generation.current) return;
       if (purpose === 'attendance') { await (gestureMode ? runGestureAttendance(engine, ticket) : runPassiveAttendance(engine, ticket)); return; }
-      let challenge = await faceAttendanceRequest({ action: 'challenge', purpose, santriId, consent });
+      let challenge = await faceAttendanceRequest({ action: 'challenge', purpose, santriId, guruId, consent });
       let steps = captureSteps(challenge.firstDirection); let step = 0; let poseStart = 0;
       setPoseSteps(steps); setPosesDone(0);
       let began = performance.now(); let evidence = []; let waitingUntil = 0; let waitForExit = false; let reference = null;
@@ -111,7 +114,7 @@ export default function FaceCameraCapture({ purpose = 'attendance', mode = 'pass
             setState('waiting'); setMessage('Tunggu area kamera kosong sebelum santri berikutnya.');
           }
           if (!results.length && Date.now() >= waitingUntil) {
-            challenge = await faceAttendanceRequest({ action: 'challenge', purpose, santriId, consent });
+            challenge = await faceAttendanceRequest({ action: 'challenge', purpose, santriId, guruId, consent });
             steps = captureSteps(challenge.firstDirection); step = 0; evidence = []; descriptors = []; poseSamples = [];
             began = performance.now(); poseStart = 0; lostSince = 0; waitForExit = false; reference = null; setState('active');
             setPoseSteps(steps); setPosesDone(0);
@@ -119,7 +122,7 @@ export default function FaceCameraCapture({ purpose = 'attendance', mode = 'pass
         }
         if (Date.now() >= Date.parse(challenge.expiresAt)) throw new Error('Tantangan kedaluwarsa. Tekan Mulai lagi.');
         if (results.length > 1) {
-          resetProgress(); setMessage('Beberapa wajah terdeteksi. Satu santri saja di depan kamera.');
+          resetProgress(); setMessage('Beberapa wajah terdeteksi. Satu orang saja di depan kamera.');
           await new Promise(resolve => setTimeout(resolve, 160)); continue;
         }
         const face = results[0];
@@ -158,15 +161,15 @@ export default function FaceCameraCapture({ purpose = 'attendance', mode = 'pass
             } else descriptors.push(descriptor);
             if (descriptors.length === 5) {
               evidence.push({ pose, elapsedMs: now - began, faceCount: 1, quality: true }); setPosesDone(5);
-              setState('recognizing'); setMessage(purpose === 'enroll' ? 'Menyimpan registrasi wajah...' : 'Mengenali wajah dan mengonfirmasi pencatatan...');
-              const samples = purpose === 'enroll' ? [...poseSamples, descriptors[descriptors.length - 1]] : descriptors;
+              setState('recognizing'); setMessage(enrolling ? 'Menyimpan registrasi wajah...' : 'Mengenali wajah dan mengonfirmasi pencatatan...');
+              const samples = enrolling ? [...poseSamples, descriptors[descriptors.length - 1]] : descriptors;
               const result = await callback.current({ challengeId: challenge.id, modelVersion: FACE_MODEL_VERSION, descriptors:samples, evidence });
               descriptors.forEach(row => row.fill(0)); descriptors = [];
               poseSamples.forEach(row => row.fill(0)); poseSamples = [];
               if (ticket !== generation.current) break;
               setState(result?.success ? 'success' : 'unrecognized');
               setMessage(result?.message || 'Hasil belum dikenali. Silakan gunakan RFID.');
-              if (purpose === 'enroll') { stop(); break; }
+              if (enrolling) { stop(); break; }
               waitForExit = true; waitingUntil = Date.now() + 5000;
             }
           }

@@ -18,6 +18,15 @@ export const validateConsent = (consent, today) => {
   }
 };
 
+// A guru's consent is one confirmation plus the notice version shown: given by the guru themself, or
+// attested by an admin who registers the guru from Manajemen Guru.
+export const GURU_SELF_NOTICE_VERSION = 'guru-wajah-2026-10';
+export const GURU_ADMIN_NOTICE_VERSION = 'guru-wajah-admin-2026-10';
+export const validateSelfConsent = (consent) => {
+  if (consent?.confirmed !== true || typeof consent.noticeVersion !== 'string' || !consent.noticeVersion.trim()
+    || consent.noticeVersion.length > 100) throw new Error('CONSENT_REQUIRED');
+};
+
 // Practical calibration bounds: a genuine match is usually 0.1-0.4 and other people 0.5+, so values
 // outside these ranges are almost always typos (for example 0.055 instead of 0.55).
 export const CALIBRATION_LIMITS = { maxDistance:[0.2, 0.6], minMargin:[0.01, 0.3] };
@@ -43,7 +52,8 @@ export const validateCapture = (payload, challenge) => {
       || vector.some(value => typeof value !== 'number' || !Number.isFinite(value) || Math.abs(value) > 10)
       || vector.every(value => value === 0)) throw new Error('INVALID_CAPTURE');
   }
-  const stabilityLimit = challenge.purpose === 'enroll' ? 0.45 : 0.25;
+  // Enrolment samples span head turns, so they may differ more than five frontal attendance frames.
+  const stabilityLimit = challenge.purpose === 'attendance' ? 0.25 : 0.45;
   if (payload.descriptors.some(vector => descriptorDistance(vector, payload.descriptors[0]) > stabilityLimit)) throw new Error('UNSTABLE_CAPTURE');
   // Supervised kiosk attendance is passive: five consecutive frontal frames, no head-turn challenge.
   // Enrollment keeps the head-turn order so templates come from a live, present santri.

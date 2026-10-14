@@ -16,7 +16,7 @@ import GuruAttendanceRecap from '@/components/dashboard/admin/GuruAttendanceReca
 import AttendanceDetailsModal from '@/components/dashboard/shared/AttendanceDetailsModal';
 import AttendanceStatusIcon from '@/components/dashboard/shared/AttendanceStatusIcon';
 import { supabase } from '@/lib/customSupabaseClient';
-import { Mic, Check, Send, Trash2, Edit, Upload, Users, CheckCircle, Bell, X, MessageSquare as MessageSquareWarning, RefreshCw, BookText, ChevronUp, ChevronDown, Eye, EyeOff, Gamepad2, StickyNote, CalendarCheck, Sparkles, Star, Shuffle, UserCheck, AlertCircle, Cake, Loader2, PlusCircle, PlayCircle, CheckCircle2, ArrowRightLeft, Trophy } from 'lucide-react';
+import { Mic, Check, Send, Trash2, Edit, Upload, Users, CheckCircle, Bell, X, MessageSquare as MessageSquareWarning, RefreshCw, BookText, ChevronUp, ChevronDown, Eye, EyeOff, Gamepad2, StickyNote, CalendarCheck, Sparkles, Star, Shuffle, UserCheck, AlertCircle, Cake, Loader2, PlusCircle, PlayCircle, CheckCircle2, ArrowRightLeft, Trophy, ScanFace } from 'lucide-react';
 import JilidChangeModal from '@/components/dashboard/admin/JilidChangeModal';
 import { validatePassword, cn } from '@/lib/utils';
 import BirthdayGreeting from '@/components/BirthdayGreeting';
@@ -45,8 +45,11 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { useTheme } from '@/contexts/ThemeContext';
 import { getAdjacentQiroatiJilid, QIROATI_JILID_OPTIONS } from '@/lib/qiroatiJilid';
 import { changeSantriJilid, getJilidChangeErrorMessage } from '@/lib/jilidChangeAdapters';
+import { facePilotEnabled } from '@/lib/faceAttendanceApi';
 
 const ProfileConstellationScene = lazy(() => import('@/components/dashboard/santri/SantriLevelScene'));
+// The face camera and its models load only when a guru opens their face registration.
+const GuruFaceEnrollmentDialog = lazy(() => import('@/components/dashboard/guru/GuruFaceEnrollmentDialog'));
 
 const jilidOptions = QIROATI_JILID_OPTIONS;
 
@@ -165,6 +168,7 @@ const GuruDashboard = () => {
   const navigate = useNavigate();
   const [guruData, setGuruData] = useState(null);
   const [isMmqOpen, setIsMmqOpen] = useState(false);
+  const [isFaceOpen, setIsFaceOpen] = useState(false);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [isRecapOpen, setIsRecapOpen] = useState(false);
   const [myClasses, setMyClasses] = useState([]);
@@ -497,6 +501,7 @@ const GuruDashboard = () => {
               <div className="guru-profile-neo__actions">
                 <Button onClick={() => setIsEditProfileOpen(true)} variant="outline" className="guru-profile-neo__button"><Edit className="mr-2 h-4 w-4" /> Edit Profil</Button>
                 <div className="guru-profile-neo__action-pair"><Button onClick={() => setIsMmqOpen(true)} size="sm" variant="outline" className="guru-profile-neo__button">MMQ</Button><Button onClick={() => setIsRecapOpen(true)} size="sm" variant="outline" className="guru-profile-neo__button">Absensi</Button></div>
+                {facePilotEnabled && <Button onClick={() => setIsFaceOpen(true)} size="sm" variant="outline" className="guru-profile-neo__button"><ScanFace className="mr-2 h-4 w-4" aria-hidden="true" /> Wajah Saya</Button>}
                 <Button onClick={() => setIsMurojaahOpen(true)} size="sm" className="guru-profile-neo__button guru-profile-neo__button--accent"><Mic className="mr-2 h-4 w-4"/> Setoran Muroja'ah{pendingSubmissionsCount > 0 && <span className="guru-profile-neo__notification-dot" aria-label={`${pendingSubmissionsCount} setoran menunggu peninjauan`}></span>}</Button>
               </div>
             </div>
@@ -780,6 +785,7 @@ const GuruDashboard = () => {
       </Dialog>
 
       <MmqSection open={isMmqOpen} onOpenChange={setIsMmqOpen} guru={guruData} />
+      {isFaceOpen && <Suspense fallback={null}><GuruFaceEnrollmentDialog guruName={guruData?.nama} onClose={() => setIsFaceOpen(false)} /></Suspense>}
       {guruData && <EditGuruProfileModal isOpen={isEditProfileOpen} onOpenChange={setIsEditProfileOpen} guruData={guruData} onProfileUpdate={fetchGuruData} themeColor={themeGradient} />}
       <Dialog open={isRecapOpen} onOpenChange={setIsRecapOpen}><DialogContent className="max-w-6xl max-h-[95vh] overflow-y-auto"><DialogHeader><DialogTitle>Rekap Absensi Guru</DialogTitle></DialogHeader><div className="mt-4"><GuruAttendanceRecap isReadOnly={true} /></div></DialogContent></Dialog>
       <AttendanceDetailsModal isOpen={isAttendanceModalOpen} onClose={() => { setIsAttendanceModalOpen(false); setAttendanceDetails(null); }} details={attendanceDetails} onSuccess={fetchGuruData} />
