@@ -3,7 +3,7 @@ import { getServiceRoleClient } from '../_shared/supabaseAdmin.ts';
 import { handleOptions } from '../_shared/cors.ts';
 import { ok, fail } from '../_shared/response.ts';
 import { logSafe } from '../_shared/safeLogger.ts';
-import { isUuid as uuid, validateCapture, validateConsent } from '../_shared/faceCapture.js';
+import { CALIBRATION_HINT, isUuid as uuid, parseCalibration, validateCapture, validateConsent } from '../_shared/faceCapture.js';
 import { getAttendanceSessionTimes } from '../_shared/attendanceConfiguration.js';
 import { getJakartaDateString, normalizeAttendanceSessionName, resolveSantriAttendanceSession } from '../_shared/attendanceRules.js';
 import { computeAttendancePointAward } from '../_shared/attendancePoints.js';
@@ -14,6 +14,7 @@ const messages: Record<string, string> = {
   INVALID_CHALLENGE: 'Tantangan kamera kedaluwarsa atau sudah digunakan. Mulai lagi.',
   INVALID_CAPTURE: 'Tangkapan belum valid. Pastikan hanya satu wajah dan ikuti petunjuk kamera.',
   INVALID_REQUEST: 'Permintaan tidak valid. Muat ulang halaman lalu coba lagi.',
+  INVALID_CALIBRATION: CALIBRATION_HINT,
   UNSTABLE_CAPTURE: 'Hasil beberapa frame belum konsisten. Silakan ulangi.',
   RATE_LIMITED: 'Terlalu banyak percobaan. Tunggu sebentar sebelum mencoba lagi.',
   ACTIVE_SANTRI_REQUIRED: 'Santri aktif tidak ditemukan.',
@@ -60,6 +61,7 @@ Deno.serve(async (req) => {
     };
     if (['status', 'delete', 'calibrate'].includes(payload.action)) {
       if (payload.action !== 'calibrate' && !uuid(payload.santriId)) throw new Error('INVALID_REQUEST');
+      if (payload.action === 'calibrate') return ok(req, await operation('calibrate', { action:'calibrate', ...parseCalibration(payload) }));
       return ok(req, await operation(payload.action, payload));
     }
     if (payload.action === 'challenge') {

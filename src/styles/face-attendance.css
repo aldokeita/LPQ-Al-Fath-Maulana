@@ -334,6 +334,8 @@
 .face-enrollment__calibration summary svg { width: 16px; height: 16px; color: var(--face-text-soft); }
 .face-enrollment__calibration p { font-size: 0.85rem; line-height: 1.55; margin-bottom: 1rem; color: var(--face-text-soft); }
 .face-enrollment__calibration form { display: grid; gap: 0.85rem; }
+.face-enrollment__hint { font-size: 0.78rem; font-weight: 400; color: var(--face-text-soft); }
+.face-enrollment__saved { padding: 0.6rem 0.85rem; border-radius: 0.8rem; border: 1px solid var(--face-glass-border); background: var(--face-chip-bg); font-size: 0.85rem; }
 
 /* ---------- Motion ---------- */
 .is-spinning { animation: face-spin 1s linear infinite; }

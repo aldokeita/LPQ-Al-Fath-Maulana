@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { captureSteps, isUuid, validateCapture, validateConsent, FACE_MODEL_VERSION, getCameraErrorMessage, PASSIVE_MIN_SPAN_MS } from '../supabase/functions/_shared/faceCapture.js';
+import { captureSteps, isUuid, parseCalibration, validateCapture, validateConsent, FACE_MODEL_VERSION, getCameraErrorMessage, PASSIVE_MIN_SPAN_MS } from '../supabase/functions/_shared/faceCapture.js';
 
 const valid = () => ({ modelVersion:FACE_MODEL_VERSION, descriptors:Array.from({length:5},()=>Array(128).fill(0.01)),
   evidence:captureSteps('left').map((pose,i)=>({pose,faceCount:1,quality:true,elapsedMs:(i+1)*500})) });
@@ -62,4 +62,13 @@ test('kiosk attendance accepts five frontal frames without a head-turn challenge
 });
 test('enrollment still requires the ordered head-turn challenge',()=>{
   assert.throws(()=>validateCapture(passive(),{purpose:'enroll',firstDirection:'left'}));
+});
+test('calibration accepts comma or dot decimals and rejects implausible thresholds',()=>{
+  assert.deepEqual(parseCalibration({maxDistance:'0,40',minMargin:'0.08',testReference:' LOKAL '}),{maxDistance:0.4,minMargin:0.08,testReference:'LOKAL'});
+  assert.equal(parseCalibration({maxDistance:0.55,minMargin:0.1,testReference:'x'}).maxDistance,0.55);
+  for (const bad of [{maxDistance:'0.055',minMargin:'0.08'},{maxDistance:'0.4',minMargin:'0.001'},{maxDistance:'0.7',minMargin:'0.08'},
+    {maxDistance:'0.4.1',minMargin:'0.08'},{maxDistance:'',minMargin:'0.08'},{maxDistance:'abc',minMargin:'0.08'}]) {
+    assert.throws(()=>parseCalibration({...bad,testReference:'x'}),/INVALID_CALIBRATION/);
+  }
+  assert.throws(()=>parseCalibration({maxDistance:'0.4',minMargin:'0.08',testReference:'  '}),/INVALID_CALIBRATION/);
 });

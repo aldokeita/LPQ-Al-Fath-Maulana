@@ -18,6 +18,20 @@ export const validateConsent = (consent, today) => {
   }
 };
 
+// Practical calibration bounds: a genuine match is usually 0.1-0.4 and other people 0.5+, so values
+// outside these ranges are almost always typos (for example 0.055 instead of 0.55).
+export const CALIBRATION_LIMITS = { maxDistance:[0.2, 0.6], minMargin:[0.01, 0.3] };
+export const CALIBRATION_HINT = 'Jarak maksimum harus 0,20–0,60 dan selisih minimum 0,01–0,30. Gunakan titik atau koma, misalnya 0,40.';
+const parseDecimal = value => (typeof value === 'number' ? value
+  : /^\s*\d+(?:[.,]\d+)?\s*$/.test(String(value ?? '')) ? Number(String(value).trim().replace(',', '.')) : NaN);
+export const parseCalibration = ({ maxDistance, minMargin, testReference }) => {
+  const parsed = { maxDistance:parseDecimal(maxDistance), minMargin:parseDecimal(minMargin), testReference:String(testReference ?? '').trim() };
+  const within = (value, [low, high]) => Number.isFinite(value) && value >= low && value <= high;
+  if (!within(parsed.maxDistance, CALIBRATION_LIMITS.maxDistance) || !within(parsed.minMargin, CALIBRATION_LIMITS.minMargin)
+    || !parsed.testReference || parsed.testReference.length > 150) throw new Error('INVALID_CALIBRATION');
+  return parsed;
+};
+
 export const descriptorDistance = (a, b) => Math.sqrt(a.reduce((sum, value, i) => sum + (value - b[i]) ** 2, 0));
 
 export const validateCapture = (payload, challenge) => {

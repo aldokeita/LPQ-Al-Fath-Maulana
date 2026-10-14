@@ -6,12 +6,13 @@ import { ClipboardCheck, Loader2, ScanFace, SlidersHorizontal, Trash2, UserCheck
 import FaceCameraCapture from '@/components/dashboard/shared/FaceCameraCapture';
 import { faceAttendanceRequest } from '@/lib/faceAttendanceApi';
 import { supabase } from '@/lib/customSupabaseClient';
-import { validateConsent } from '../../../../supabase/functions/_shared/faceCapture.js';
+import { CALIBRATION_HINT, parseCalibration, validateConsent } from '../../../../supabase/functions/_shared/faceCapture.js';
 import { getJakartaDateString } from '@/utils/AttendanceStatusLogic';
 import '@/styles/face-attendance.css';
 
 // Guardians sign a paper consent form; the admin only attests to it here, and the record keeps who and when.
 const WRITTEN_CONSENT = { noticeVersion:'FORMULIR-TERTULIS-1', formReference:'Arsip formulir tertulis' };
+const formatDecimal = value => Number(value).toLocaleString('id-ID', { minimumFractionDigits:2, maximumFractionDigits:3 });
 const guardianLabel = guardian => ((guardian?.nama_ayah || guardian?.nama_ibu || '').trim() || 'Wali santri (formulir tertulis)').slice(0, 150);
 
 export default function FaceEnrollmentDialog({ santri, onClose }) {
@@ -20,11 +21,15 @@ export default function FaceEnrollmentDialog({ santri, onClose }) {
   const [status, setStatus] = useState(null); const [message, setMessage] = useState('Memuat status registrasi...');
   const [busy, setBusy] = useState(false); const [ready, setReady] = useState(false); const [hasError, setHasError] = useState(false);
   const [calibration, setCalibration] = useState({ maxDistance:'', minMargin:'', testReference:'' });
+  const [savedCalibration, setSavedCalibration] = useState(null);
   useEffect(() => {
     let mounted = true;
     faceAttendanceRequest({ action:'status', santriId:santri.id }).then(data => {
       if (!mounted) return; setStatus(data.enrollment); setMessage('');
-      if (data.calibration) setCalibration(data.calibration);
+      if (data.calibration) {
+        setSavedCalibration(data.calibration);
+        setCalibration({ maxDistance:String(data.calibration.maxDistance), minMargin:String(data.calibration.minMargin), testReference:data.calibration.testReference });
+      }
     }).catch(error => { if (mounted) { setHasError(true); setMessage(error.message); } });
     // Optional: older schemas may lack guardian columns, so a failed lookup falls back to a generic label.
     supabase.from('santri').select('nama_ayah,nama_ibu').eq('id', santri.id).maybeSingle()
@@ -71,11 +76,16 @@ export default function FaceEnrollmentDialog({ santri, onClose }) {
       <details className="face-enrollment__calibration"><summary><SlidersHorizontal aria-hidden="true" /> Kalibrasi pengenalan pilot</summary>
         <p>Nilai ini adalah ambang jarak, bukan persentase akurasi. Setiap percobaan absen wajah mencatat <code>best_distance</code> dan <code>second_distance</code> di log server; pilih jarak maksimum sedikit di atas jarak santri yang benar dan di bawah jarak orang lain. Tanpa kalibrasi, pengenalan tidak mencatat absensi.</p>
         <form onSubmit={async event => { event.preventDefault(); setBusy(true);
-          try { await faceAttendanceRequest({ action:'calibrate', ...calibration }); setHasError(false); setMessage('Kalibrasi pilot tersimpan.'); }
+          let parsed;
+          try { parsed = parseCalibration(calibration); } catch { setHasError(true); setMessage(CALIBRATION_HINT); setBusy(false); return; }
+          try { await faceAttendanceRequest({ action:'calibrate', ...parsed }); setSavedCalibration(parsed); setHasError(false); setMessage('Kalibrasi pilot tersimpan.'); }
           catch (error) { setHasError(true); setMessage(error.message); } finally { setBusy(false); }
         }}>
-          <label>Jarak maksimum<Input required type="number" min="0.001" max="0.6" step="0.001" value={calibration.maxDistance} onChange={e => setCalibration({ ...calibration, maxDistance:e.target.value })} /></label>
-          <label>Selisih minimum kandidat pertama dan kedua<Input required type="number" min="0.001" max="0.999" step="0.001" value={calibration.minMargin} onChange={e => setCalibration({ ...calibration, minMargin:e.target.value })} /></label>
+          {savedCalibration && <p className="face-enrollment__saved">Tersimpan: jarak maksimum <strong>{formatDecimal(savedCalibration.maxDistance)}</strong> · selisih minimum <strong>{formatDecimal(savedCalibration.minMargin)}</strong></p>}
+          <label>Jarak maksimum (0,20–0,60)<Input required type="text" inputMode="decimal" placeholder="contoh 0,40" value={calibration.maxDistance} onChange={e => setCalibration({ ...calibration, maxDistance:e.target.value })} />
+            <span className="face-enrollment__hint">Lebih kecil = lebih ketat. Pilih sedikit di atas <code>best_distance</code> santri yang benar.</span></label>
+          <label>Selisih minimum kandidat pertama dan kedua (0,01–0,30)<Input required type="text" inputMode="decimal" placeholder="contoh 0,08" value={calibration.minMargin} onChange={e => setCalibration({ ...calibration, minMargin:e.target.value })} />
+            <span className="face-enrollment__hint">Mencegah dua santri yang mirip saling tertukar.</span></label>
           <label>Referensi hasil uji pilot<Input required maxLength={150} value={calibration.testReference} onChange={e => setCalibration({ ...calibration, testReference:e.target.value })} /></label>
           <Button type="submit" disabled={busy}>Simpan hasil kalibrasi</Button>
         </form>
