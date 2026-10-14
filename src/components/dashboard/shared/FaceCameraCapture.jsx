@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { loadFaceEngine, frameQuality, facePose, FACE_LOSS_GRACE_MS, mirroredPose } from '@/lib/faceCameraEngine';
 import { faceAttendanceRequest } from '@/lib/faceAttendanceApi';
 import { loadGestureEngine } from '@/lib/gestureEngine';
-import { assignThumbsToFaces, FRAME_MAX_AGE_MS, matchTracks, MIN_FACE_RATIO, plainBox, THUMB_CONFIRM_FRAMES, TRACK_TTL_MS } from '@/lib/faceKiosk';
+import { assignGesturesToFaces, CONFIRM_GESTURES, createSmileTracker, FRAME_MAX_AGE_MS, GESTURE_CONFIRM_FRAMES, matchTracks, MIN_FACE_RATIO, plainBox, SMILE_CONFIRM_FRAMES, SMILE_SYMBOL, TRACK_TTL_MS } from '@/lib/faceKiosk';
 import { drawKioskOverlay } from '@/lib/kioskOverlay';
 import { captureSteps, descriptorDistance, FACE_MODEL_VERSION, getCameraErrorMessage, PASSIVE_MIN_SPAN_MS } from '../../../../supabase/functions/_shared/faceCapture.js';
 
@@ -23,32 +23,52 @@ const PASSIVE_RETRY_MS = 4000;
 // Single-face kiosk has no guide ring, so faces may sit anywhere but must be reasonably close.
 const PASSIVE_MIN_FACE_RATIO = 0.12;
 const passiveReadyMessage = 'Kamera aktif. Hadapkan wajah ke kamera, kehadiran tercatat otomatis.';
-const gestureReadyMessage = 'Kamera aktif. Santri yang ingin absen: hadapkan wajah ke kamera lalu acungkan jempol 👍.';
+const gestureReadyMessage = 'Kamera aktif. Hadapkan wajah, lalu acungkan 👍, ✌️, atau tersenyum 😊.';
+// Always-on kiosks recover from camera, model and network failures on their own.
+const AUTO_RETRY_MS = 5000;
 
-export default function FaceCameraCapture({ purpose = 'attendance', mode = 'passive', santriId, consent, onCapture }) {
+export default function FaceCameraCapture({ purpose = 'attendance', mode = 'passive', alwaysOn = false, smileCalibration = false, santriId, consent, onCapture }) {
   const gestureMode = purpose === 'attendance' && mode === 'gesture';
   // Both kiosk modes draw the HUD overlay; only enrollment keeps the head-turn guide ring.
   const hudMode = purpose === 'attendance';
   const overlay = useRef(null);
   const video = useRef(null); const stream = useRef(null); const generation = useRef(0);
   const callback = useRef(onCapture); callback.current = onCapture;
-  const [state, setState] = useState('idle'); const [message, setMessage] = useState('Kamera hanya aktif setelah Anda menekan Mulai kamera.');
+  const [state, setState] = useState('idle');
+  const [message, setMessage] = useState(alwaysOn ? 'Menyiapkan kamera...' : 'Kamera hanya aktif setelah Anda menekan Mulai kamera.');
+  const [permissionDenied, setPermissionDenied] = useState(false);
+  // An operator pressing "Hentikan" pauses auto-recovery until the camera is started again by hand.
+  const manualStop = useRef(false); const retryTimer = useRef(null); const wakeLock = useRef(null);
   // Mirrors the capture loop so the operator sees which pose comes next; it never feeds back into the loop.
   const [poseSteps, setPoseSteps] = useState([]); const [posesDone, setPosesDone] = useState(0);
   const stop = () => {
-    generation.current++;
+    generation.current++; clearTimeout(retryTimer.current);
+    wakeLock.current?.release().catch(() => {}); wakeLock.current = null;
     stream.current?.getTracks().forEach(track => track.stop()); stream.current = null;
     if (video.current) video.current.srcObject = null;
     overlay.current?.getContext('2d')?.clearRect(0, 0, overlay.current.width, overlay.current.height);
   };
+  const scheduleRetry = () => {
+    if (!alwaysOn || manualStop.current) return;
+    clearTimeout(retryTimer.current);
+    retryTimer.current = setTimeout(() => { if (!document.hidden && !manualStop.current) start(); }, AUTO_RETRY_MS);
+  };
   useEffect(() => {
-    const hidden = () => { if (document.hidden) { stop(); setState('idle'); setMessage('Kamera dihentikan saat halaman tidak aktif.'); } };
-    document.addEventListener('visibilitychange', hidden);
-    return () => { stop(); document.removeEventListener('visibilitychange', hidden); };
+    // Hidden tabs throttle the detection loop, so pause there; an always-on kiosk resumes by itself.
+    const visibility = () => {
+      if (document.hidden) {
+        stop(); setState('idle'); setMessage(alwaysOn ? 'Kamera dijeda sementara dan akan aktif kembali otomatis.' : 'Kamera dihentikan saat halaman tidak aktif.');
+      } else if (alwaysOn && !manualStop.current) start();
+    };
+    document.addEventListener('visibilitychange', visibility);
+    if (alwaysOn) start();
+    return () => { stop(); document.removeEventListener('visibilitychange', visibility); };
+    // start/stop only touch refs and setters, so a mount-time subscription is intended.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function start() {
-    stop(); const ticket = generation.current;
+    stop(); manualStop.current = false; setPermissionDenied(false); const ticket = generation.current;
     let descriptors = []; let poseSamples = [];
     try {
       if (!navigator.mediaDevices?.getUserMedia) throw new Error('Kamera tidak tersedia pada browser ini. Gunakan HTTPS atau kartu RFID.');
@@ -57,9 +77,15 @@ export default function FaceCameraCapture({ purpose = 'attendance', mode = 'pass
       if (ticket !== generation.current) { media.getTracks().forEach(track => track.stop()); return; }
       stream.current = media;
       media.getVideoTracks()[0].addEventListener('ended', () => {
-        if (ticket === generation.current) { stop(); setState('error'); setMessage('Koneksi kamera terputus. Hubungkan kembali kamera.'); }
+        if (ticket === generation.current) {
+          stop(); setState('error');
+          setMessage(alwaysOn ? 'Koneksi kamera terputus. Mencoba menyambung lagi otomatis...' : 'Koneksi kamera terputus. Hubungkan kembali kamera.');
+          scheduleRetry();
+        }
       }, { once: true });
       video.current.srcObject = media; await video.current.play();
+      // Keep the kiosk screen awake while the camera runs; unsupported browsers simply skip it.
+      if (alwaysOn) wakeLock.current = await navigator.wakeLock?.request('screen').catch(() => null) ?? null;
       setState('loading'); setMessage('Memuat model pengenalan wajah...');
       const engine = await loadFaceEngine();
       if (ticket !== generation.current) return;
@@ -151,9 +177,13 @@ export default function FaceCameraCapture({ purpose = 'attendance', mode = 'pass
     } catch (error) {
       if (ticket !== generation.current) return;
       stop(); setState('error');
-      setMessage(error?.name && error.name !== 'Error' ? getCameraErrorMessage(error)
+      const reason = error?.name && error.name !== 'Error' ? getCameraErrorMessage(error)
         : String(error.message || '').startsWith('MODEL_') ? 'Model wajah tidak dapat diverifikasi. Coba lagi atau hubungi admin.'
-        : error.message || getCameraErrorMessage(error));
+        : error.message || getCameraErrorMessage(error);
+      // A denied permission cannot recover by itself; everything else retries on an always-on kiosk.
+      if (error?.name === 'NotAllowedError') { setPermissionDenied(true); setMessage(reason); }
+      else if (alwaysOn && !manualStop.current) { setMessage(`${reason} Mencoba lagi otomatis...`); scheduleRetry(); }
+      else setMessage(reason);
     } finally { descriptors.forEach(row => row.fill(0)); descriptors = []; poseSamples.forEach(row => row.fill(0)); poseSamples = []; }
   }
 
@@ -185,7 +215,7 @@ export default function FaceCameraCapture({ purpose = 'attendance', mode = 'pass
       const boxes = results.map(result => plainBox(result.detection.box));
       const { matches, unmatched } = matchTracks(hudTracks, boxes);
       const next = matches.map(match => Object.assign(hudTracks[match.track], { box: boxes[match.detection] }));
-      for (const index of unmatched) next.push({ id: hudId++, box: boxes[index], frames: [], progress: 0, status: 'watching', thumbStreak: 0, label: '', createdAt: now });
+      for (const index of unmatched) next.push({ id: hudId++, box: boxes[index], frames: [], progress: 0, status: 'watching', label: '', createdAt: now });
       hudTracks = next;
     };
     const clearFrames = () => { frames.forEach(frame => frame.descriptor.fill(0)); frames = []; };
@@ -254,7 +284,7 @@ export default function FaceCameraCapture({ purpose = 'attendance', mode = 'pass
     }
   }
 
-  // Multi-face kiosk: faces are only tracked locally until their owner raises a thumb; then that one face is recognized.
+  // Multi-face kiosk: faces are only tracked locally until their owner confirms (👍, ✌️ or a held smile); then that one face is recognized.
   async function runGestureAttendance(engine, ticket) {
     setState('loading'); setMessage('Memuat model gesture tangan...');
     const hands = await loadGestureEngine();
@@ -276,12 +306,12 @@ export default function FaceCameraCapture({ purpose = 'attendance', mode = 'pass
       finally { frames.forEach(frame => frame.descriptor.fill(0)); inFlight = false; }
       if (ticket !== generation.current) return;
       track.status = result?.success ? 'done' : 'unknown'; track.label = result?.name || '';
-      track.retryAt = performance.now() + PASSIVE_RETRY_MS; track.thumbStreak = 0;
+      track.retryAt = performance.now() + PASSIVE_RETRY_MS; track.gestureStreak = 0; track.smileStreak = 0;
       setState(result?.success ? 'success' : 'unrecognized');
       setMessage(result?.message || 'Wajah belum dikenali. Silakan gunakan kartu RFID.'); resultUntil = performance.now() + 3000;
     };
     let handResults = [];
-    const stopHud = startHud(() => ({ tracks, hands: handResults }), 'gesture');
+    const stopHud = startHud(() => ({ tracks, hands: handResults, smileCalibration }), 'gesture');
     try {
       setState('active'); setMessage(gestureReadyMessage);
       while (ticket === generation.current && stream.current?.active) {
@@ -292,24 +322,30 @@ export default function FaceCameraCapture({ purpose = 'attendance', mode = 'pass
         const { matches, unmatched } = matchTracks(tracks, boxes);
         const seen = new Map(matches.map(match => [match.detection, tracks[match.track]]));
         for (const index of unmatched) {
-          const track = { id: nextId++, box: boxes[index], frames: [], status: 'watching', thumbStreak: 0, retryAt: 0, label: '', lastSeen: now, createdAt: now, hand: null };
+          const track = { id: nextId++, box: boxes[index], frames: [], status: 'watching', gestureStreak: 0, smileStreak: 0, smile: createSmileTracker(), handGesture: null, retryAt: 0, label: '', lastSeen: now, createdAt: now, hand: null };
           tracks.push(track); seen.set(index, track);
         }
-        const thumbOwners = assignThumbsToFaces(handResults, boxes);
+        const owners = assignGesturesToFaces(handResults, boxes);
         for (const [index, track] of seen) {
           const face = faces[index]; track.box = boxes[index]; track.lastSeen = now;
           track.frames = track.frames.filter(frame => { const fresh = now - frame.at <= FRAME_MAX_AGE_MS; if (!fresh) frame.descriptor.fill(0); return fresh; });
-          if (frameQuality(video.current, face, canvas, { centered: false, minRatio: MIN_FACE_RATIO }) && facePose(face) === 'center') {
+          const frontal = frameQuality(video.current, face, canvas, { centered: false, minRatio: MIN_FACE_RATIO }) && facePose(face) === 'center';
+          if (frontal) {
             const descriptor = Array.from(face.descriptor);
             if (track.frames.length && descriptorDistance(descriptor, track.frames[0].descriptor) > 0.25) dropFrames(track);
             track.frames.push({ descriptor, at: now });
             if (track.frames.length > 5) track.frames.shift().descriptor.fill(0);
           }
-          track.thumbStreak = thumbOwners.has(index) ? track.thumbStreak + 1 : 0;
-          track.hand = thumbOwners.has(index) ? handResults[thumbOwners.get(index)] : null;
+          const owner = owners.get(index);
+          track.gestureStreak = owner && owner.gesture === track.handGesture ? track.gestureStreak + 1 : owner ? 1 : 0;
+          track.handGesture = owner?.gesture || null; track.hand = owner ? handResults[owner.handIndex] : null;
+          // Smiles only count on a frontal, good-quality face, so a side glance or blur cannot confirm.
+          track.smileStreak = frontal && track.smile.update(face.landmarks.positions) ? track.smileStreak + 1 : 0;
           if (track.status === 'unknown' && now >= track.retryAt) track.status = 'watching';
           const span = track.frames.length === 5 ? track.frames[4].at - track.frames[0].at : 0;
-          if (!inFlight && track.status === 'watching' && track.thumbStreak >= THUMB_CONFIRM_FRAMES && span >= PASSIVE_MIN_SPAN_MS) confirm(track);
+          const confirmedBy = track.gestureStreak >= GESTURE_CONFIRM_FRAMES ? CONFIRM_GESTURES[track.handGesture].symbol
+            : track.smileStreak >= SMILE_CONFIRM_FRAMES ? SMILE_SYMBOL : null;
+          if (!inFlight && track.status === 'watching' && confirmedBy && span >= PASSIVE_MIN_SPAN_MS) { track.confirmedBy = confirmedBy; confirm(track); }
         }
         tracks = tracks.filter(track => {
           const alive = now - track.lastSeen <= TRACK_TTL_MS || track.status === 'sending';
@@ -320,7 +356,7 @@ export default function FaceCameraCapture({ purpose = 'attendance', mode = 'pass
           const visible = tracks.filter(track => track.lastSeen === now);
           if (inFlight) { setState('recognizing'); setMessage('Mengonfirmasi kehadiran...'); }
           else if (!visible.length) { setState('active'); setMessage(gestureReadyMessage); }
-          else { setState('detected'); setMessage(`${visible.length} wajah terdeteksi. Acungkan jempol 👍 untuk absen.`); }
+          else { setState('detected'); setMessage(`${visible.length} wajah terdeteksi. Acungkan 👍, ✌️, atau tersenyum 😊 untuk absen.`); }
         }
         await pause(60);
       }
@@ -332,35 +368,44 @@ export default function FaceCameraCapture({ purpose = 'attendance', mode = 'pass
   const running = !['idle','error'].includes(state);
   const StatusIcon = stateIcons[state] || ScanFace;
   const tracking = poseSteps.length > 0 && running;
-  const halt = () => { stop(); setState('idle'); setPoseSteps([]); setPosesDone(0); setMessage('Kamera dihentikan.'); };
+  const halt = () => {
+    manualStop.current = true; stop(); setState('idle'); setPoseSteps([]); setPosesDone(0);
+    setMessage(alwaysOn ? 'Kamera dihentikan petugas. Tekan Mulai kamera untuk mengaktifkan lagi.' : 'Kamera dihentikan.');
+  };
+  const privacyNote = gestureMode
+    ? 'Kiosk diawasi petugas. Wajah yang lewat hanya dideteksi di perangkat ini; hanya yang memberi konfirmasi dikirim untuk dikenali. Foto/video tidak disimpan.'
+    : purpose === 'attendance'
+      ? 'Kiosk diawasi petugas: mode cepat tidak membedakan foto dari wajah asli. Foto/video tidak disimpan.'
+      : 'Pilot terawasi. Foto/video tidak disimpan. Jika sulit dikenali, gunakan kartu RFID.';
   return <section className={`face-camera face-camera--${state}${hudMode ? ' face-camera--hud' : ''}`} aria-label="Kamera pengenalan wajah">
-    <div className="face-camera__viewport">
-      <video ref={video} muted playsInline aria-label="Pratinjau kamera langsung seperti cermin, tidak direkam" />
-      {hudMode ? <canvas ref={overlay} className="face-camera__overlay" aria-hidden="true" /> : <div className="face-camera__guide" aria-hidden="true" />}
-      {state === 'idle' && <div className="face-camera__placeholder" aria-hidden="true"><ScanFace /><span>Kamera belum aktif</span></div>}
-      {tracking && <ol className="face-camera__track" aria-label="Urutan gerakan wajah">
-        {poseSteps.map((pose, index) => {
-          const shownPose = mirroredPose(pose); const PoseIcon = poseIcons[shownPose];
-          const status = index < posesDone ? 'done' : index === posesDone ? 'current' : 'pending';
-          return <li key={index} className={`face-camera__track-step is-${status}`} aria-current={status === 'current' ? 'step' : undefined}>
-            <span className="face-camera__track-dot" aria-hidden="true">{status === 'done' ? <CheckCircle2 /> : <PoseIcon />}</span>
-            <span className="face-camera__track-label">{poseLabels[shownPose]}<span className="sr-only">{status === 'done' ? ', selesai' : status === 'current' ? ', sekarang' : ''}</span></span>
-          </li>;
-        })}
-      </ol>}
+    {/* The glass frame holds only the live preview; status, controls and notes sit outside it. */}
+    <div className="face-camera__frame">
+      <div className="face-camera__viewport">
+        <video ref={video} muted playsInline aria-label="Pratinjau kamera langsung seperti cermin, tidak direkam" />
+        {hudMode ? <canvas ref={overlay} className="face-camera__overlay" aria-hidden="true" /> : <div className="face-camera__guide" aria-hidden="true" />}
+        {state === 'idle' && <div className="face-camera__placeholder" aria-hidden="true"><ScanFace /><span>Kamera belum aktif</span></div>}
+        {tracking && <ol className="face-camera__track" aria-label="Urutan gerakan wajah">
+          {poseSteps.map((pose, index) => {
+            const shownPose = mirroredPose(pose); const PoseIcon = poseIcons[shownPose];
+            const status = index < posesDone ? 'done' : index === posesDone ? 'current' : 'pending';
+            return <li key={index} className={`face-camera__track-step is-${status}`} aria-current={status === 'current' ? 'step' : undefined}>
+              <span className="face-camera__track-dot" aria-hidden="true">{status === 'done' ? <CheckCircle2 /> : <PoseIcon />}</span>
+              <span className="face-camera__track-label">{poseLabels[shownPose]}<span className="sr-only">{status === 'done' ? ', selesai' : status === 'current' ? ', sekarang' : ''}</span></span>
+            </li>;
+          })}
+        </ol>}
+      </div>
     </div>
-    <div className="face-camera__status" role="status" aria-live="polite" aria-atomic="true">
-      <span className="face-camera__status-icon" aria-hidden="true"><StatusIcon className={spinningStates.includes(state) ? 'is-spinning' : undefined} /></span>
-      <p>{message}</p>
+    <div className="face-camera__bar">
+      <div className="face-camera__status" role="status" aria-live="polite" aria-atomic="true">
+        <span className="face-camera__status-icon" aria-hidden="true"><StatusIcon className={spinningStates.includes(state) ? 'is-spinning' : undefined} /></span>
+        <p>{message}</p>
+      </div>
+      <div className="face-camera__controls">
+        <Button type="button" size="sm" className="face-camera__primary" onClick={start} disabled={running}>{state === 'error' ? <RefreshCw /> : <Camera />}{permissionDenied ? 'Izinkan kamera' : state === 'error' ? 'Mulai lagi' : 'Mulai kamera'}</Button>
+        <Button type="button" size="sm" variant="outline" className="face-camera__secondary" onClick={halt} disabled={!running}><Square /> Hentikan</Button>
+      </div>
     </div>
-    <div className="face-camera__controls">
-      <Button type="button" className="face-camera__primary" onClick={start} disabled={running}>{state === 'error' ? <RefreshCw /> : <Camera />}{state === 'error' ? 'Mulai lagi' : 'Mulai kamera'}</Button>
-      <Button type="button" variant="outline" className="face-camera__secondary" onClick={halt} disabled={!running}><Square /> Hentikan</Button>
-    </div>
-    <p className="face-camera__privacy"><ShieldCheck aria-hidden="true" />{gestureMode
-      ? 'Kiosk wajib diawasi petugas. Wajah yang lewat hanya dideteksi di perangkat ini; hanya wajah yang mengacungkan jempol yang dikirim untuk dikenali. Foto/video tidak disimpan.'
-      : purpose === 'attendance'
-      ? 'Kiosk wajib diawasi petugas: mode cepat tidak dapat membedakan foto dari wajah asli. Foto/video tidak disimpan. Jika sulit dikenali, gunakan kartu RFID.'
-      : 'Pilot terawasi. Foto/video tidak disimpan. Jika sulit dikenali, gunakan kartu RFID.'}</p>
+    <p className="face-camera__privacy"><ShieldCheck aria-hidden="true" />{privacyNote}</p>
   </section>;
 }
