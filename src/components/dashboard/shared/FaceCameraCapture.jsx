@@ -27,9 +27,10 @@ const gestureReadyMessage = 'Kamera aktif. Hadapkan wajah, lalu acungkan ðŸ‘, â
 // Always-on kiosks recover from camera, model and network failures on their own.
 const AUTO_RETRY_MS = 5000;
 
-export default function FaceCameraCapture({ purpose = 'attendance', mode = 'passive', alwaysOn = false, smileCalibration = false, santriId, consent, onCapture }) {
+export default function FaceCameraCapture({ purpose = 'attendance', mode = 'passive', alwaysOn = false, smileCalibration = false, santriId, guruId, consent, onCapture }) {
   const gestureMode = purpose === 'attendance' && mode === 'gesture';
-  // 'enroll' (admin registers a santri) and 'self_enroll' (a guru registers themself) share the head-turn capture.
+  // 'enroll' (admin registers a santri), 'self_enroll' (a guru registers themself) and 'guru_enroll'
+  // (admin registers a guru) share the head-turn capture.
   const enrolling = purpose !== 'attendance';
   // Both kiosk modes draw the HUD overlay; only enrollment keeps the head-turn guide ring.
   const hudMode = purpose === 'attendance';
@@ -92,7 +93,7 @@ export default function FaceCameraCapture({ purpose = 'attendance', mode = 'pass
       const engine = await loadFaceEngine();
       if (ticket !== generation.current) return;
       if (purpose === 'attendance') { await (gestureMode ? runGestureAttendance(engine, ticket) : runPassiveAttendance(engine, ticket)); return; }
-      let challenge = await faceAttendanceRequest({ action: 'challenge', purpose, santriId, consent });
+      let challenge = await faceAttendanceRequest({ action: 'challenge', purpose, santriId, guruId, consent });
       let steps = captureSteps(challenge.firstDirection); let step = 0; let poseStart = 0;
       setPoseSteps(steps); setPosesDone(0);
       let began = performance.now(); let evidence = []; let waitingUntil = 0; let waitForExit = false; let reference = null;
@@ -113,7 +114,7 @@ export default function FaceCameraCapture({ purpose = 'attendance', mode = 'pass
             setState('waiting'); setMessage('Tunggu area kamera kosong sebelum santri berikutnya.');
           }
           if (!results.length && Date.now() >= waitingUntil) {
-            challenge = await faceAttendanceRequest({ action: 'challenge', purpose, santriId, consent });
+            challenge = await faceAttendanceRequest({ action: 'challenge', purpose, santriId, guruId, consent });
             steps = captureSteps(challenge.firstDirection); step = 0; evidence = []; descriptors = []; poseSamples = [];
             began = performance.now(); poseStart = 0; lostSince = 0; waitForExit = false; reference = null; setState('active');
             setPoseSteps(steps); setPosesDone(0);

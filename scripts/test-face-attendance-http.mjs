@@ -87,7 +87,19 @@ if (!skipWithoutLocalBackend('face attendance HTTP integration')) {
     assert.equal((await query(admin.from('attendance').select('id').eq('user_id',accounts[2].id))).length,0,'a guru match records nothing');
     assert.equal((await call(accounts[2].token,{action:'self_delete'})).body.data?.deleted,true);
     assert.equal((await call(accounts[1].token,{action:'recognize',...passive(await challenge(accounts[1]))})).body.data?.state,'unknown');
-    console.log('Face HTTP integration PASS: auth, admin consent/enrollment, nonce replay, passive kiosk protocol (multiple faces, replayed burst), no distances in responses, unknown, teacher scope, concurrent RFID-face, retry, deletion, guru self-enrolment, guru match.');
+    // Admin registration from Manajemen Guru: admin only, and the challenge is bound to that guru.
+    const adminConsent={confirmed:true,noticeVersion:'TEST-GURU-ADMIN-1'};
+    assert.equal((await call(accounts[1].token,{action:'challenge',purpose:'guru_enroll',guruId:accounts[2].id,consent:adminConsent})).body.error.code,'FORBIDDEN');
+    assert.equal((await call(accounts[1].token,{action:'guru_status',guruId:accounts[2].id})).body.error.code,'FORBIDDEN');
+    assert.equal((await call(accounts[0].token,{action:'guru_status',guruId:'not-a-uuid'})).body.error.code,'INVALID_REQUEST');
+    const adminChallenge=(await call(accounts[0].token,{action:'challenge',purpose:'guru_enroll',guruId:accounts[2].id,consent:adminConsent})).body.data;
+    assert.equal((await call(accounts[0].token,{action:'guru_enroll',guruId:accounts[1].id,consent:adminConsent,...capture(adminChallenge)})).body.error.code,'CONSENT_REQUIRED');
+    const adminChallenge2=(await call(accounts[0].token,{action:'challenge',purpose:'guru_enroll',guruId:accounts[2].id,consent:adminConsent})).body.data;
+    assert.equal((await call(accounts[0].token,{action:'guru_enroll',guruId:accounts[2].id,consent:adminConsent,...capture(adminChallenge2)})).body.data?.registered,true);
+    assert.equal((await call(accounts[0].token,{action:'guru_status',guruId:accounts[2].id})).body.data?.enrollment.consentSource,'admin');
+    assert.equal((await call(accounts[1].token,{action:'recognize',...passive(await challenge(accounts[1]))})).body.data?.guruId,accounts[2].id);
+    assert.equal((await call(accounts[0].token,{action:'guru_delete',guruId:accounts[2].id})).body.data?.deleted,true);
+    console.log('Face HTTP integration PASS: auth, admin consent/enrollment, nonce replay, passive kiosk protocol (multiple faces, replayed burst), no distances in responses, unknown, teacher scope, concurrent RFID-face, retry, deletion, guru self-enrolment, guru match, admin guru enrolment.');
   } finally {
     // Remove only the calibration row tagged by this isolated fixture run.
     execFileSync('docker',['exec','supabase_db_lpq-al-fath-maulana-local','psql','-U','postgres','-d','postgres','-c',"delete from biometric_private.calibration where test_reference='TEST HTTP SYNTHETIC ONLY'"],{stdio:'ignore'});

@@ -18,8 +18,10 @@ export const validateConsent = (consent, today) => {
   }
 };
 
-// A teacher enrols their own face, so the consent is their own: one confirmation plus the notice version shown.
+// A guru's consent is one confirmation plus the notice version shown: given by the guru themself, or
+// attested by an admin who registers the guru from Manajemen Guru.
 export const GURU_SELF_NOTICE_VERSION = 'guru-wajah-2026-10';
+export const GURU_ADMIN_NOTICE_VERSION = 'guru-wajah-admin-2026-10';
 export const validateSelfConsent = (consent) => {
   if (consent?.confirmed !== true || typeof consent.noticeVersion !== 'string' || !consent.noticeVersion.trim()
     || consent.noticeVersion.length > 100) throw new Error('CONSENT_REQUIRED');

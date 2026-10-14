@@ -48,12 +48,14 @@ Deno.serve(async (req) => {
     const fields: Record<string,string[]> = {
       status:['action','santriId'],delete:['action','santriId'],
       calibrate:['action','maxDistance','minMargin','testReference'],
-      challenge:['action','purpose','santriId','consent'],
+      challenge:['action','purpose','santriId','guruId','consent'],
       enroll:['action','santriId','consent','challengeId','modelVersion','descriptors','evidence'],
       recognize:['action','challengeId','modelVersion','descriptors','evidence'],
       retry:['action','receiptId'],rfid:['action','rfidTag','receiptId'],
       self_status:['action'],self_delete:['action'],
       self_enroll:['action','challengeId','modelVersion','descriptors','evidence','consent'],
+      guru_status:['action','guruId'],guru_delete:['action','guruId'],
+      guru_enroll:['action','guruId','challengeId','modelVersion','descriptors','evidence','consent'],
     };
     if (!payload || !fields[payload.action] || Object.keys(payload).some(key=>!fields[payload.action].includes(key))) throw new Error('INVALID_CAPTURE');
     const admin = getServiceRoleClient();
@@ -69,8 +71,14 @@ Deno.serve(async (req) => {
     }
     // A guru acts only on their own face; the database checks the caller has an active guru row.
     if (payload.action === 'self_status' || payload.action === 'self_delete') return ok(req, await operation(payload.action, {}));
+    // An admin manages another guru's face from Manajemen Guru; the database enforces admin-only.
+    if (payload.action === 'guru_status' || payload.action === 'guru_delete') {
+      if (!uuid(payload.guruId)) throw new Error('INVALID_REQUEST');
+      return ok(req, await operation(payload.action, { guruId: payload.guruId }));
+    }
     if (payload.action === 'challenge') {
-      if (!['enroll', 'self_enroll', 'attendance'].includes(payload.purpose)) throw new Error('INVALID_CAPTURE');
+      if (!['enroll', 'self_enroll', 'guru_enroll', 'attendance'].includes(payload.purpose)) throw new Error('INVALID_CAPTURE');
+      if (payload.guruId !== undefined && payload.purpose !== 'guru_enroll') throw new Error('INVALID_REQUEST');
       if (payload.purpose === 'enroll') {
         if (!uuid(payload.santriId)) throw new Error('INVALID_REQUEST');
         validateConsent(payload.consent, getJakartaDateString());
@@ -80,10 +88,15 @@ Deno.serve(async (req) => {
         validateSelfConsent(payload.consent);
         return ok(req, await operation('challenge', { purpose: 'self_enroll' }));
       }
+      if (payload.purpose === 'guru_enroll') {
+        if (!uuid(payload.guruId) || payload.santriId !== undefined) throw new Error('INVALID_REQUEST');
+        validateSelfConsent(payload.consent);
+        return ok(req, await operation('challenge', { purpose: 'guru_enroll', guruId: payload.guruId }));
+      }
       return ok(req, await operation('challenge', payload));
     }
     let santriId; let receiptId; let source;
-    if (payload.action === 'enroll' || payload.action === 'self_enroll' || payload.action === 'recognize') {
+    if (['enroll', 'self_enroll', 'guru_enroll', 'recognize'].includes(payload.action)) {
       if (!uuid(payload.challengeId)) throw new Error('INVALID_REQUEST');
       const challenge = await operation('inspect', { challengeId: payload.challengeId });
       validateCapture(payload, challenge);
@@ -91,9 +104,10 @@ Deno.serve(async (req) => {
         validateConsent(payload.consent, getJakartaDateString());
         return ok(req, await operation('enroll', payload));
       }
-      if (payload.action === 'self_enroll') {
+      if (payload.action === 'self_enroll' || payload.action === 'guru_enroll') {
+        if (payload.action === 'guru_enroll' && !uuid(payload.guruId)) throw new Error('INVALID_REQUEST');
         validateSelfConsent(payload.consent);
-        return ok(req, await operation('self_enroll', payload));
+        return ok(req, await operation(payload.action, payload));
       }
       const { bestDistance, secondDistance, ...match } = await operation('match', payload);
       // Calibration aid: distances stay in server logs and never reach the browser.

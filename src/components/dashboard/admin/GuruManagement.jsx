@@ -1,9 +1,9 @@
 ﻿
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { lazy, Suspense, useState, useEffect, useMemo, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { toast } from '@/components/ui/use-toast';
-import { Plus, Edit, Trash2, Search, Upload, Eye, EyeOff, UserCheck, Filter, Mail, Key, XCircle, CreditCard, Calendar, Cake, Loader2, Download, ShieldCheck } from 'lucide-react';
+import { Plus, Edit, Trash2, Search, Upload, Eye, EyeOff, UserCheck, Filter, Mail, Key, XCircle, CreditCard, Calendar, Cake, Loader2, Download, ShieldCheck, ScanFace } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -19,6 +19,10 @@ import { getStorageErrorMessage, resolveAvatarRecords, uploadAvatar } from '@/li
 import { loadXlsx } from '@/lib/xlsxLoader';
 import { getBirthdaysThisMonth } from '@/lib/birthdayUtils';
 import { invokeAuthenticatedEdgeFunction } from '@/lib/edgeFunctionAdapters';
+import { facePilotEnabled } from '@/lib/faceAttendanceApi';
+
+// Same dialog a guru uses for their own face; with `guru` set, the admin registers that guru.
+const GuruFaceEnrollmentDialog = lazy(() => import('@/components/dashboard/guru/GuruFaceEnrollmentDialog'));
 
 const AVAILABLE_ROLES = ['Pengajar', 'Pentashih', 'Staff Operasional', 'Admin'];
 
@@ -33,6 +37,7 @@ const GuruManagement = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [previewImage, setPreviewImage] = useState(null);
+  const [faceGuru, setFaceGuru] = useState(null);
 
   // Birthday Notification
   const [isBirthdayModalOpen, setIsBirthdayModalOpen] = useState(false);
@@ -454,7 +459,7 @@ const GuruManagement = () => {
                 </td>
                 <td className="p-3"><div className="flex flex-col"><span className="text-xs" style={{ color: 'hsl(var(--admin-text-primary))' }}>{guru.email}</span><span className="text-xs" style={{ color: 'hsl(var(--admin-text-muted))' }}>{guru.no_hp}</span></div></td>
                 <td className="p-3 text-xs font-mono" style={{ color: 'hsl(var(--admin-text-muted))' }}>{guru.rfid_tag || '-'}</td>
-                <td className="p-3"><div className="flex gap-1"><Button onClick={() => handleEdit(guru)} size="sm" variant="ghost" className="h-8 w-8 p-0 rounded-full" style={{ color: 'hsl(var(--admin-text-muted))' }}><Edit className="w-4 h-4" /></Button><Button onClick={() => handleDelete(guru)} size="sm" variant="ghost" className="h-8 w-8 p-0 rounded-full text-red-500 hover:text-red-600 hover:bg-red-50" disabled={!enableEdgeFunctions} title={!enableEdgeFunctions ? edgeFunctionDisabledMessage : undefined}><Trash2 className="w-4 h-4" /></Button></div></td>
+                <td className="p-3"><div className="flex gap-1">{facePilotEnabled && <Button type="button" size="sm" variant="outline" className="h-8 px-2 rounded-full" onClick={() => setFaceGuru(guru)} aria-label={`Registrasi wajah ${guru.nama}`}><ScanFace className="w-4 h-4 mr-1" aria-hidden="true" />Wajah</Button>}<Button onClick={() => handleEdit(guru)} size="sm" variant="ghost" className="h-8 w-8 p-0 rounded-full" style={{ color: 'hsl(var(--admin-text-muted))' }}><Edit className="w-4 h-4" /></Button><Button onClick={() => handleDelete(guru)} size="sm" variant="ghost" className="h-8 w-8 p-0 rounded-full text-red-500 hover:text-red-600 hover:bg-red-50" disabled={!enableEdgeFunctions} title={!enableEdgeFunctions ? edgeFunctionDisabledMessage : undefined}><Trash2 className="w-4 h-4" /></Button></div></td>
             </tr>
           ))}
           </tbody>
@@ -576,6 +581,7 @@ const GuruManagement = () => {
 
       <BirthdayNotificationModal isOpen={isBirthdayModalOpen} onClose={() => setIsBirthdayModalOpen(false)} students={guruList.map((guru) => ({ ...guru, nama_lengkap: guru.nama, no_hp_ortu: guru.no_hp }))} audience="guru" />
 
+      {faceGuru && <Suspense fallback={null}><GuruFaceEnrollmentDialog guru={faceGuru} onClose={() => setFaceGuru(null)} /></Suspense>}
       <Dialog open={!!previewImage} onOpenChange={() => setPreviewImage(null)}>
         <DialogContent className="max-w-xl p-0 overflow-hidden bg-transparent border-none shadow-none">
             <div className="relative w-full h-[80vh] flex items-center justify-center">
