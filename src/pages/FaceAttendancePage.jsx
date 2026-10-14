@@ -70,7 +70,7 @@ export default function FaceAttendancePage() {
     ...current.filter(entry => entry.santriId !== santriId),
   ].slice(0, MAX_CARDS));
   // A recognised guru runs the same flow as an RFID tap (session, MMQ, info card, Pentashih).
-  async function captureGuru(guruId) {
+  async function captureGuru(guruId, began) {
     // The same face appears on many frames; keep one check-in per guru in flight.
     if (guruBusy.current.has(guruId)) return { success:true, message:'Absensi guru ini sedang diproses.' };
     guruBusy.current.add(guruId);
@@ -79,7 +79,7 @@ export default function FaceAttendancePage() {
       if (error || !guruData) return { success:false, message:'Data guru belum dapat dimuat. Gunakan kartu RFID.' };
       const scan = await runGuruAttendanceScan({ guruData, tag:guruData.rfid_tag, sessionTimes, source:'face' });
       const card = guruScanCardProps(scan);
-      if (card && alive.current) pushCard(`guru:${guruId}`, card);
+      if (card && alive.current) { pushCard(`guru:${guruId}`, card); perfMeter.record('kartu pertama', performance.now() - began); }
       if (scan.type === 'confirmation') return { success:true, name:scan.name, message:`${scan.name} sudah tercatat hadir MMQ hari ini.` };
       if (!card) return { success:false, name:scan.name, message:scan.message || 'Absensi guru belum dapat dicatat.' };
       return { success:true, name:scan.name, message:scan.message || `Selamat datang, ${scan.name}.` };
@@ -105,7 +105,7 @@ export default function FaceAttendancePage() {
     const began = performance.now();
     const result = await faceAttendanceRequest({ action: 'recognize', ...payload });
     perfMeter.record('recognize', performance.now() - began);
-    if (result.state === 'guru_matched') return captureGuru(result.guruId);
+    if (result.state === 'guru_matched') return captureGuru(result.guruId, began);
     if (!['saved','already_recorded'].includes(result.state)) return { success: false, message: rejectionMessages[result.state] || result.message || 'Absensi belum dicatat.' };
     try {
       const [{ data: student, error }, config] = await Promise.all([

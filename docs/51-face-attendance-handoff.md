@@ -189,6 +189,11 @@ Pencocokan di database **bukan** hambatan. Untuk ratusan santri (5 sampel per or
 - **Kapasitas:** perkiraan setelah perbaikan, satu kiosk melayani satu santri per 2–4 detik, atau sekitar 15–30 santri per menit. Kalau ratusan santri datang dalam waktu singkat, siapkan **2 kiosk** atau tetap buka **RFID berdampingan**.
 
 ### Selesai kalau
-- Hasil `?debug-kinerja` di PC LPQ: loop scanning stabil (target ≥ 10 FPS di mode Otomatis), konfirmasi < 1,5 detik sampai kartu pertama tampil, dan pembukaan kedua memuat model dari cache.
+- Hasil `?debug-kinerja` di PC LPQ:
+  - `deteksi` < 100 ms dan `deskriptor` < 150 ms;
+  - mode Gesture sekitar 10 FPS. Mode Otomatis sengaja berhenti 120–160 ms setiap putaran, jadi FPS-nya memang hanya sekitar 5–7; yang diukur di sana adalah waktu deteksi;
+  - `tantangan` + `kartu pertama` < 1,5 detik;
+  - pembukaan kedua memuat model dari `cache`.
+- Hasil uji lokal 2026-10-14 di laptop pengembang dengan webcam: `deteksi` 30 ms, `deskriptor` 39–68 ms, `tantangan` 0 ms, `recognize` 110 ms, `konfirmasi` 184–227 ms; mode Gesture 9,7 FPS. 👍 mencatat Guru Demo A.
 - `npm test`, `npm run test:face`, `npm run build`, dan `npm run lint` lulus.
 - Uji manual di PC LPQ: wajah santri dan guru yang **sudah terdaftar sebelum perubahan** tetap dikenali, tanpa perlu registrasi ulang.
