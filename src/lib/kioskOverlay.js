@@ -35,8 +35,9 @@ function chip(context, x, y, text, color, unit) {
   return { left, top, width, height };
 }
 
-function drawFace(context, track, { now, unit, reducedMotion, frameWidth }) {
-  const ready = track.status === 'watching' && track.frames.length === 5;
+function drawFace(context, track, { now, unit, reducedMotion, frameWidth, mode }) {
+  // Gesture: ready once five frames are buffered. Passive: scanning while frames are being collected.
+  const ready = track.status === 'watching' && (mode === 'passive' ? track.progress > 0 : track.frames.length === 5);
   const tone = palette[ready ? 'ready' : track.status];
   track.view = track.view && !reducedMotion ? lerpBox(track.view, track.box, SMOOTHING) : { ...track.box };
   const raw = mirrorBox(track.view, frameWidth);
@@ -68,9 +69,12 @@ function drawFace(context, track, { now, unit, reducedMotion, frameWidth }) {
 
   const code = `S-${String(track.id).padStart(2, '0')}`;
   const dots = '•'.repeat(Math.min(track.thumbStreak, THUMB_CONFIRM_FRAMES)) + '◦'.repeat(THUMB_CONFIRM_FRAMES - Math.min(track.thumbStreak, THUMB_CONFIRM_FRAMES));
+  const scan = '▮'.repeat(track.progress || 0) + '▯'.repeat(5 - (track.progress || 0));
   const text = { sending: `${code}  MENGONFIRMASI…`, done: `✓ ${track.label || 'HADIR'}`, unknown: `${code}  BELUM DIKENALI` }[track.status]
-    || (ready ? `${code}  ACUNGKAN 👍 ${dots}` : `${code}  HADAPKAN WAJAH`);
-  chip(context, box.x, box.y - 6 * unit, text, rgba(tone), unit);
+    || (!ready ? `${code}  HADAPKAN WAJAH` : mode === 'passive' ? `${code}  MEMINDAI ${scan}` : `${code}  ACUNGKAN 👍 ${dots}`);
+  // Keep the label clear of the LIVE readout: faces near the top edge get it just inside the box.
+  const chipHeight = 23 * unit; const above = box.y - 6 * unit;
+  chip(context, box.x, above - chipHeight < 56 * unit ? box.y + chipHeight + 6 * unit : above, text, rgba(tone), unit);
   return box;
 }
 
@@ -100,12 +104,12 @@ function drawHand(context, hand, { unit, frameWidth, linkedFace, now, reducedMot
   context.restore();
 }
 
-export function drawKioskOverlay(context, { tracks, hands, now, reducedMotion }) {
+export function drawKioskOverlay(context, { tracks, hands, now, reducedMotion, mode = 'gesture' }) {
   const { width } = context.canvas;
   context.clearRect(0, 0, width, context.canvas.height);
   const unit = Math.max(1, width / 900);
   const faceBoxes = new Map();
-  for (const track of tracks) faceBoxes.set(track, drawFace(context, track, { now, unit, reducedMotion, frameWidth: width }));
+  for (const track of tracks) faceBoxes.set(track, drawFace(context, track, { now, unit, reducedMotion, frameWidth: width, mode }));
   for (const hand of hands) {
     const owner = tracks.find(track => track.hand === hand);
     drawHand(context, hand, { unit, frameWidth: width, linkedFace: owner ? faceBoxes.get(owner) : null, now, reducedMotion });

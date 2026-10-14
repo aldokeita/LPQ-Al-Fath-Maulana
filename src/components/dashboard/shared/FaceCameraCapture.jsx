@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { loadFaceEngine, frameQuality, facePose, FACE_LOSS_GRACE_MS, mirroredPose } from '@/lib/faceCameraEngine';
 import { faceAttendanceRequest } from '@/lib/faceAttendanceApi';
 import { loadGestureEngine } from '@/lib/gestureEngine';
-import { assignThumbsToFaces, FRAME_MAX_AGE_MS, matchTracks, MIN_FACE_RATIO, THUMB_CONFIRM_FRAMES, TRACK_TTL_MS } from '@/lib/faceKiosk';
+import { assignThumbsToFaces, FRAME_MAX_AGE_MS, matchTracks, MIN_FACE_RATIO, plainBox, THUMB_CONFIRM_FRAMES, TRACK_TTL_MS } from '@/lib/faceKiosk';
 import { drawKioskOverlay } from '@/lib/kioskOverlay';
 import { captureSteps, descriptorDistance, FACE_MODEL_VERSION, getCameraErrorMessage, PASSIVE_MIN_SPAN_MS } from '../../../../supabase/functions/_shared/faceCapture.js';
 
@@ -20,11 +20,15 @@ const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 const PASSIVE_CHALLENGE_REFRESH_MS = 30000;
 // An unrecognized santri who stays in front of the camera gets another attempt after this delay.
 const PASSIVE_RETRY_MS = 4000;
+// Single-face kiosk has no guide ring, so faces may sit anywhere but must be reasonably close.
+const PASSIVE_MIN_FACE_RATIO = 0.12;
 const passiveReadyMessage = 'Kamera aktif. Hadapkan wajah ke kamera, kehadiran tercatat otomatis.';
 const gestureReadyMessage = 'Kamera aktif. Santri yang ingin absen: hadapkan wajah ke kamera lalu acungkan jempol 👍.';
 
 export default function FaceCameraCapture({ purpose = 'attendance', mode = 'passive', santriId, consent, onCapture }) {
   const gestureMode = purpose === 'attendance' && mode === 'gesture';
+  // Both kiosk modes draw the HUD overlay; only enrollment keeps the head-turn guide ring.
+  const hudMode = purpose === 'attendance';
   const overlay = useRef(null);
   const video = useRef(null); const stream = useRef(null); const generation = useRef(0);
   const callback = useRef(onCapture); callback.current = onCapture;
@@ -153,11 +157,37 @@ export default function FaceCameraCapture({ purpose = 'attendance', mode = 'pass
     } finally { descriptors.forEach(row => row.fill(0)); descriptors = []; poseSamples.forEach(row => row.fill(0)); poseSamples = []; }
   }
 
+  // HUD rendering runs at display rate, decoupled from the slower detection loop. A failed frame is
+  // logged and skipped so one bad draw can never freeze the overlay.
+  function startHud(scene, hudKind) {
+    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+    let request = 0; let warned = false;
+    const render = () => {
+      const target = overlay.current; const source = video.current;
+      if (target && source?.videoWidth) {
+        if (target.width !== source.videoWidth) { target.width = source.videoWidth; target.height = source.videoHeight; }
+        try { drawKioskOverlay(target.getContext('2d'), { ...scene(), now: performance.now(), reducedMotion, mode: hudKind }); }
+        catch (error) { if (!warned) { warned = true; console.warn('[face-hud] overlay frame skipped:', error); } }
+      }
+      request = requestAnimationFrame(render);
+    };
+    request = requestAnimationFrame(render);
+    return () => { cancelAnimationFrame(request); overlay.current?.getContext('2d')?.clearRect(0, 0, overlay.current.width, overlay.current.height); };
+  }
+
   // Supervised kiosk: recognize any single frontal face without a head-turn challenge.
   async function runPassiveAttendance(engine, ticket) {
     const canvas = document.createElement('canvas');
     let challenge = null; let issuedAt = 0; let frames = [];
     let lastDescriptor = null; let lastSucceeded = false; let retryAt = 0; let cooldownUntil = 0;
+    let hudTracks = []; let hudId = 1;
+    const syncHud = (results, now) => {
+      const boxes = results.map(result => plainBox(result.detection.box));
+      const { matches, unmatched } = matchTracks(hudTracks, boxes);
+      const next = matches.map(match => Object.assign(hudTracks[match.track], { box: boxes[match.detection] }));
+      for (const index of unmatched) next.push({ id: hudId++, box: boxes[index], frames: [], progress: 0, status: 'watching', thumbStreak: 0, label: '', createdAt: now });
+      hudTracks = next;
+    };
     const clearFrames = () => { frames.forEach(frame => frame.descriptor.fill(0)); frames = []; };
     const refreshChallenge = async () => {
       try {
@@ -166,6 +196,7 @@ export default function FaceCameraCapture({ purpose = 'attendance', mode = 'pass
         challenge = null; setState('unrecognized'); setMessage(`${error.message} Mencoba lagi sebentar lagi.`);
       }
     };
+    const stopHud = startHud(() => ({ tracks: hudTracks, hands: [] }), 'passive');
     try {
       await refreshChallenge();
       if (challenge) { setState('active'); setMessage(passiveReadyMessage); }
@@ -176,7 +207,7 @@ export default function FaceCameraCapture({ purpose = 'attendance', mode = 'pass
         }
         const results = await engine.detect(video.current);
         if (ticket !== generation.current) break;
-        const now = performance.now();
+        const now = performance.now(); syncHud(results, now);
         if (now < cooldownUntil) { await pause(160); continue; }
         if (lastDescriptor) {
           // One attempt per presence: wait until this santri leaves or a different face steps in.
@@ -186,24 +217,25 @@ export default function FaceCameraCapture({ purpose = 'attendance', mode = 'pass
             await pause(160); continue;
           }
           lastDescriptor.fill(0); lastDescriptor = null; setState('active'); setMessage(passiveReadyMessage);
+          hudTracks.forEach(track => { track.status = 'watching'; track.label = ''; track.progress = 0; });
         }
         if (results.length !== 1) {
-          clearFrames(); setState('active');
+          clearFrames(); setState('active'); hudTracks.forEach(track => { track.progress = 0; });
           setMessage(results.length > 1 ? 'Beberapa wajah terdeteksi. Satu per satu di depan kamera.' : passiveReadyMessage);
           await pause(160); continue;
         }
-        const face = results[0];
-        if (!frameQuality(video.current, face, canvas) || facePose(face) !== 'center') {
-          clearFrames(); setState('detected'); setMessage('Hadapkan wajah lurus ke kamera dan mendekat ke lingkaran.');
+        const face = results[0]; const hud = hudTracks[0];
+        if (!frameQuality(video.current, face, canvas, { centered: false, minRatio: PASSIVE_MIN_FACE_RATIO }) || facePose(face) !== 'center') {
+          clearFrames(); hud.progress = 0; setState('detected'); setMessage('Hadapkan wajah lurus ke kamera dan mendekat sedikit.');
           await pause(120); continue;
         }
         const descriptor = Array.from(face.descriptor);
         if (frames.length && descriptorDistance(descriptor, frames[0].descriptor) > 0.25) clearFrames();
         frames.push({ descriptor, elapsedMs: now - issuedAt });
         if (frames.length > 5) frames.shift().descriptor.fill(0);
-        setState('detected'); setMessage('Wajah terdeteksi, tahan sebentar...');
+        hud.progress = frames.length; setState('detected'); setMessage('Wajah terdeteksi, tahan sebentar...');
         if (frames.length < 5 || frames[4].elapsedMs - frames[0].elapsedMs < PASSIVE_MIN_SPAN_MS) { await pause(120); continue; }
-        setState('recognizing'); setMessage('Mengenali wajah dan mengonfirmasi pencatatan...');
+        setState('recognizing'); setMessage('Mengenali wajah dan mengonfirmasi pencatatan...'); hud.status = 'sending';
         const payload = { challengeId: challenge.id, modelVersion: FACE_MODEL_VERSION, descriptors: frames.map(frame => frame.descriptor),
           evidence: frames.map(frame => ({ pose: 'center', elapsedMs: frame.elapsedMs, faceCount: 1, quality: true })) };
         lastDescriptor = descriptor.slice(); challenge = null;
@@ -212,12 +244,13 @@ export default function FaceCameraCapture({ purpose = 'attendance', mode = 'pass
         clearFrames();
         if (ticket !== generation.current) break;
         lastSucceeded = Boolean(result?.success);
+        hud.status = lastSucceeded ? 'done' : 'unknown'; hud.label = result?.name || ''; hud.progress = 0;
         setState(lastSucceeded ? 'success' : 'unrecognized');
         setMessage(result?.message || 'Wajah belum dikenali. Silakan gunakan kartu RFID.');
         cooldownUntil = performance.now() + 2000; retryAt = cooldownUntil + PASSIVE_RETRY_MS;
       }
     } finally {
-      clearFrames(); lastDescriptor?.fill(0); canvas.width = 0; canvas.height = 0;
+      stopHud(); clearFrames(); lastDescriptor?.fill(0); canvas.width = 0; canvas.height = 0;
     }
   }
 
@@ -247,25 +280,15 @@ export default function FaceCameraCapture({ purpose = 'attendance', mode = 'pass
       setState(result?.success ? 'success' : 'unrecognized');
       setMessage(result?.message || 'Wajah belum dikenali. Silakan gunakan kartu RFID.'); resultUntil = performance.now() + 3000;
     };
-    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
     let handResults = [];
-    const draw = now => {
-      const target = overlay.current; const source = video.current;
-      if (!target || !source?.videoWidth) return;
-      if (target.width !== source.videoWidth) { target.width = source.videoWidth; target.height = source.videoHeight; }
-      drawKioskOverlay(target.getContext('2d'), { tracks, hands: handResults, now, reducedMotion });
-    };
-    // Rendering runs at display rate, decoupled from the slower detection loop, so the HUD animates smoothly.
-    let frameRequest = 0;
-    const render = () => { draw(performance.now()); frameRequest = requestAnimationFrame(render); };
+    const stopHud = startHud(() => ({ tracks, hands: handResults }), 'gesture');
     try {
       setState('active'); setMessage(gestureReadyMessage);
-      frameRequest = requestAnimationFrame(render);
       while (ticket === generation.current && stream.current?.active) {
         const faces = await engine.detect(video.current);
         if (ticket !== generation.current) break;
         const now = performance.now(); handResults = hands.detect(video.current);
-        const boxes = faces.map(face => face.detection.box);
+        const boxes = faces.map(face => plainBox(face.detection.box));
         const { matches, unmatched } = matchTracks(tracks, boxes);
         const seen = new Map(matches.map(match => [match.detection, tracks[match.track]]));
         for (const index of unmatched) {
@@ -302,9 +325,7 @@ export default function FaceCameraCapture({ purpose = 'attendance', mode = 'pass
         await pause(60);
       }
     } finally {
-      cancelAnimationFrame(frameRequest);
-      tracks.forEach(dropFrames); tracks = []; canvas.width = 0; canvas.height = 0;
-      overlay.current?.getContext('2d')?.clearRect(0, 0, overlay.current.width, overlay.current.height);
+      stopHud(); tracks.forEach(dropFrames); tracks = []; canvas.width = 0; canvas.height = 0;
     }
   }
 
@@ -312,10 +333,10 @@ export default function FaceCameraCapture({ purpose = 'attendance', mode = 'pass
   const StatusIcon = stateIcons[state] || ScanFace;
   const tracking = poseSteps.length > 0 && running;
   const halt = () => { stop(); setState('idle'); setPoseSteps([]); setPosesDone(0); setMessage('Kamera dihentikan.'); };
-  return <section className={`face-camera face-camera--${state}${gestureMode ? ' face-camera--gesture' : ''}`} aria-label="Kamera pengenalan wajah">
+  return <section className={`face-camera face-camera--${state}${hudMode ? ' face-camera--hud' : ''}`} aria-label="Kamera pengenalan wajah">
     <div className="face-camera__viewport">
       <video ref={video} muted playsInline aria-label="Pratinjau kamera langsung seperti cermin, tidak direkam" />
-      {gestureMode ? <canvas ref={overlay} className="face-camera__overlay" aria-hidden="true" /> : <div className="face-camera__guide" aria-hidden="true" />}
+      {hudMode ? <canvas ref={overlay} className="face-camera__overlay" aria-hidden="true" /> : <div className="face-camera__guide" aria-hidden="true" />}
       {state === 'idle' && <div className="face-camera__placeholder" aria-hidden="true"><ScanFace /><span>Kamera belum aktif</span></div>}
       {tracking && <ol className="face-camera__track" aria-label="Urutan gerakan wajah">
         {poseSteps.map((pose, index) => {

@@ -8,6 +8,9 @@ export const MIN_FACE_RATIO = 0.08;
 export const TRACK_TTL_MS = 1500;
 export const FRAME_MAX_AGE_MS = 1500;
 
+// face-api boxes expose x/y/width/height as prototype getters, which object spread drops; copy them explicitly.
+export const plainBox = box => ({ x: box.x, y: box.y, width: box.width, height: box.height });
+
 export const iou = (a, b) => {
   const width = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x);
   const height = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y);
