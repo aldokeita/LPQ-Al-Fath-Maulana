@@ -10,6 +10,8 @@ import { resolveAvatarUrl } from '@/lib/storageAdapters';
 import { resolveSantriLevel } from '@/lib/santriLevel';
 import { getSantriAttendanceSuccessMessage } from '@/lib/attendanceAdapters';
 import { getSantriMonthlyAttendanceStats, getSantriLearningHighlights } from '@/lib/attendanceProfileData';
+import { guruScanCardProps, runGuruAttendanceScan } from '@/lib/guruAttendanceScan';
+import { useAttendanceSessionConfiguration } from '@/hooks/useAttendanceSessionConfiguration';
 import FaceCameraCapture from '@/components/dashboard/shared/FaceCameraCapture';
 import AttendanceProfileCard from '@/components/dashboard/shared/AttendanceProfileCard';
 import '@/styles/admin-dashboard.css';
@@ -36,10 +38,11 @@ const readMode = () => { try { return localStorage.getItem(MODE_STORAGE_KEY) ===
 
 export default function FaceAttendancePage() {
   const { isDark, toggleTheme } = useTheme();
+  const { sessionTimes } = useAttendanceSessionConfiguration();
   const [mode, setMode] = useState(readMode);
   const chooseMode = value => { setMode(value); try { localStorage.setItem(MODE_STORAGE_KEY, value); } catch { /* preference only */ } };
   const [cards, setCards] = useState([]); const [notice, setNotice] = useState('');
-  const alive = useRef(true); const nextCard = useRef(1);
+  const alive = useRef(true); const nextCard = useRef(1); const guruBusy = useRef(new Set());
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
   // Expire cards one by one; a new check-in never clears the others.
   useEffect(() => {
@@ -52,9 +55,26 @@ export default function FaceAttendancePage() {
     { id:nextCard.current++, santriId, props, expiresAt:Date.now() + CARD_LIFETIME_MS },
     ...current.filter(entry => entry.santriId !== santriId),
   ].slice(0, MAX_CARDS));
+  // A recognised guru runs the same flow as an RFID tap (session, MMQ, info card, Pentashih).
+  async function captureGuru(guruId) {
+    // The same face appears on many frames; keep one check-in per guru in flight.
+    if (guruBusy.current.has(guruId)) return { success:true, message:'Absensi guru ini sedang diproses.' };
+    guruBusy.current.add(guruId);
+    try {
+      const { data: guruData, error } = await supabase.from('guru').select('*').eq('id', guruId).maybeSingle();
+      if (error || !guruData) return { success:false, message:'Data guru belum dapat dimuat. Gunakan kartu RFID.' };
+      const scan = await runGuruAttendanceScan({ guruData, tag:guruData.rfid_tag, sessionTimes, source:'face' });
+      const card = guruScanCardProps(scan);
+      if (card && alive.current) pushCard(`guru:${guruId}`, card);
+      if (scan.type === 'confirmation') return { success:true, name:scan.name, message:`${scan.name} sudah tercatat hadir MMQ hari ini.` };
+      if (!card) return { success:false, name:scan.name, message:scan.message || 'Absensi guru belum dapat dicatat.' };
+      return { success:true, name:scan.name, message:scan.message || `Selamat datang, ${scan.name}.` };
+    } finally { guruBusy.current.delete(guruId); }
+  }
   async function capture(payload) {
     setNotice('');
     const result = await faceAttendanceRequest({ action: 'recognize', ...payload });
+    if (result.state === 'guru_matched') return captureGuru(result.guruId);
     if (!['saved','already_recorded'].includes(result.state)) return { success: false, message: rejectionMessages[result.state] || result.message || 'Absensi belum dicatat.' };
     try {
       const { data: student, error } = await supabase.from('santri')
@@ -109,13 +129,13 @@ export default function FaceAttendancePage() {
           </section>}
         <section className="face-page__results" aria-label="Hasil absensi">
           {notice && <p className="face-page__notice" role="status">{notice}</p>}
-          <p className="sr-only" aria-live="polite">{latest ? `${latest.props.name} hadir. ${latest.props.message}` : ''}</p>
+          <p className="sr-only" aria-live="polite">{latest ? `${latest.props.name}${latest.props.status ? ' hadir.' : '.'} ${latest.props.message || ''}` : ''}</p>
           {cards.length ? <MotionConfig reducedMotion="user"><div className="face-page__stack">
             <AnimatePresence initial={false}>
               {cards.map((entry, depth) => <motion.div key={entry.id} layout className={`face-page__stack-item is-depth-${depth}`}
                 initial={{ opacity:0, y:-28, scale:0.96 }} animate={depthStyle(depth)} exit={{ opacity:0, scale:0.9, transition:{ duration:0.25 } }}
                 transition={{ type:'spring', stiffness:260, damping:30 }}>
-                <AttendanceProfileCard {...entry.props} showSuccessBadge={depth === 0} />
+                <AttendanceProfileCard {...entry.props} showSuccessBadge={depth === 0 && entry.props.showSuccessBadge !== false} />
               </motion.div>)}
             </AnimatePresence>
           </div></MotionConfig>

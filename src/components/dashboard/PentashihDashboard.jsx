@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { lazy, Suspense, useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent } from '@/components/ui/card';
@@ -9,12 +9,16 @@ import { supabase } from '@/lib/customSupabaseClient';
 import {
   Users, BookOpen, Award, Calendar, Phone, ShieldCheck,
   GraduationCap, AlertTriangle, Trophy, BarChart3, FileSpreadsheet,
-  Printer, Search, Clock, History
+  Printer, Search, Clock, History, ScanFace
 } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
 import { resolveAvatarRecord, resolveAvatarRecords } from '@/lib/storageAdapters';
 import ClassManagement from '@/components/dashboard/admin/ClassManagement';
 import { loadXlsx } from '@/lib/xlsxLoader';
+import { facePilotEnabled } from '@/lib/faceAttendanceApi';
+
+// Pentashih are guru rows, so they register their own face the same way a guru does.
+const GuruFaceEnrollmentDialog = lazy(() => import('@/components/dashboard/guru/GuruFaceEnrollmentDialog'));
 
 const KHOTIM_JILID_LIST = ['Jilid 6A', 'Jilid 6B', 'Al-Qur\'an', 'Ghorib Tajwid', 'Finishing'];
 
@@ -42,6 +46,7 @@ const calculateUntestedDuration = (lastDateStr) => {
 const PentashihDashboard = () => {
   const { user } = useAuth();
   const [guruData, setGuruData] = useState(null);
+  const [isFaceOpen, setIsFaceOpen] = useState(false);
   const [santriList, setSantriList] = useState([]);
   const [classList, setClassList] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -282,6 +287,17 @@ const PentashihDashboard = () => {
 
         {/* Poin 5: Print & Export Actions */}
         <div className="flex items-center gap-3 flex-wrap print:hidden">
+          {facePilotEnabled && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsFaceOpen(true)}
+              className="bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 hover:bg-slate-100 font-semibold flex items-center gap-1.5 shadow-sm"
+            >
+              <ScanFace className="w-4 h-4 text-purple-600 dark:text-purple-400" aria-hidden="true" />
+              Wajah Saya
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"
@@ -694,6 +710,7 @@ const PentashihDashboard = () => {
         {/* Render ClassManagement with pentashih view permissions */}
         <ClassManagement userRole="pentashih" />
       </div>
+      {isFaceOpen && <Suspense fallback={null}><GuruFaceEnrollmentDialog guruName={guruData?.nama} onClose={() => setIsFaceOpen(false)} /></Suspense>}
     </div>
   );
 };
