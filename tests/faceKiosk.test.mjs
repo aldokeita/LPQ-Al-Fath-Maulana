@@ -15,8 +15,8 @@ test('faces keep their track between frames and new faces start new tracks', () 
 test('a raised thumb confirms only the nearest plausible face', () => {
   const faces = [box(100, 100), box(500, 100)];
   const thumb = (x, y, score = 0.9, gesture = 'Thumb_Up') => ({ x, y, score, gesture });
-  assert.deepEqual([...assignThumbsToFaces([thumb(180, 330)], faces)], [0]);
-  assert.deepEqual([...assignThumbsToFaces([thumb(560, 300), thumb(140, 260)], faces)].sort(), [0, 1]);
+  assert.deepEqual([...assignThumbsToFaces([thumb(180, 330)], faces)], [[0, 0]]);
+  assert.deepEqual([...assignThumbsToFaces([thumb(560, 300), thumb(140, 260)], faces)].sort(), [[0, 1], [1, 0]], 'each hand links to its own face');
   assert.equal(assignThumbsToFaces([thumb(180, 330, THUMB_MIN_SCORE - 0.1)], faces).size, 0);
   assert.equal(assignThumbsToFaces([thumb(180, 330, 0.9, 'Open_Palm')], faces).size, 0);
   assert.equal(assignThumbsToFaces([thumb(180, -60)], faces).size, 0, 'a hand far above the head is not a confirmation');

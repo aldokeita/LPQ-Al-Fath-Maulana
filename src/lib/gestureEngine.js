@@ -37,15 +37,16 @@ async function initialize() {
 
   let lastTimestamp = 0;
   return {
-    // Hands in raw (unmirrored) pixel coordinates with their top gesture.
+    // Hands in raw (unmirrored) pixel coordinates: centre, bounding box and top gesture.
     detect(video) {
       const timestamp = Math.max(performance.now(), lastTimestamp + 1); lastTimestamp = timestamp;
       const result = recognizer.recognizeForVideo(video, timestamp);
       return (result.landmarks || []).map((points, index) => {
         const top = result.gestures?.[index]?.[0];
-        const x = points.reduce((sum, point) => sum + point.x, 0) / points.length * video.videoWidth;
-        const y = points.reduce((sum, point) => sum + point.y, 0) / points.length * video.videoHeight;
-        return { gesture: top?.categoryName || 'None', score: top?.score || 0, x, y };
+        const xs = points.map(point => point.x * video.videoWidth); const ys = points.map(point => point.y * video.videoHeight);
+        const x = xs.reduce((sum, value) => sum + value, 0) / xs.length; const y = ys.reduce((sum, value) => sum + value, 0) / ys.length;
+        const box = { x: Math.min(...xs), y: Math.min(...ys), width: Math.max(...xs) - Math.min(...xs), height: Math.max(...ys) - Math.min(...ys) };
+        return { gesture: top?.categoryName || 'None', score: top?.score || 0, x, y, box };
       });
     },
   };

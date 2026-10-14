@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button';
 import { loadFaceEngine, frameQuality, facePose, FACE_LOSS_GRACE_MS, mirroredPose } from '@/lib/faceCameraEngine';
 import { faceAttendanceRequest } from '@/lib/faceAttendanceApi';
 import { loadGestureEngine } from '@/lib/gestureEngine';
-import { assignThumbsToFaces, FRAME_MAX_AGE_MS, matchTracks, MIN_FACE_RATIO, mirrorBox, THUMB_CONFIRM_FRAMES, TRACK_TTL_MS } from '@/lib/faceKiosk';
+import { assignThumbsToFaces, FRAME_MAX_AGE_MS, matchTracks, MIN_FACE_RATIO, THUMB_CONFIRM_FRAMES, TRACK_TTL_MS } from '@/lib/faceKiosk';
+import { drawKioskOverlay } from '@/lib/kioskOverlay';
 import { captureSteps, descriptorDistance, FACE_MODEL_VERSION, getCameraErrorMessage, PASSIVE_MIN_SPAN_MS } from '../../../../supabase/functions/_shared/faceCapture.js';
 
 // Keyed by the mirrored (on-screen) direction; capture logic keeps using raw-frame poses.
@@ -21,7 +22,6 @@ const PASSIVE_CHALLENGE_REFRESH_MS = 30000;
 const PASSIVE_RETRY_MS = 4000;
 const passiveReadyMessage = 'Kamera aktif. Hadapkan wajah ke kamera, kehadiran tercatat otomatis.';
 const gestureReadyMessage = 'Kamera aktif. Santri yang ingin absen: hadapkan wajah ke kamera lalu acungkan jempol 👍.';
-const trackColors = { watching: 'rgba(226, 232, 240, 0.85)', ready: 'rgb(103, 232, 249)', sending: 'rgb(167, 139, 250)', done: 'rgb(45, 212, 191)', unknown: 'rgb(251, 191, 36)' };
 
 export default function FaceCameraCapture({ purpose = 'attendance', mode = 'passive', santriId, consent, onCapture }) {
   const gestureMode = purpose === 'attendance' && mode === 'gesture';
@@ -247,39 +247,29 @@ export default function FaceCameraCapture({ purpose = 'attendance', mode = 'pass
       setState(result?.success ? 'success' : 'unrecognized');
       setMessage(result?.message || 'Wajah belum dikenali. Silakan gunakan kartu RFID.'); resultUntil = performance.now() + 3000;
     };
-    const draw = () => {
+    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+    let handResults = [];
+    const draw = now => {
       const target = overlay.current; const source = video.current;
       if (!target || !source?.videoWidth) return;
       if (target.width !== source.videoWidth) { target.width = source.videoWidth; target.height = source.videoHeight; }
-      const context = target.getContext('2d'); context.clearRect(0, 0, target.width, target.height);
-      const line = Math.max(2, target.width / 400); const font = Math.max(14, Math.round(target.width / 48));
-      context.font = `700 ${font}px Poppins, system-ui, sans-serif`; context.textBaseline = 'bottom';
-      for (const track of tracks) {
-        const ready = track.status === 'watching' && track.frames.length === 5;
-        const color = trackColors[ready ? 'ready' : track.status];
-        const box = mirrorBox(track.box, target.width);
-        context.strokeStyle = color; context.lineWidth = line;
-        context.beginPath(); context.roundRect(box.x, box.y, box.width, box.height, box.width * 0.12); context.stroke();
-        const label = { sending: 'Mengonfirmasi...', done: `✓ ${track.label || 'Hadir'}`, unknown: 'Belum dikenali' }[track.status]
-          || (ready ? `Acungkan 👍 untuk absen${track.thumbStreak ? ` ${'•'.repeat(Math.min(track.thumbStreak, THUMB_CONFIRM_FRAMES))}` : ''}` : 'Hadapkan wajah ke kamera');
-        const width = context.measureText(label).width + font;
-        const top = Math.max(font * 1.5, box.y - line * 2);
-        context.fillStyle = 'rgba(15, 23, 42, 0.72)';
-        context.beginPath(); context.roundRect(box.x, top - font * 1.45, width, font * 1.45, font * 0.4); context.fill();
-        context.fillStyle = color; context.fillText(label, box.x + font / 2, top - font * 0.25);
-      }
+      drawKioskOverlay(target.getContext('2d'), { tracks, hands: handResults, now, reducedMotion });
     };
+    // Rendering runs at display rate, decoupled from the slower detection loop, so the HUD animates smoothly.
+    let frameRequest = 0;
+    const render = () => { draw(performance.now()); frameRequest = requestAnimationFrame(render); };
     try {
       setState('active'); setMessage(gestureReadyMessage);
+      frameRequest = requestAnimationFrame(render);
       while (ticket === generation.current && stream.current?.active) {
         const faces = await engine.detect(video.current);
         if (ticket !== generation.current) break;
-        const now = performance.now(); const handResults = hands.detect(video.current);
+        const now = performance.now(); handResults = hands.detect(video.current);
         const boxes = faces.map(face => face.detection.box);
         const { matches, unmatched } = matchTracks(tracks, boxes);
         const seen = new Map(matches.map(match => [match.detection, tracks[match.track]]));
         for (const index of unmatched) {
-          const track = { id: nextId++, box: boxes[index], frames: [], status: 'watching', thumbStreak: 0, retryAt: 0, label: '', lastSeen: now };
+          const track = { id: nextId++, box: boxes[index], frames: [], status: 'watching', thumbStreak: 0, retryAt: 0, label: '', lastSeen: now, createdAt: now, hand: null };
           tracks.push(track); seen.set(index, track);
         }
         const thumbOwners = assignThumbsToFaces(handResults, boxes);
@@ -293,6 +283,7 @@ export default function FaceCameraCapture({ purpose = 'attendance', mode = 'pass
             if (track.frames.length > 5) track.frames.shift().descriptor.fill(0);
           }
           track.thumbStreak = thumbOwners.has(index) ? track.thumbStreak + 1 : 0;
+          track.hand = thumbOwners.has(index) ? handResults[thumbOwners.get(index)] : null;
           if (track.status === 'unknown' && now >= track.retryAt) track.status = 'watching';
           const span = track.frames.length === 5 ? track.frames[4].at - track.frames[0].at : 0;
           if (!inFlight && track.status === 'watching' && track.thumbStreak >= THUMB_CONFIRM_FRAMES && span >= PASSIVE_MIN_SPAN_MS) confirm(track);
@@ -302,7 +293,6 @@ export default function FaceCameraCapture({ purpose = 'attendance', mode = 'pass
           if (!alive) dropFrames(track);
           return alive;
         });
-        draw();
         if (now >= resultUntil) {
           const visible = tracks.filter(track => track.lastSeen === now);
           if (inFlight) { setState('recognizing'); setMessage('Mengonfirmasi kehadiran...'); }
@@ -312,6 +302,7 @@ export default function FaceCameraCapture({ purpose = 'attendance', mode = 'pass
         await pause(60);
       }
     } finally {
+      cancelAnimationFrame(frameRequest);
       tracks.forEach(dropFrames); tracks = []; canvas.width = 0; canvas.height = 0;
       overlay.current?.getContext('2d')?.clearRect(0, 0, overlay.current.width, overlay.current.height);
     }
@@ -321,7 +312,7 @@ export default function FaceCameraCapture({ purpose = 'attendance', mode = 'pass
   const StatusIcon = stateIcons[state] || ScanFace;
   const tracking = poseSteps.length > 0 && running;
   const halt = () => { stop(); setState('idle'); setPoseSteps([]); setPosesDone(0); setMessage('Kamera dihentikan.'); };
-  return <section className={`face-camera face-camera--${state}`} aria-label="Kamera pengenalan wajah">
+  return <section className={`face-camera face-camera--${state}${gestureMode ? ' face-camera--gesture' : ''}`} aria-label="Kamera pengenalan wajah">
     <div className="face-camera__viewport">
       <video ref={video} muted playsInline aria-label="Pratinjau kamera langsung seperti cermin, tidak direkam" />
       {gestureMode ? <canvas ref={overlay} className="face-camera__overlay" aria-hidden="true" /> : <div className="face-camera__guide" aria-hidden="true" />}

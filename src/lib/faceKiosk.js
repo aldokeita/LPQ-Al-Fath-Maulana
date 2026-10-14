@@ -29,9 +29,10 @@ export function matchTracks(tracks, boxes, minIou = 0.3) {
 }
 
 // A raised thumb belongs to the nearest face it could plausibly come from: beside or below it.
+// Returns face index -> hand index, so the overlay can link each confirming hand to its face.
 export function assignThumbsToFaces(hands, boxes) {
-  const owners = new Set();
-  for (const hand of hands) {
+  const owners = new Map();
+  for (const [handIndex, hand] of hands.entries()) {
     if (hand.gesture !== THUMB_GESTURE || hand.score < THUMB_MIN_SCORE) continue;
     let best = -1; let bestDistance = Infinity;
     boxes.forEach((box, index) => {
@@ -42,7 +43,7 @@ export function assignThumbsToFaces(hands, boxes) {
       const distance = Math.hypot(hand.x - centerX, hand.y - centerY);
       if (plausible && distance < bestDistance) { best = index; bestDistance = distance; }
     });
-    if (best >= 0) owners.add(best);
+    if (best >= 0) owners.set(best, handIndex);
   }
   return owners;
 }
