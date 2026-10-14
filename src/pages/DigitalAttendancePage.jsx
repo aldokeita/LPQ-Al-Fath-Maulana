@@ -486,8 +486,8 @@ const DigitalAttendancePage = () => {
                   supabase.from('attendance').select('*', { count: 'exact', head: true }).eq('user_id', user.id).gte('attendance_date', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString()),
                   supabase.from('attendance').select('attendance_date').eq('user_id', user.id).order('attendance_date', { ascending: false }).limit(30)
               ]);
-              const guruClasses = classesResult.data;
-              const uniqueSessions = [...new Set((guruClasses || []).map(c => c.sesi))];
+              const infoClasses = classesResult.data;
+              const uniqueSessions = [...new Set((infoClasses || []).map(c => c.sesi))];
               const scheduledSessionsCount = uniqueSessions.length;
               const totalMonthAttendance = attendanceCountResult.count || 0;
               const hoursTaught = (totalMonthAttendance * 1.25).toFixed(2);
@@ -506,7 +506,7 @@ const DigitalAttendancePage = () => {
               let nextSession = sortedSessions.find(s => (timeMap[s] || 0) > currentHour);
               if (!nextSession && sortedSessions.length > 0) { nextSession = `${sortedSessions[0]} (Besok)`; } else if (!nextSession) { nextSession = "-"; } else { const startTime = sessionTimes[nextSession]?.start || ''; nextSession = `${nextSession} (${startTime})`; }
               const quote = guruQuotes[Math.floor(Math.random() * guruQuotes.length)];
-              setLastScan({ type: 'guru_info', rfid: tag, role: 'guru', name: user.nama, photo: user.foto_url, quote, classesData: guruClasses, roles: user.roles || [], jabatan: user.jabatan, gender: user.jenis_kelamin || 'Laki-laki', no_hp: user.no_hp, stats: { sessions: scheduledSessionsCount, hours: hoursTaught, streak: streak, nextSession }});
+              setLastScan({ type: 'guru_info', rfid: tag, role: 'guru', name: user.nama, photo: user.foto_url, quote, classesData: infoClasses, roles: user.roles || [], jabatan: user.jabatan, gender: user.jenis_kelamin || 'Laki-laki', no_hp: user.no_hp, stats: { sessions: scheduledSessionsCount, hours: hoursTaught, streak: streak, nextSession }});
               return;
         }
 
@@ -695,6 +695,9 @@ const DigitalAttendancePage = () => {
             guruStats,
           });
         }
+      } catch (error) {
+        // Any unexpected failure must leave the scanning state, never hang on the loader.
+        setLastScan({ type: 'error', message: error?.message || 'Terjadi kesalahan saat memproses RFID.', name: 'Error' });
       } finally { setIsLoading(false); setRfidTag(''); setTimeout(forceFocus, 50); }
   };
 
