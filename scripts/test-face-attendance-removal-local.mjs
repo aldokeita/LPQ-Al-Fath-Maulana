@@ -24,4 +24,6 @@ rollback;
   const output = execFileSync('docker', ['exec', '-i', FACE_DB_CONTAINER, 'psql', '-U', 'postgres', '-d', 'postgres', '-v', 'ON_ERROR_STOP=1'],
     { input: sql, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
   console.log(output.trim());
+  // psql reports the NOTICE on stderr, which is captured here; reaching this line means every check passed.
+  console.log('Face pilot removal rehearsal PASS (rolled back)');
 }
