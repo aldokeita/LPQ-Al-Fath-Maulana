@@ -17,7 +17,7 @@ Status per 2026-10-14 (setelah PR #15). Dokumen ini merangkum seluruh pekerjaan 
 1. Admin membuka **Manajemen Santri → Wajah**, mencentang satu persetujuan tertulis wali, lalu merekam wajah dengan 5 gerakan kepala (tengah, kiri/kanan acak, tengah, sisi lain, tengah).
 2. Browser hanya mengirim 5 deskriptor (128 angka), bukan foto. Template disimpan di schema `biometric_private`.
 3. Kiosk `/absensi-wajah` mengenali wajah secara pasif (5 frame frontal, rentang minimal 300 ms). Ada dua mode:
-   - **Gesture:** banyak wajah sekaligus; absen dikirim setelah 👍, ✌️, atau 😊 ditahan.
+   - **Gesture:** banyak wajah sekaligus; absen dikirim setelah jempol 👍 ditahan.
    - **Otomatis:** satu wajah, langsung tercatat.
 4. Pencocokan dan pencatatan terjadi di server: Edge Function `face-attendance` memanggil RPC `pilot_face_operation`, lalu `pilot_record_santri_attendance`. Satu santri tetap hanya punya satu record per hari dengan satu kali poin, termasuk saat absen lewat RFID dan wajah terjadi bersamaan.
 5. Saat pilot aktif, **tap RFID santri** juga dicatat lewat fungsi yang sama (aksi `rfid`), sehingga aturan duplikat dan poin konsisten.
@@ -72,7 +72,7 @@ Variabel `VITE_*` dibaca saat build. Setelah mengubahnya, Vercel perlu **Redeplo
 
 | Perintah | Isi |
 |---|---|
-| `npm test` | Unit test: validasi tangkapan, HUD/gesture/senyum, target Supabase, alur guru dengan Supabase tiruan. Test di-skip kalau backend lokal tidak ada. |
+| `npm test` | Unit test: validasi tangkapan, HUD/gesture, target Supabase, alur guru dengan Supabase tiruan. Test di-skip kalau backend lokal tidak ada. |
 | `npm run test:face` | Butuh Supabase lokal (Docker) dan `supabase functions serve face-attendance`. Menjalankan kontrak SQL santri, kontrak SQL guru, integrasi HTTP, dan uji pembatalan pilot di dalam transaksi yang di-rollback. |
 | `pwsh scripts/validate-migration-order.ps1` | Daftar migration harus cocok. Tambahkan setiap migration baru ke daftarnya. |
 | `npm run build`, `npm run lint`, `git diff --check`, `pwsh scripts/validate-no-secrets.ps1` | Wajib sebelum push. |
@@ -135,7 +135,7 @@ Semua langkah dijalankan manual oleh pemilik repo dari `C:\Project\LPQ Al-Fath M
 - Pilot mati secara default dan hanya menyala dengan flag dan secret eksplisit.
 - Persetujuan wali santri cukup satu centang oleh admin, yang menyatakan formulir tertulis sudah ada.
 - Absen di kiosk bersifat pasif, tanpa gerakan kepala. Registrasi tetap memakai 5 gerakan kepala.
-- Mode Gesture (👍 ✌️ 😊) dan mode Otomatis tersedia. Senyum diukur dari titik wajah yang sudah ada, tanpa model tambahan.
+- Mode Gesture (jempol 👍) dan mode Otomatis tersedia. Konfirmasi senyum 😊 (dan `?kalibrasi-senyum`) dihapus, dan gesture peace ✌️ dinonaktifkan, atas permintaan pemilik repo pada 2026-10-14.
 - Kamera selalu aktif, pulih sendiri, memakai Wake Lock, dan dirancang untuk monitor portrait. Profile Card ditampilkan bertumpuk (3 kartu, masing-masing 12 detik).
 - Data wajah disimpan di server, tidak hanya di perangkat.
 - Staging dilewati; pilot diaktifkan di situs utama.
@@ -149,7 +149,7 @@ Semua langkah dijalankan manual oleh pemilik repo dari `C:\Project\LPQ Al-Fath M
    - kiosk di dalam dan di luar jam sesi, tanpa poin ganda.
 
    Kalau ada yang gagal, lakukan Instant Rollback di Vercel.
-2. **Kalibrasi dengan santri sungguhan.** Kumpulkan `best_distance`/`second_distance` dari log `face_match` selama beberapa hari, lalu sesuaikan 0,40 / 0,08. Ambang senyum bisa disetel dengan `/absensi-wajah?kalibrasi-senyum`.
+2. **Kalibrasi dengan santri sungguhan.** Kumpulkan `best_distance`/`second_distance` dari log `face_match` selama beberapa hari, lalu sesuaikan 0,40 / 0,08.
 3. **Kebijakan retensi data wajah:** berapa lama template disimpan untuk santri yang sudah lulus atau nonaktif.
 4. **Pembersihan opsional:** fungsi `change_santri_jilid` versi lama masih ada di production (frontend memakai `v2`). Ini butuh migration pembersihan terpisah.
 5. **Perbaikan terpisah:** test `santriTier` yang gagal di Windows, dan 2 error tipe lama di fungsi `face-attendance`.
@@ -168,24 +168,20 @@ Uji di PC absensi LPQ dan HP pribadi: pilot terasa berat saat memuat modul, saat
 
 Pencocokan di database **bukan** hambatan. Untuk ratusan santri (5 sampel per orang, ribuan vektor), pencarian pgvector masih di bawah sekian puluh milidetik dan tidak perlu indeks.
 
-### Rencana (urut dari dampak terbesar)
+### Implementasi (branch `perf/face-kiosk`)
 
-1. **Deskriptor hanya saat konfirmasi.**
-   - Pecah `engine.detect()` menjadi `detectFaces(video, { landmarks })` (deteksi + 68 titik, tanpa deskriptor) dan `describe(video, face)`. `describe` memotong wajah dari `face.alignedRect` dengan `api.extractFaces`, lalu memanggil `api.nets.faceRecognitionNet.computeFaceDescriptor`.
-   - Loop scanning memakai `detectFaces` untuk HUD, pelacakan, kualitas frame, dan senyum (senyum butuh 68 titik). `describe` baru dipanggil untuk 5 frame wajah yang sedang konfirmasi: gesture atau senyum sudah ditahan, atau di mode Otomatis wajah sudah stabil di tengah.
-   - **Wajib diuji:** deskriptor dari jalur baru harus setara dengan `withFaceDescriptors()`, karena template yang ada dibuat dengan jalur lama. Cara cek: pada frame yang sama, jarak kedua deskriptor harus jauh di bawah ambang (target < 0,05). Kalau tidak setara, tetap pakai `detectSingleFace` + `withFaceDescriptor` khusus untuk kotak wajah itu.
-   - Dialog registrasi santri dan guru **tidak diubah**; tetap memakai jalur penuh.
-2. **`inputSize` deteksi 416 → 320** di `faceCameraEngine.js`. Uji jarak berdiri santri di kiosk. Kalau wajah sering hilang, kembalikan ke 416 atau coba 384.
-3. **Model tangan setiap 2–3 frame** di `runGestureAttendance`, dengan memakai ulang `handResults` terakhir. `GESTURE_CONFIRM_FRAMES` (`src/lib/faceKiosk.js`) mungkin perlu disesuaikan supaya waktu tahan gesture tetap sekitar sama.
-4. **Cache permanen untuk file model.** Tambahkan `headers` di `vercel.json`:
-   ```json
-   { "source": "/face-models/(.*)", "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }] },
-   { "source": "/gesture-models/(.*)", "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }] }
-   ```
-   Ini aman karena nama foldernya berversi (`1.7.15`, `float16-1`). **Kalau model diganti, versi foldernya juga harus diganti.** Cek juga bahwa runtime WASM MediaPipe (di-emit Vite ke `/assets/` dengan hash) sudah mendapat cache panjang.
-5. **Tantangan disiapkan lebih awal.** Simpan satu tantangan `attendance` yang belum kedaluwarsa (berlaku 45 detik). Minta yang baru segera setelah satu dipakai atau saat sisa waktunya < 10 detik. Konfirmasi lalu hanya butuh satu panggilan (`recognize`). Batas server 40 tantangan per menit per operator tetap cukup.
-6. **Profile Card tampil bertahap.** Begitu `recognize` atau `runGuruAttendanceScan` selesai, langsung `pushCard` dengan nama, poin, dan status yang sudah ada di respons. Foto, statistik bulanan, hafalan, dan level menyusul lalu memperbarui kartu yang sama (cari berdasarkan `santriId`). `level_config` cukup dimuat sekali saat halaman dibuka.
-7. **Panel `?debug-kinerja`** di `/absensi-wajah`, mirip `?kalibrasi-senyum`. Tampilkan FPS loop, waktu rata-rata `detectFaces` / `describe` / `hands.detect`, waktu muat model, dan waktu `challenge` / `recognize` / muat kartu. Ukur **sebelum dan sesudah** di PC LPQ dan HP.
+1. **Deskriptor hanya saat dibutuhkan.**
+   - `faceCameraEngine.js` kini punya `detectFaces()` (deteksi + 68 titik) dan `describe()`. `describe` memotong wajah dengan `landmarks.align(null, { useDlibAlignment: true })`, sama persis dengan `withFaceDescriptors()`. **Bukan `alignedRect`** seperti rencana awal, karena `alignedRect` memakai potongan lain sehingga deskriptor tidak cocok dengan template.
+   - Diuji pada gambar sampel face-api (`compareDescriptorPaths`): untuk deteksi yang sama, selisih jalur lama dan baru tepat 0.
+   - Mode Otomatis: deskriptor hanya untuk frame frontal yang dikumpulkan. Saat menunggu santri bergeser, wajah dikenali dari kotak yang dilacak; deskriptor dihitung sekali hanya kalau kotaknya berganti.
+   - Mode Gesture: deskriptor hanya untuk wajah yang mulai mengacungkan 👍. Kalau konfirmasi datang sebelum ada 5 frame, absen menunggu paling lama 2 detik (`CONFIRM_PENDING_MS`). HUD "siap" kini memakai 5 frame frontal terakhir (`frontalTimes`).
+   - Registrasi santri dan guru tidak diubah.
+2. **`inputSize` tetap 416.** Pada sampel 1280 px, skor deteksi turun di ukuran 320 (contoh: 0,86 → 0,52) di bawah ambang kiosk 0,8/0,85. Ukuran lain bisa dicoba di lokasi lewat `/absensi-wajah?debug-kinerja&ukuran-deteksi=384`. Kalau `?debug-kinerja` menunjukkan wajah tetap terdeteksi dan kesetaraan < 0,05, ubah `KIOSK_DETECTOR_SIZE`.
+3. **Model tangan setiap 2 putaran** (`HAND_DETECT_EVERY`). Streak gesture hanya dihitung pada putaran yang menjalankan model tangan. Model tangan juga diunduh bersamaan dengan model wajah.
+4. **Cache permanen** di `vercel.json` untuk `/face-models/`, `/gesture-models/`, dan file `js/css/wasm` di root `/assets/` (bernama hash). Gambar tier di `public/assets/tiers/` tidak bernama hash, jadi sengaja tidak ikut. Keenam file model wajah juga diunduh bersamaan; hash SHA-256 tetap dicek.
+5. **Tantangan disiapkan lebih awal** untuk kedua mode (`src/lib/faceChallengeCache.js`). Tantangan dipakai maksimal 30 detik setelah diterbitkan. Setelah gagal, jeda 5 detik sebelum mencoba lagi. Waktu `evidence` mode Otomatis kini relatif terhadap frame pertama, sama seperti mode Gesture.
+6. **Profile Card bertahap.** Kartu tampil setelah `recognize` + 1 query `santri`. Foto, statistik bulanan, dan hafalan menyusul. `level_config` dimuat sekali per halaman.
+7. **Panel `?debug-kinerja`**: FPS, rata-rata `deteksi` / `deskriptor` / `tangan` / `tantangan` / `konfirmasi` / `recognize` / `kartu pertama` / `kartu lengkap`, waktu muat model, sumber model (`cache` / `validasi ulang` / `unduh`), dan tombol **Uji kesetaraan deskriptor** untuk frame kamera saat ini.
 
 ### Operasional
 - **Untuk antrean ratusan santri, pakai mode Otomatis** (satu orang per giliran, tanpa model tangan). Mode Gesture lebih berat dan lebih cocok untuk suasana santai.
@@ -193,6 +189,11 @@ Pencocokan di database **bukan** hambatan. Untuk ratusan santri (5 sampel per or
 - **Kapasitas:** perkiraan setelah perbaikan, satu kiosk melayani satu santri per 2–4 detik, atau sekitar 15–30 santri per menit. Kalau ratusan santri datang dalam waktu singkat, siapkan **2 kiosk** atau tetap buka **RFID berdampingan**.
 
 ### Selesai kalau
-- Hasil `?debug-kinerja` di PC LPQ: loop scanning stabil (target ≥ 10 FPS di mode Otomatis), konfirmasi < 1,5 detik sampai kartu pertama tampil, dan pembukaan kedua memuat model dari cache.
+- Hasil `?debug-kinerja` di PC LPQ:
+  - `deteksi` < 100 ms dan `deskriptor` < 150 ms;
+  - mode Gesture sekitar 10 FPS. Mode Otomatis sengaja berhenti 120–160 ms setiap putaran, jadi FPS-nya memang hanya sekitar 5–7; yang diukur di sana adalah waktu deteksi;
+  - `tantangan` + `kartu pertama` < 1,5 detik;
+  - pembukaan kedua memuat model dari `cache`.
+- Hasil uji lokal 2026-10-14 di laptop pengembang dengan webcam: `deteksi` 30 ms, `deskriptor` 39–68 ms, `tantangan` 0 ms, `recognize` 110 ms, `konfirmasi` 184–227 ms; mode Gesture 9,7 FPS. 👍 mencatat Guru Demo A.
 - `npm test`, `npm run test:face`, `npm run build`, dan `npm run lint` lulus.
 - Uji manual di PC LPQ: wajah santri dan guru yang **sudah terdaftar sebelum perubahan** tetap dikenali, tanpa perlu registrasi ulang.

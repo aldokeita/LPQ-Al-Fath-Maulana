@@ -1,11 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { AlertTriangle, ArrowLeft, ArrowRight, Camera, CheckCircle2, Circle, Loader2, RefreshCw, ScanFace, ShieldCheck, Square } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { loadFaceEngine, frameQuality, facePose, FACE_LOSS_GRACE_MS, mirroredPose } from '@/lib/faceCameraEngine';
+import { loadFaceEngine, frameQuality, facePose, FACE_LOSS_GRACE_MS, FACE_MODEL_URLS, KIOSK_DETECTOR_SIZE, mirroredPose } from '@/lib/faceCameraEngine';
 import { faceAttendanceRequest } from '@/lib/faceAttendanceApi';
+import { createChallengeCache } from '@/lib/faceChallengeCache';
 import { loadGestureEngine } from '@/lib/gestureEngine';
-import { assignGesturesToFaces, CONFIRM_GESTURES, createSmileTracker, FRAME_MAX_AGE_MS, GESTURE_CONFIRM_FRAMES, matchTracks, MIN_FACE_RATIO, plainBox, SMILE_CONFIRM_FRAMES, SMILE_SYMBOL, TRACK_TTL_MS } from '@/lib/faceKiosk';
+import { assignGesturesToFaces, CONFIRM_GESTURES, CONFIRM_PENDING_MS, FRAME_MAX_AGE_MS, framesReady, GESTURE_CONFIRM_FRAMES, HAND_DETECT_EVERY, matchTracks, MIN_FACE_RATIO, plainBox, recentFrontal, TRACK_TTL_MS, wantsDescriptor } from '@/lib/faceKiosk';
 import { drawKioskOverlay } from '@/lib/kioskOverlay';
+import { noopPerf, resourceSource } from '@/lib/kioskPerf';
 import { captureSteps, descriptorDistance, FACE_MODEL_VERSION, getCameraErrorMessage, PASSIVE_MIN_SPAN_MS } from '../../../../supabase/functions/_shared/faceCapture.js';
 
 // Keyed by the mirrored (on-screen) direction; capture logic keeps using raw-frame poses.
@@ -16,18 +18,20 @@ const stateIcons = { idle: Camera, permission: Loader2, loading: Loader2, active
   recognizing: Loader2, success: CheckCircle2, unrecognized: AlertTriangle, error: AlertTriangle };
 const spinningStates = ['permission', 'loading', 'recognizing'];
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
-// Evidence must stay within 40 s of issue (server expiry is 45 s), so idle kiosks refresh earlier.
-const PASSIVE_CHALLENGE_REFRESH_MS = 30000;
+const requestAttendanceChallenge = () => faceAttendanceRequest({ action: 'challenge', purpose: 'attendance' });
+// Kiosk evidence times are relative to the first frame; the server checks order, span and the 40 s ceiling.
+const kioskEvidence = frames => frames.map(frame => ({ pose: 'center', elapsedMs: frame.at - frames[0].at + 1, faceCount: 1, quality: true }));
 // An unrecognized santri who stays in front of the camera gets another attempt after this delay.
 const PASSIVE_RETRY_MS = 4000;
 // Single-face kiosk has no guide ring, so faces may sit anywhere but must be reasonably close.
 const PASSIVE_MIN_FACE_RATIO = 0.12;
 const passiveReadyMessage = 'Kamera aktif. Hadapkan wajah ke kamera, kehadiran tercatat otomatis.';
-const gestureReadyMessage = 'Kamera aktif. Hadapkan wajah, lalu acungkan 👍, ✌️, atau tersenyum 😊.';
+const gestureReadyMessage = 'Kamera aktif. Hadapkan wajah, lalu acungkan jempol 👍.';
 // Always-on kiosks recover from camera, model and network failures on their own.
 const AUTO_RETRY_MS = 5000;
 
-export default function FaceCameraCapture({ purpose = 'attendance', mode = 'passive', alwaysOn = false, smileCalibration = false, santriId, guruId, consent, onCapture }) {
+export default function FaceCameraCapture({ purpose = 'attendance', mode = 'passive', alwaysOn = false,
+  detectorSize = KIOSK_DETECTOR_SIZE, perf = noopPerf, santriId, guruId, consent, onCapture }) {
   const gestureMode = purpose === 'attendance' && mode === 'gesture';
   // 'enroll' (admin registers a santri), 'self_enroll' (a guru registers themself) and 'guru_enroll'
   // (admin registers a guru) share the head-turn capture.
@@ -55,6 +59,16 @@ export default function FaceCameraCapture({ purpose = 'attendance', mode = 'pass
     if (!alwaysOn || manualStop.current) return;
     clearTimeout(retryTimer.current);
     retryTimer.current = setTimeout(() => { if (!document.hidden && !manualStop.current) start(); }, AUTO_RETRY_MS);
+  };
+  const timed = async (label, work) => {
+    const began = performance.now();
+    try { return await work(); } finally { perf.record(label, performance.now() - began); }
+  };
+  // ?debug-kinerja: compare the kiosk descriptor with the enrollment pipeline on the current frame.
+  const runSelfCheck = async engine => {
+    if (!perf.takeSelfCheckRequest()) return;
+    try { perf.note('kesetaraan', await engine.compareDescriptorPaths(video.current, detectorSize)); }
+    catch (error) { perf.note('kesetaraan', { state: 'error', message: error.message }); }
   };
   useEffect(() => {
     // Hidden tabs throttle the detection loop, so pause there; an always-on kiosk resumes by itself.
@@ -90,9 +104,14 @@ export default function FaceCameraCapture({ purpose = 'attendance', mode = 'pass
       // Keep the kiosk screen awake while the camera runs; unsupported browsers simply skip it.
       if (alwaysOn) wakeLock.current = await navigator.wakeLock?.request('screen').catch(() => null) ?? null;
       setState('loading'); setMessage('Memuat model pengenalan wajah...');
-      const engine = await loadFaceEngine();
+      // The hand model downloads alongside the face models instead of after them.
+      const handsLoading = gestureMode ? timed('muat model tangan', loadGestureEngine) : null;
+      handsLoading?.catch(() => {});
+      const engine = await timed('muat model wajah', loadFaceEngine);
+      perf.note('sumber model', resourceSource(FACE_MODEL_URLS[FACE_MODEL_URLS.length - 1]));
+      perf.note('ukuran deteksi', detectorSize);
       if (ticket !== generation.current) return;
-      if (purpose === 'attendance') { await (gestureMode ? runGestureAttendance(engine, ticket) : runPassiveAttendance(engine, ticket)); return; }
+      if (purpose === 'attendance') { await (gestureMode ? runGestureAttendance(engine, ticket, handsLoading) : runPassiveAttendance(engine, ticket)); return; }
       let challenge = await faceAttendanceRequest({ action: 'challenge', purpose, santriId, guruId, consent });
       let steps = captureSteps(challenge.firstDirection); let step = 0; let poseStart = 0;
       setPoseSteps(steps); setPosesDone(0);
@@ -211,8 +230,9 @@ export default function FaceCameraCapture({ purpose = 'attendance', mode = 'pass
   // Supervised kiosk: recognize any single frontal face without a head-turn challenge.
   async function runPassiveAttendance(engine, ticket) {
     const canvas = document.createElement('canvas');
-    let challenge = null; let issuedAt = 0; let frames = [];
-    let lastDescriptor = null; let lastSucceeded = false; let retryAt = 0; let cooldownUntil = 0;
+    const challenges = createChallengeCache(requestAttendanceChallenge);
+    // last: the face just sent, so it gets one attempt per presence ({ trackId, descriptor, succeeded, retryAt }).
+    let frames = []; let last = null; let cooldownUntil = 0;
     let hudTracks = []; let hudId = 1;
     const syncHud = (results, now) => {
       const boxes = results.map(result => plainBox(result.detection.box));
@@ -222,34 +242,43 @@ export default function FaceCameraCapture({ purpose = 'attendance', mode = 'pass
       hudTracks = next;
     };
     const clearFrames = () => { frames.forEach(frame => frame.descriptor.fill(0)); frames = []; };
-    const refreshChallenge = async () => {
-      try {
-        challenge = await faceAttendanceRequest({ action: 'challenge', purpose: 'attendance' }); issuedAt = performance.now();
-      } catch (error) {
-        challenge = null; setState('unrecognized'); setMessage(`${error.message} Mencoba lagi sebentar lagi.`);
-      }
+    const describeOne = async results => {
+      const [raw] = await timed('deskriptor', () => engine.describe(video.current, results));
+      const descriptor = Array.from(raw); raw.fill(0);
+      return descriptor;
     };
     const stopHud = startHud(() => ({ tracks: hudTracks, hands: [] }), 'passive');
     try {
-      await refreshChallenge();
-      if (challenge) { setState('active'); setMessage(passiveReadyMessage); }
+      // Announce readiness only once the backend hands out a challenge (login and pilot are live).
       while (ticket === generation.current && stream.current?.active) {
-        if (!challenge || (!frames.length && performance.now() - issuedAt > PASSIVE_CHALLENGE_REFRESH_MS)) {
-          await refreshChallenge();
-          if (!challenge) { await pause(5000); continue; }
-        }
-        const results = await engine.detect(video.current);
+        try { await challenges.ensure(); break; }
+        catch (error) { setState('unrecognized'); setMessage(`${error.message} Mencoba lagi sebentar lagi.`); await pause(5000); }
+      }
+      if (ticket === generation.current) { setState('active'); setMessage(passiveReadyMessage); }
+      while (ticket === generation.current && stream.current?.active) {
+        perf.loop(); await runSelfCheck(engine); challenges.prefetch();
+        // Boxes and landmarks only; a descriptor is computed just for frames that can count.
+        const results = await timed('deteksi', () => engine.detectFaces(video.current, detectorSize));
         if (ticket !== generation.current) break;
         const now = performance.now(); syncHud(results, now);
         if (now < cooldownUntil) { await pause(160); continue; }
-        if (lastDescriptor) {
+        if (last) {
           // One attempt per presence: wait until this santri leaves or a different face steps in.
-          const sameFace = results.length === 1 && descriptorDistance(Array.from(results[0].descriptor), lastDescriptor) <= 0.45;
-          if (results.length && (sameFace || results.length > 1) && (lastSucceeded || now < retryAt)) {
-            setState('waiting'); setMessage(lastSucceeded ? 'Silakan bergeser untuk santri berikutnya.' : 'Hadapkan wajah lurus ke kamera, mencoba lagi sebentar lagi.');
+          // The same tracked box is the same person; a new box costs one descriptor to tell.
+          let sameFace = false;
+          if (results.length === 1) {
+            if (hudTracks[0].id === last.trackId) sameFace = true;
+            else {
+              const descriptor = await describeOne(results);
+              sameFace = descriptorDistance(descriptor, last.descriptor) <= 0.45; descriptor.fill(0);
+              if (sameFace) last.trackId = hudTracks[0].id;
+            }
+          }
+          if (results.length && (sameFace || results.length > 1) && (last.succeeded || now < last.retryAt)) {
+            setState('waiting'); setMessage(last.succeeded ? 'Silakan bergeser untuk santri berikutnya.' : 'Hadapkan wajah lurus ke kamera, mencoba lagi sebentar lagi.');
             await pause(160); continue;
           }
-          lastDescriptor.fill(0); lastDescriptor = null; setState('active'); setMessage(passiveReadyMessage);
+          last.descriptor.fill(0); last = null; setState('active'); setMessage(passiveReadyMessage);
           hudTracks.forEach(track => { track.status = 'watching'; track.label = ''; track.progress = 0; });
         }
         if (results.length !== 1) {
@@ -262,93 +291,117 @@ export default function FaceCameraCapture({ purpose = 'attendance', mode = 'pass
           clearFrames(); hud.progress = 0; setState('detected'); setMessage('Hadapkan wajah lurus ke kamera dan mendekat sedikit.');
           await pause(120); continue;
         }
-        const descriptor = Array.from(face.descriptor);
+        const descriptor = await describeOne(results);
+        if (ticket !== generation.current) break;
         if (frames.length && descriptorDistance(descriptor, frames[0].descriptor) > 0.25) clearFrames();
-        frames.push({ descriptor, elapsedMs: now - issuedAt });
+        frames.push({ descriptor, at: now });
         if (frames.length > 5) frames.shift().descriptor.fill(0);
         hud.progress = frames.length; setState('detected'); setMessage('Wajah terdeteksi, tahan sebentar...');
-        if (frames.length < 5 || frames[4].elapsedMs - frames[0].elapsedMs < PASSIVE_MIN_SPAN_MS) { await pause(120); continue; }
+        if (!framesReady(frames, PASSIVE_MIN_SPAN_MS)) { await pause(120); continue; }
         setState('recognizing'); setMessage('Mengenali wajah dan mengonfirmasi pencatatan...'); hud.status = 'sending';
-        const payload = { challengeId: challenge.id, modelVersion: FACE_MODEL_VERSION, descriptors: frames.map(frame => frame.descriptor),
-          evidence: frames.map(frame => ({ pose: 'center', elapsedMs: frame.elapsedMs, faceCount: 1, quality: true })) };
-        lastDescriptor = descriptor.slice(); challenge = null;
-        let result;
-        try { result = await callback.current(payload); } catch (error) { result = { success: false, message: error.message }; }
+        last = { trackId: hud.id, descriptor: descriptor.slice(), succeeded: false, retryAt: 0 };
+        const confirmStart = performance.now(); let result;
+        try {
+          const challenge = await timed('tantangan', () => challenges.take());
+          result = await callback.current({ challengeId: challenge.id, modelVersion: FACE_MODEL_VERSION,
+            descriptors: frames.map(frame => frame.descriptor), evidence: kioskEvidence(frames) });
+        } catch (error) { result = { success: false, message: error.message }; }
+        perf.record('konfirmasi', performance.now() - confirmStart);
         clearFrames();
         if (ticket !== generation.current) break;
-        lastSucceeded = Boolean(result?.success);
-        hud.status = lastSucceeded ? 'done' : 'unknown'; hud.label = result?.name || ''; hud.progress = 0;
-        setState(lastSucceeded ? 'success' : 'unrecognized');
+        last.succeeded = Boolean(result?.success);
+        hud.status = last.succeeded ? 'done' : 'unknown'; hud.label = result?.name || ''; hud.progress = 0;
+        setState(last.succeeded ? 'success' : 'unrecognized');
         setMessage(result?.message || 'Wajah belum dikenali. Silakan gunakan kartu RFID.');
-        cooldownUntil = performance.now() + 2000; retryAt = cooldownUntil + PASSIVE_RETRY_MS;
+        cooldownUntil = performance.now() + 2000; last.retryAt = cooldownUntil + PASSIVE_RETRY_MS;
       }
     } finally {
-      stopHud(); clearFrames(); lastDescriptor?.fill(0); canvas.width = 0; canvas.height = 0;
+      stopHud(); clearFrames(); last?.descriptor.fill(0); canvas.width = 0; canvas.height = 0;
     }
   }
 
-  // Multi-face kiosk: faces are only tracked locally until their owner confirms (👍, ✌️ or a held smile); then that one face is recognized.
-  async function runGestureAttendance(engine, ticket) {
+  // Multi-face kiosk: faces are only tracked locally until their owner confirms with 👍; then that one face is recognized.
+  async function runGestureAttendance(engine, ticket, handsLoading) {
     setState('loading'); setMessage('Memuat model gesture tangan...');
-    const hands = await loadGestureEngine();
+    const hands = await handsLoading;
     if (ticket !== generation.current) return;
     const canvas = document.createElement('canvas');
-    let tracks = []; let nextId = 1; let inFlight = false; let resultUntil = 0;
+    const challenges = createChallengeCache(requestAttendanceChallenge);
+    let tracks = []; let nextId = 1; let inFlight = false; let resultUntil = 0; let pass = 0;
     const dropFrames = track => { track.frames.forEach(frame => frame.descriptor.fill(0)); track.frames = []; };
     const confirm = async track => {
-      inFlight = true; track.status = 'sending';
+      inFlight = true; track.status = 'sending'; track.pendingBy = null;
       const frames = track.frames.map(frame => ({ ...frame, descriptor: frame.descriptor.slice() })); dropFrames(track);
-      let result;
+      const confirmStart = performance.now(); let result;
       try {
-        const challenge = await faceAttendanceRequest({ action: 'challenge', purpose: 'attendance' });
-        // Evidence times are relative to the first frame; the server checks order, span and the 40 s ceiling.
-        const payload = { challengeId: challenge.id, modelVersion: FACE_MODEL_VERSION, descriptors: frames.map(frame => frame.descriptor),
-          evidence: frames.map(frame => ({ pose: 'center', elapsedMs: frame.at - frames[0].at + 1, faceCount: 1, quality: true })) };
-        result = await callback.current(payload);
+        const challenge = await timed('tantangan', () => challenges.take());
+        result = await callback.current({ challengeId: challenge.id, modelVersion: FACE_MODEL_VERSION,
+          descriptors: frames.map(frame => frame.descriptor), evidence: kioskEvidence(frames) });
       } catch (error) { result = { success: false, message: error.message }; }
       finally { frames.forEach(frame => frame.descriptor.fill(0)); inFlight = false; }
+      perf.record('konfirmasi', performance.now() - confirmStart);
       if (ticket !== generation.current) return;
       track.status = result?.success ? 'done' : 'unknown'; track.label = result?.name || '';
-      track.retryAt = performance.now() + PASSIVE_RETRY_MS; track.gestureStreak = 0; track.smileStreak = 0;
+      track.retryAt = performance.now() + PASSIVE_RETRY_MS; track.gestureStreak = 0;
       setState(result?.success ? 'success' : 'unrecognized');
       setMessage(result?.message || 'Wajah belum dikenali. Silakan gunakan kartu RFID.'); resultUntil = performance.now() + 3000;
     };
     let handResults = [];
-    const stopHud = startHud(() => ({ tracks, hands: handResults, smileCalibration }), 'gesture');
+    const stopHud = startHud(() => ({ tracks, hands: handResults }), 'gesture');
     try {
+      challenges.prefetch();
       setState('active'); setMessage(gestureReadyMessage);
       while (ticket === generation.current && stream.current?.active) {
-        const faces = await engine.detect(video.current);
+        perf.loop(); await runSelfCheck(engine); challenges.prefetch();
+        const faces = await timed('deteksi', () => engine.detectFaces(video.current, detectorSize));
         if (ticket !== generation.current) break;
-        const now = performance.now(); handResults = hands.detect(video.current);
+        const now = performance.now();
+        // The hand model skips passes; in between, the last hands stay on the HUD and streaks hold.
+        const freshHands = pass++ % HAND_DETECT_EVERY === 0;
+        if (freshHands) {
+          const began = performance.now(); handResults = hands.detect(video.current); perf.record('tangan', performance.now() - began);
+        }
         const boxes = faces.map(face => plainBox(face.detection.box));
         const { matches, unmatched } = matchTracks(tracks, boxes);
         const seen = new Map(matches.map(match => [match.detection, tracks[match.track]]));
         for (const index of unmatched) {
-          const track = { id: nextId++, box: boxes[index], frames: [], status: 'watching', gestureStreak: 0, smileStreak: 0, smile: createSmileTracker(), handGesture: null, retryAt: 0, label: '', lastSeen: now, createdAt: now, hand: null };
+          const track = { id: nextId++, box: boxes[index], frames: [], frontalTimes: [], status: 'watching', gestureStreak: 0,
+            handGesture: null, retryAt: 0, pendingBy: null, pendingUntil: 0, label: '', lastSeen: now, createdAt: now, hand: null };
           tracks.push(track); seen.set(index, track);
         }
-        const owners = assignGesturesToFaces(handResults, boxes);
+        const owners = freshHands ? assignGesturesToFaces(handResults, boxes) : null;
+        const describing = [];
         for (const [index, track] of seen) {
           const face = faces[index]; track.box = boxes[index]; track.lastSeen = now;
           track.frames = track.frames.filter(frame => { const fresh = now - frame.at <= FRAME_MAX_AGE_MS; if (!fresh) frame.descriptor.fill(0); return fresh; });
           const frontal = frameQuality(video.current, face, canvas, { centered: false, minRatio: MIN_FACE_RATIO }) && facePose(face) === 'center';
-          if (frontal) {
-            const descriptor = Array.from(face.descriptor);
+          track.frontalTimes = recentFrontal(track.frontalTimes, now, frontal);
+          if (owners) {
+            const owner = owners.get(index);
+            track.gestureStreak = owner && owner.gesture === track.handGesture ? track.gestureStreak + 1 : owner ? 1 : 0;
+            track.handGesture = owner?.gesture || null; track.hand = owner ? handResults[owner.handIndex] : null;
+          }
+          if (track.status === 'unknown' && now >= track.retryAt) track.status = 'watching';
+          if (track.pendingBy && now > track.pendingUntil) track.pendingBy = null;
+          // Descriptors only for faces starting to confirm; idle, finished and rejected faces cost detection only.
+          if (track.status === 'watching' && wantsDescriptor(track, frontal)) describing.push([index, track]);
+        }
+        if (describing.length) {
+          const descriptors = await timed('deskriptor', () => engine.describe(video.current, describing.map(([index]) => faces[index])));
+          if (ticket !== generation.current) break;
+          describing.forEach(([, track], i) => {
+            const descriptor = Array.from(descriptors[i]); descriptors[i].fill(0);
             if (track.frames.length && descriptorDistance(descriptor, track.frames[0].descriptor) > 0.25) dropFrames(track);
             track.frames.push({ descriptor, at: now });
             if (track.frames.length > 5) track.frames.shift().descriptor.fill(0);
-          }
-          const owner = owners.get(index);
-          track.gestureStreak = owner && owner.gesture === track.handGesture ? track.gestureStreak + 1 : owner ? 1 : 0;
-          track.handGesture = owner?.gesture || null; track.hand = owner ? handResults[owner.handIndex] : null;
-          // Smiles only count on a frontal, good-quality face, so a side glance or blur cannot confirm.
-          track.smileStreak = frontal && track.smile.update(face.landmarks.positions) ? track.smileStreak + 1 : 0;
-          if (track.status === 'unknown' && now >= track.retryAt) track.status = 'watching';
-          const span = track.frames.length === 5 ? track.frames[4].at - track.frames[0].at : 0;
-          const confirmedBy = track.gestureStreak >= GESTURE_CONFIRM_FRAMES ? CONFIRM_GESTURES[track.handGesture].symbol
-            : track.smileStreak >= SMILE_CONFIRM_FRAMES ? SMILE_SYMBOL : null;
-          if (!inFlight && track.status === 'watching' && confirmedBy && span >= PASSIVE_MIN_SPAN_MS) { track.confirmedBy = confirmedBy; confirm(track); }
+          });
+        }
+        for (const track of seen.values()) {
+          if (track.status !== 'watching') continue;
+          const confirmedBy = track.gestureStreak >= GESTURE_CONFIRM_FRAMES ? CONFIRM_GESTURES[track.handGesture].symbol : null;
+          // A confirmation that arrives before five descriptor frames waits briefly for them.
+          if (confirmedBy && !track.pendingBy) { track.pendingBy = confirmedBy; track.pendingUntil = now + CONFIRM_PENDING_MS; }
+          if (!inFlight && track.pendingBy && framesReady(track.frames, PASSIVE_MIN_SPAN_MS)) { track.confirmedBy = track.pendingBy; confirm(track); }
         }
         tracks = tracks.filter(track => {
           const alive = now - track.lastSeen <= TRACK_TTL_MS || track.status === 'sending';
@@ -359,7 +412,7 @@ export default function FaceCameraCapture({ purpose = 'attendance', mode = 'pass
           const visible = tracks.filter(track => track.lastSeen === now);
           if (inFlight) { setState('recognizing'); setMessage('Mengonfirmasi kehadiran...'); }
           else if (!visible.length) { setState('active'); setMessage(gestureReadyMessage); }
-          else { setState('detected'); setMessage(`${visible.length} wajah terdeteksi. Acungkan 👍, ✌️, atau tersenyum 😊 untuk absen.`); }
+          else { setState('detected'); setMessage(`${visible.length} wajah terdeteksi. Acungkan jempol 👍 untuk absen.`); }
         }
         await pause(60);
       }

@@ -1,9 +1,22 @@
-import { FACE_MODEL_VERSION } from '../../supabase/functions/_shared/faceCapture.js';
+import { descriptorDistance, FACE_MODEL_VERSION } from '../../supabase/functions/_shared/faceCapture.js';
 
 // A face may slip out of the guide while turning; keep progress this long before restarting.
 export const FACE_LOSS_GRACE_MS = 2500;
 // The preview is mirrored like a selfie, so raw-frame poses are shown from the user's own point of view.
 export const mirroredPose = pose => ({ left: 'right', right: 'left' }[pose] || pose);
+
+// Enrollment keeps the original detector size so new templates match the ones already stored.
+export const ENROLL_DETECTOR_SIZE = 416;
+// Smaller sizes are cheaper but lower detection scores below the 0.8/0.85 gates (sample portraits at 1280 px
+// fell from 0.86 at 416 to 0.52 at 320), so the kiosk keeps 416 until a smaller size is proven on site.
+export const KIOSK_DETECTOR_SIZE = 416;
+// TinyFaceDetector accepts multiples of 32; these are the sizes worth trying on site (?ukuran-deteksi=384).
+export const DETECTOR_SIZES = [224, 256, 288, 320, 352, 384, 416, 448, 512, 608];
+export const parseDetectorSize = value => (DETECTOR_SIZES.includes(Number(value)) ? Number(value) : KIOSK_DETECTOR_SIZE);
+
+const MODEL_BASE = '/face-models/1.7.15/';
+export const FACE_MODEL_URLS = ['tiny_face_detector_model', 'face_landmark_68_model', 'face_recognition_model']
+  .flatMap(name => [`${MODEL_BASE}${name}-weights_manifest.json`, `${MODEL_BASE}${name}.bin`]);
 
 let loadPromise;
 export const loadFaceEngine = () => {
@@ -11,36 +24,64 @@ export const loadFaceEngine = () => {
   return loadPromise;
 };
 
+async function fetchBytes(url) {
+  const response = await fetch(url, { signal:AbortSignal.timeout(15000) });
+  if (!response.ok) throw new Error('MODEL_UNAVAILABLE');
+  return response.arrayBuffer();
+}
+
 async function initialize() {
   const api = await import('@vladmandic/face-api/dist/face-api.esm.js');
   await api.tf.setBackend('webgl');
   await api.tf.ready();
-  const base = '/face-models/1.7.15/';
-  const integrityResponse = await fetch(base + 'integrity.json', { signal:AbortSignal.timeout(15000) });
+  const integrityResponse = await fetch(MODEL_BASE + 'integrity.json', { signal:AbortSignal.timeout(15000) });
   if (!integrityResponse.ok) throw new Error('MODEL_UNAVAILABLE');
   const integrity = await integrityResponse.json();
   if (integrity.version !== FACE_MODEL_VERSION) throw new Error('MODEL_VERSION_MISMATCH');
   const nets = [api.nets.tinyFaceDetector, api.nets.faceLandmark68Net, api.nets.faceRecognitionNet];
   try {
-    for (const [i, name] of ['tiny_face_detector_model','face_landmark_68_model','face_recognition_model'].entries()) {
-      const manifestResponse = await fetch(base + name + '-weights_manifest.json', { signal:AbortSignal.timeout(15000) });
-      const weightsResponse = await fetch(base + name + '.bin', { signal:AbortSignal.timeout(15000) });
-      if (!manifestResponse.ok || !weightsResponse.ok) throw new Error('MODEL_UNAVAILABLE');
-      const manifestBytes = await manifestResponse.arrayBuffer();
-      const weights = await weightsResponse.arrayBuffer();
-      for (const [filename, bytes] of [[name + '.bin', weights], [name + '-weights_manifest.json', manifestBytes]]) {
-        const hash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)))
-          .map(v => v.toString(16).padStart(2, '0')).join('');
-        if (hash !== integrity.files[filename]?.sha256) throw new Error('MODEL_INTEGRITY_FAILED');
-      }
-      const manifest = JSON.parse(new TextDecoder().decode(manifestBytes));
-      await nets[i].loadFromWeightMap(api.tf.io.decodeWeights(weights, manifest.flatMap(row => row.weights)));
+    // All six files download together; each is still hashed before any weights are decoded.
+    const files = await Promise.all(FACE_MODEL_URLS.map(fetchBytes));
+    for (const [index, bytes] of files.entries()) {
+      const filename = FACE_MODEL_URLS[index].slice(MODEL_BASE.length);
+      const hash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)))
+        .map(v => v.toString(16).padStart(2, '0')).join('');
+      if (hash !== integrity.files[filename]?.sha256) throw new Error('MODEL_INTEGRITY_FAILED');
+    }
+    for (const [i, net] of nets.entries()) {
+      const manifest = JSON.parse(new TextDecoder().decode(files[i * 2]));
+      await net.loadFromWeightMap(api.tf.io.decodeWeights(files[i * 2 + 1], manifest.flatMap(row => row.weights)));
     }
   } catch (error) { nets.forEach(net => { if (net.isLoaded) net.dispose(); }); throw error; }
+
+  const options = inputSize => new api.TinyFaceDetectorOptions({ inputSize, scoreThreshold: 0.8 });
+  const detectFaces = (input, inputSize = KIOSK_DETECTOR_SIZE) => api.detectAllFaces(input, options(inputSize)).withFaceLandmarks();
+  // Same crop as face-api's withFaceDescriptors(): dlib alignment from the 68 landmarks, not alignedRect,
+  // so descriptors stay comparable with every stored template.
+  const describe = async (input, results) => {
+    if (!results.length) return [];
+    const faces = await api.extractFaces(input, results.map(result => result.landmarks.align(null, { useDlibAlignment: true })));
+    try { return await Promise.all(faces.map(face => api.nets.faceRecognitionNet.computeFaceDescriptor(face))); }
+    finally { faces.forEach(face => { face.width = 0; face.height = 0; }); }
+  };
   return {
+    // Full pipeline for enrollment: detector, landmarks and a descriptor for every face.
     async detect(video) {
-      return api.detectAllFaces(video, new api.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.8 }))
-        .withFaceLandmarks().withFaceDescriptors();
+      return api.detectAllFaces(video, options(ENROLL_DETECTOR_SIZE)).withFaceLandmarks().withFaceDescriptors();
+    },
+    // Kiosk scanning: boxes and landmarks only (HUD, tracking, pose). Descriptors come from describe().
+    detectFaces,
+    describe,
+    // On-site check (?debug-kinerja): the kiosk path must give the descriptor the enrollment path gives.
+    // pathDistance isolates the crop (same detection), distance adds the smaller detector size.
+    async compareDescriptorPaths(input, inputSize = KIOSK_DETECTOR_SIZE) {
+      const full = await api.detectAllFaces(input, options(ENROLL_DETECTOR_SIZE)).withFaceLandmarks().withFaceDescriptors();
+      const fast = await detectFaces(input, inputSize);
+      if (full.length !== 1 || fast.length !== 1) return { state: 'faces', full: full.length, fast: fast.length };
+      const [sameDetection] = await describe(input, full);
+      const [kiosk] = await describe(input, fast);
+      const reference = Array.from(full[0].descriptor);
+      return { state: 'ok', inputSize, pathDistance: descriptorDistance(reference, Array.from(sameDetection)), distance: descriptorDistance(reference, Array.from(kiosk)) };
     },
   };
 }

@@ -12,8 +12,11 @@ import { getSantriAttendanceSuccessMessage } from '@/lib/attendanceAdapters';
 import { getSantriMonthlyAttendanceStats, getSantriLearningHighlights } from '@/lib/attendanceProfileData';
 import { guruScanCardProps, runGuruAttendanceScan } from '@/lib/guruAttendanceScan';
 import { useAttendanceSessionConfiguration } from '@/hooks/useAttendanceSessionConfiguration';
+import { parseDetectorSize } from '@/lib/faceCameraEngine';
+import { createPerfMeter, noopPerf } from '@/lib/kioskPerf';
 import FaceCameraCapture from '@/components/dashboard/shared/FaceCameraCapture';
 import AttendanceProfileCard from '@/components/dashboard/shared/AttendanceProfileCard';
+import KioskPerfPanel from '@/components/dashboard/shared/KioskPerfPanel';
 import '@/styles/admin-dashboard.css';
 import '@/styles/face-attendance.css';
 
@@ -24,16 +27,20 @@ const rejectionMessages = {
 };
 const MODE_STORAGE_KEY = 'lpq-face-kiosk-mode';
 const kioskModes = [
-  { value:'gesture', label:'Gesture', hint:'Banyak wajah, konfirmasi 👍 ✌️ 😊', Icon:ThumbsUp },
+  { value:'gesture', label:'Gesture', hint:'Banyak wajah, konfirmasi 👍', Icon:ThumbsUp },
   { value:'passive', label:'Otomatis', hint:'Satu wajah, langsung tercatat', Icon:Zap },
 ];
 // Stacked check-ins: the newest card is full size, older ones shrink below it instead of vanishing.
 const CARD_LIFETIME_MS = 12000;
 const MAX_CARDS = 3;
 const depthStyle = depth => ({ opacity: depth === 0 ? 1 : depth === 1 ? 0.9 : 0.75, y: 0, scale: 1 });
+// ?debug-kinerja shows a timing panel; ?ukuran-deteksi=320 tries a smaller detector size on site.
+const kioskParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
+const perfMeter = kioskParams.has('debug-kinerja') ? createPerfMeter() : noopPerf;
+const detectorSize = parseDetectorSize(kioskParams.get('ukuran-deteksi'));
+const loadLevelConfig = () => supabase.from('website_content').select('content').eq('key','level_config').maybeSingle()
+  .then(({ data, error }) => { if (error) throw error; return data?.content; });
 // Per-device kiosk preference; storage may be unavailable (private mode), so fall back silently.
-// Opening the kiosk with ?kalibrasi-senyum shows smile measurements on the HUD for on-site tuning.
-const smileCalibration = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('kalibrasi-senyum');
 const readMode = () => { try { return localStorage.getItem(MODE_STORAGE_KEY) === 'passive' ? 'passive' : 'gesture'; } catch { return 'gesture'; } };
 
 export default function FaceAttendancePage() {
@@ -44,6 +51,13 @@ export default function FaceAttendancePage() {
   const [cards, setCards] = useState([]); const [notice, setNotice] = useState('');
   const alive = useRef(true); const nextCard = useRef(1); const guruBusy = useRef(new Set());
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
+  // Level thresholds rarely change, so they load once per page instead of once per check-in.
+  const levelConfig = useRef(null);
+  const getLevelConfig = () => {
+    if (!levelConfig.current) levelConfig.current = loadLevelConfig().catch(() => { levelConfig.current = null; return undefined; });
+    return levelConfig.current;
+  };
+  useEffect(() => { getLevelConfig(); }, []);
   // Expire cards one by one; a new check-in never clears the others.
   useEffect(() => {
     if (!cards.length) return undefined;
@@ -56,7 +70,7 @@ export default function FaceAttendancePage() {
     ...current.filter(entry => entry.santriId !== santriId),
   ].slice(0, MAX_CARDS));
   // A recognised guru runs the same flow as an RFID tap (session, MMQ, info card, Pentashih).
-  async function captureGuru(guruId) {
+  async function captureGuru(guruId, began) {
     // The same face appears on many frames; keep one check-in per guru in flight.
     if (guruBusy.current.has(guruId)) return { success:true, message:'Absensi guru ini sedang diproses.' };
     guruBusy.current.add(guruId);
@@ -65,34 +79,48 @@ export default function FaceAttendancePage() {
       if (error || !guruData) return { success:false, message:'Data guru belum dapat dimuat. Gunakan kartu RFID.' };
       const scan = await runGuruAttendanceScan({ guruData, tag:guruData.rfid_tag, sessionTimes, source:'face' });
       const card = guruScanCardProps(scan);
-      if (card && alive.current) pushCard(`guru:${guruId}`, card);
+      if (card && alive.current) { pushCard(`guru:${guruId}`, card); perfMeter.record('kartu pertama', performance.now() - began); }
       if (scan.type === 'confirmation') return { success:true, name:scan.name, message:`${scan.name} sudah tercatat hadir MMQ hari ini.` };
       if (!card) return { success:false, name:scan.name, message:scan.message || 'Absensi guru belum dapat dicatat.' };
       return { success:true, name:scan.name, message:scan.message || `Selamat datang, ${scan.name}.` };
     } finally { guruBusy.current.delete(guruId); }
   }
-  async function capture(payload) {
-    setNotice('');
-    const result = await faceAttendanceRequest({ action: 'recognize', ...payload });
-    if (result.state === 'guru_matched') return captureGuru(result.guruId);
-    if (!['saved','already_recorded'].includes(result.state)) return { success: false, message: rejectionMessages[result.state] || result.message || 'Absensi belum dicatat.' };
+  const updateCard = (santriId, patch) => setCards(current => current.map(entry => (entry.santriId === santriId ? { ...entry, props:{ ...entry.props, ...patch } } : entry)));
+  // Photo, monthly stats and hafalan arrive after the card is already on screen.
+  async function completeCard(student, began) {
     try {
-      const { data: student, error } = await supabase.from('santri')
-        .select('id,nama_lengkap,jilid,jenis_kelamin,kategori,avatar_path,foto_url,class:current_class_id(nama_kelas)').eq('id',result.santriId).single();
-      if (error) throw error;
-      const [photo, monthlyStats, highlights, config] = await Promise.all([
+      const [photo, monthlyStats, highlights] = await Promise.all([
         student.avatar_path || student.foto_url
           ? resolveAvatarUrl({ ownerType:'santri', ownerId:student.id, avatarPath:student.avatar_path, fallbackUrl:student.foto_url })
           : Promise.resolve(''),
         getSantriMonthlyAttendanceStats(student.id), getSantriLearningHighlights(student.id),
-        supabase.from('website_content').select('content').eq('key','level_config').maybeSingle(),
       ]);
-      const level = resolveSantriLevel({ points:result.points, gender:student.jenis_kelamin, config:config.data?.content });
+      if (!alive.current) return;
+      updateCard(student.id, { photo, monthlyStats, ...highlights });
+      perfMeter.record('kartu lengkap', performance.now() - began);
+    } catch (error) { console.warn('[face-kiosk] profile details unavailable:', error); }
+  }
+  async function capture(payload) {
+    setNotice('');
+    const began = performance.now();
+    const result = await faceAttendanceRequest({ action: 'recognize', ...payload });
+    perfMeter.record('recognize', performance.now() - began);
+    if (result.state === 'guru_matched') return captureGuru(result.guruId, began);
+    if (!['saved','already_recorded'].includes(result.state)) return { success: false, message: rejectionMessages[result.state] || result.message || 'Absensi belum dicatat.' };
+    try {
+      const [{ data: student, error }, config] = await Promise.all([
+        supabase.from('santri').select('id,nama_lengkap,jilid,jenis_kelamin,kategori,avatar_path,foto_url,class:current_class_id(nama_kelas)').eq('id',result.santriId).single(),
+        getLevelConfig(),
+      ]);
+      if (error) throw error;
+      const level = resolveSantriLevel({ points:result.points, gender:student.jenis_kelamin, config });
       if (alive.current) {
-        pushCard(student.id, { name:student.nama_lengkap, photo, jilid:student.jilid, points:result.points, pointsAward:result.pointsAward,
+        pushCard(student.id, { name:student.nama_lengkap, photo:'', jilid:student.jilid, points:result.points, pointsAward:result.pointsAward,
           kelas:student.class?.nama_kelas, sesi:result.attendance.sesi, time:result.attendance.check_in_time, status:result.attendance.status,
-          levelInfo:{ ...level, label:level.name, color:level.accentColor || level.color }, monthlyStats, ...highlights,
+          levelInfo:{ ...level, label:level.name, color:level.accentColor || level.color },
           message:result.created ? getSantriAttendanceSuccessMessage({ assignedSession:result.attendance.sesi, attendedSession:result.attendance.attended_session }) : 'Absensi sudah tercatat.' });
+        perfMeter.record('kartu pertama', performance.now() - began);
+        completeCard(student, began);
       }
       return { success:true, name:student.nama_lengkap,
         message:result.created ? `Absensi ${student.nama_lengkap} tersimpan. Silakan bergantian dengan santri berikutnya.` : `${student.nama_lengkap} sudah absen. Record pertama tetap dipertahankan.` };
@@ -120,7 +148,7 @@ export default function FaceAttendancePage() {
       <div className="face-page__stage">
         {facePilotEnabled
           // Remounting on mode change stops the running camera loop cleanly.
-          ? <FaceCameraCapture key={mode} mode={mode} alwaysOn smileCalibration={smileCalibration} onCapture={capture} />
+          ? <FaceCameraCapture key={mode} mode={mode} alwaysOn detectorSize={detectorSize} perf={perfMeter} onCapture={capture} />
           : <section className="face-page__panel face-page__disabled" aria-labelledby="face-disabled-title">
             <Fingerprint aria-hidden="true" />
             <h2 id="face-disabled-title">Mode pilot belum aktif</h2>
@@ -128,7 +156,8 @@ export default function FaceAttendancePage() {
             <Link className="face-page__link" to="/absensi-digital">Kembali ke absensi RFID</Link>
           </section>}
         <section className="face-page__results" aria-label="Hasil absensi">
-          {notice && <p className="face-page__notice" role="status">{notice}</p>}
+          {perfMeter.enabled && facePilotEnabled && <KioskPerfPanel meter={perfMeter} />}
+          {notice &&<p className="face-page__notice" role="status">{notice}</p>}
           <p className="sr-only" aria-live="polite">{latest ? `${latest.props.name}${latest.props.status ? ' hadir.' : '.'} ${latest.props.message || ''}` : ''}</p>
           {cards.length ? <MotionConfig reducedMotion="user"><div className="face-page__stack">
             <AnimatePresence initial={false}>

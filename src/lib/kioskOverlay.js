@@ -1,4 +1,4 @@
-import { CONFIRM_GESTURES, GESTURE_CONFIRM_FRAMES, isConfirmGesture, mirrorBox, SMILE_CONFIRM_FRAMES, SMILE_SYMBOL } from './faceKiosk';
+import { CONFIRM_GESTURES, GESTURE_CONFIRM_FRAMES, isConfirmGesture, mirrorBox } from './faceKiosk';
 
 // HUD for the multi-face kiosk, drawn in raw-frame space and mirrored to match the selfie preview.
 const palette = {
@@ -35,9 +35,9 @@ function chip(context, x, y, text, color, unit) {
   return { left, top, width, height };
 }
 
-function drawFace(context, track, { now, unit, reducedMotion, frameWidth, mode, smileCalibration }) {
-  // Gesture: ready once five frames are buffered. Passive: scanning while frames are being collected.
-  const ready = track.status === 'watching' && (mode === 'passive' ? track.progress > 0 : track.frames.length === 5);
+function drawFace(context, track, { now, unit, reducedMotion, frameWidth, mode }) {
+  // Gesture: ready once the face held frontal for five recent passes. Passive: scanning while frames are being collected.
+  const ready = track.status === 'watching' && (mode === 'passive' ? track.progress > 0 : (track.frontalTimes?.length || 0) >= 5);
   const tone = palette[ready ? 'ready' : track.status];
   track.view = track.view && !reducedMotion ? lerpBox(track.view, track.box, SMOOTHING) : { ...track.box };
   const raw = mirrorBox(track.view, frameWidth);
@@ -68,24 +68,17 @@ function drawFace(context, track, { now, unit, reducedMotion, frameWidth, mode, 
   }
 
   const code = `S-${String(track.id).padStart(2, '0')}`;
-  // Three dots show how long the current confirmation (hand gesture or smile) has been held.
-  const held = track.handGesture ? (track.gestureStreak || 0) / GESTURE_CONFIRM_FRAMES : (track.smileStreak || 0) / SMILE_CONFIRM_FRAMES;
+  // Three dots show how long the current hand gesture has been held.
+  const held = (track.gestureStreak || 0) / GESTURE_CONFIRM_FRAMES;
   const filled = Math.min(3, Math.round(Math.min(1, held) * 3));
   const dots = '•'.repeat(filled) + '◦'.repeat(3 - filled);
   const scan = '▮'.repeat(track.progress || 0) + '▯'.repeat(5 - (track.progress || 0));
-  const confirmation = track.handGesture ? `${CONFIRM_GESTURES[track.handGesture].symbol} ${dots}`
-    : track.smileStreak ? `${SMILE_SYMBOL} TAHAN ${dots}` : '👍  ✌️  😊';
+  const confirmation = track.handGesture ? `${CONFIRM_GESTURES[track.handGesture].symbol} ${dots}` : '👍';
   const text = { sending: `${code}  MENGONFIRMASI…`, done: `✓ ${track.label || 'HADIR'}`, unknown: `${code}  BELUM DIKENALI` }[track.status]
     || (!ready ? `${code}  HADAPKAN WAJAH` : mode === 'passive' ? `${code}  MEMINDAI ${scan}` : `${code}  ${confirmation}`);
   // Keep the label clear of the LIVE readout: faces near the top edge get it just inside the box.
   const chipHeight = 23 * unit; const above = box.y - 6 * unit;
   chip(context, box.x, above - chipHeight < 56 * unit ? box.y + chipHeight + 6 * unit : above, text, rgba(tone), unit);
-  if (smileCalibration && track.smile) {
-    // On-site tuning aid: current mouth geometry and its gain over this face's neutral baseline.
-    const { widthRatio, lift, widthGain, liftGain } = track.smile.reading;
-    const sign = value => `${value >= 0 ? '+' : ''}${value.toFixed(3)}`;
-    chip(context, box.x, box.y + box.height + 30 * unit, `w ${widthRatio.toFixed(3)} (${sign(widthGain)})  l ${lift.toFixed(3)} (${sign(liftGain)})`, rgba(palette.hand), unit);
-  }
   return box;
 }
 
@@ -116,12 +109,12 @@ function drawHand(context, hand, { unit, frameWidth, linkedFace, now, reducedMot
   context.restore();
 }
 
-export function drawKioskOverlay(context, { tracks, hands, now, reducedMotion, mode = 'gesture', smileCalibration = false }) {
+export function drawKioskOverlay(context, { tracks, hands, now, reducedMotion, mode = 'gesture' }) {
   const { width } = context.canvas;
   context.clearRect(0, 0, width, context.canvas.height);
   const unit = Math.max(1, width / 900);
   const faceBoxes = new Map();
-  for (const track of tracks) faceBoxes.set(track, drawFace(context, track, { now, unit, reducedMotion, frameWidth: width, mode, smileCalibration }));
+  for (const track of tracks) faceBoxes.set(track, drawFace(context, track, { now, unit, reducedMotion, frameWidth: width, mode }));
   for (const hand of hands) {
     const owner = tracks.find(track => track.hand === hand);
     drawHand(context, hand, { unit, frameWidth: width, linkedFace: owner ? faceBoxes.get(owner) : null, now, reducedMotion });
