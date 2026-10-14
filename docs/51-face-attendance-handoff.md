@@ -1,14 +1,14 @@
 # Handoff Absensi Digital Wajah
 
-Status per 2026-10-15. Dokumen ini merangkum seluruh pekerjaan pilot absensi wajah: desain, kode, database, pengujian, deployment, keputusan, dan pekerjaan yang belum selesai.
+Status per 2026-10-14 (setelah PR #15). Dokumen ini merangkum seluruh pekerjaan pilot absensi wajah: desain, kode, database, pengujian, deployment, keputusan, dan pekerjaan yang belum selesai.
 
 ## 1. Status singkat
 
 | Bagian | Status |
 |---|---|
 | Absen wajah santri (kiosk, RFID lewat fungsi) | **Live di production**: merge [PR #13](https://github.com/aldokeita/LPQ-Al-Fath-Maulana/pull/13) (`8f7a895`) dan [PR #14](https://github.com/aldokeita/LPQ-Al-Fath-Maulana/pull/14) (`5cf2fa8`) |
-| Absen wajah guru dan Pentashih (registrasi mandiri dan oleh admin) | Di branch `claude/hopeful-goodall-4qc8xw`, **belum ada PR**, belum di production |
-| Kalibrasi bawaan otomatis (0,40 / 0,08) | Di branch yang sama (`9bddef2`), belum di production |
+| Absen wajah guru dan Pentashih (registrasi mandiri dan oleh admin) | **Di production**: merge [PR #15](https://github.com/aldokeita/LPQ-Al-Fath-Maulana/pull/15) (`089e2d8`). Migration dan fungsi sudah diterapkan, verifikasi semua true. Uji manual di production sedang berjalan. |
+| Kalibrasi bawaan otomatis (0,40 / 0,08) | **Di production** lewat PR #15 |
 | Staging Supabase | Dilewati atas keputusan pemilik repo; pengujian dilakukan di Supabase lokal |
 
 ## 2. Cara kerja
@@ -22,7 +22,7 @@ Status per 2026-10-15. Dokumen ini merangkum seluruh pekerjaan pilot absensi waj
 4. Pencocokan dan pencatatan terjadi di server: Edge Function `face-attendance` memanggil RPC `pilot_face_operation`, lalu `pilot_record_santri_attendance`. Satu santri tetap hanya punya satu record per hari dengan satu kali poin, termasuk saat absen lewat RFID dan wajah terjadi bersamaan.
 5. Saat pilot aktif, **tap RFID santri** juga dicatat lewat fungsi yang sama (aksi `rfid`), sehingga aturan duplikat dan poin konsisten.
 
-### Guru dan Pentashih (branch, belum production)
+### Guru dan Pentashih
 1. Wajah guru bisa didaftarkan dengan dua cara:
    - guru sendiri lewat **Wajah Saya** di dashboard guru atau Pentashih, dengan persetujuan sendiri;
    - admin lewat **Manajemen Guru → Wajah**, dengan admin menyatakan persetujuan guru.
@@ -33,8 +33,7 @@ Status per 2026-10-15. Dokumen ini merangkum seluruh pekerjaan pilot absensi waj
 
 ### Kalibrasi
 - `max_distance` adalah jarak maksimum (0,20–0,60). `min_margin` adalah selisih minimum antara kandidat pertama dan kedua (0,01–0,30).
-- **Production saat ini:** kalau kalibrasi belum disimpan, absen wajah ditolak (`calibration_required`).
-- **Branch:** kalau kalibrasi belum disimpan, dipakai nilai bawaan 0,40 / 0,08. Nilai yang disimpan admin selalu menang.
+- Kalau kalibrasi belum disimpan, dipakai nilai bawaan 0,40 / 0,08. Nilai yang disimpan admin selalu menang. Sebelum PR #15, kondisi ini menolak absen dengan `calibration_required`; status itu masih ada di frontend tapi tidak dikirim lagi oleh server.
 - Jarak setiap percobaan dicatat di log fungsi sebagai `face_match` (`state`, `best_distance`, `second_distance`) dan tidak pernah dikirim ke browser.
 
 ## 3. Keamanan dan privasi
@@ -48,7 +47,7 @@ Status per 2026-10-15. Dokumen ini merangkum seluruh pekerjaan pilot absensi waj
 
 | Area | File |
 |---|---|
-| Migration | `supabase/migrations/20261007000100_face_attendance_pilot.sql`, `20261014000100_face_attendance_passive_kiosk.sql` (production); `20261015000100_face_attendance_guru.sql`, `20261015000200_face_attendance_guru_admin.sql`, `20261015000300_face_attendance_default_calibration.sql` (branch) |
+| Migration | `supabase/migrations/20261007000100_face_attendance_pilot.sql`, `20261014000100_face_attendance_passive_kiosk.sql`, `20261015000100_face_attendance_guru.sql`, `20261015000200_face_attendance_guru_admin.sql`, `20261015000300_face_attendance_default_calibration.sql` (semua sudah di production) |
 | Edge Function | `supabase/functions/face-attendance/index.ts`, `supabase/functions/_shared/faceCapture.js` (validasi tangkapan, persetujuan, kalibrasi) |
 | Kiosk | `src/pages/FaceAttendancePage.jsx`, `src/components/dashboard/shared/FaceCameraCapture.jsx`, `src/lib/faceKiosk.js`, `src/lib/kioskOverlay.js`, `src/lib/gestureEngine.js`, `src/lib/faceCameraEngine.js`, `src/styles/face-attendance.css` |
 | Registrasi | `src/components/dashboard/admin/FaceEnrollmentDialog.jsx` (santri), `src/components/dashboard/guru/GuruFaceEnrollmentDialog.jsx` (guru: mandiri dan admin) |
@@ -79,7 +78,7 @@ Variabel `VITE_*` dibaca saat build. Setelah mengubahnya, Vercel perlu **Redeplo
 | `npm run build`, `npm run lint`, `git diff --check`, `pwsh scripts/validate-no-secrets.ps1` | Wajib sebelum push. |
 
 **Catatan:**
-- Test HTTP menolak berjalan kalau kalibrasi lokal sudah ada (supaya kalibrasi Anda tidak tertimpa). Jalankan `delete from biometric_private.calibration` dulu. Di branch, kiosk tetap jalan setelahnya berkat nilai bawaan.
+- Test HTTP menolak berjalan kalau kalibrasi lokal sudah ada (supaya kalibrasi Anda tidak tertimpa). Jalankan `delete from biometric_private.calibration` dulu. Kiosk tetap jalan setelahnya berkat nilai bawaan.
 - `santriTier` (`bundles every configured rank with a WebP asset`) sudah gagal di master karena path ala Windows. Ini tidak terkait absensi wajah.
 - `deno check` untuk fungsi ini sudah melaporkan 2 error tipe di kode santri lama yang juga ada di master.
 - Akun demo lokal ada di `scripts/bootstrap-dummy-auth-users.ps1`, hanya untuk Supabase lokal.
@@ -92,7 +91,7 @@ Semua langkah dijalankan manual oleh pemilik repo dari `C:\Project\LPQ Al-Fath M
 2. **Backup:** `powershell -ExecutionPolicy Bypass -File .\scripts\backup-production-database.ps1 -ProjectRef <ref>`. Script meminta URI Session pooler (port 5432) dan password tanpa menampilkannya, lalu membuat `roles.sql`, `schema.sql`, `data.sql`, dan `SHA256SUMS.txt` di `_private_reference\production-backups\` (folder ini tidak ikut ke git).
 3. **Migration:** `.\scripts\apply-production-face-migrations.ps1 -ProjectRef <ref>`.
    - Script menolak berjalan tanpa backup ≤24 jam.
-   - Dry-run harus berisi **tepat** migration yang ada di `$expected` (sekarang tiga migration guru dan kalibrasi).
+   - Dry-run harus berisi **tepat** migration yang ada di `$expected`. Isinya masih tiga migration guru dan kalibrasi yang sudah diterapkan; **untuk migration wajah berikutnya, ganti `$expected` dengan migration baru itu**.
    - Anda diminta mengetik Project Ref sebelum push, lalu script menjalankan dry-run ulang.
 4. **Verifikasi:** tempel `scripts/verify-face-attendance-migrations.sql` ke SQL Editor production. Semua kolom harus `true`.
 5. **Fungsi:** `supabase functions deploy face-attendance --project-ref <ref>`, dengan login CLI memakai akun pemilik project.
@@ -114,6 +113,9 @@ Semua langkah dijalankan manual oleh pemilik repo dari `C:\Project\LPQ Al-Fath M
 - Backup production dibuat pada 2026-10-14 (data 3,6 MB, 67 tabel).
 - Migration `20261007000100` dan `20261014000100` diterapkan. Hasil verifikasi: semua kolom true.
 - Fungsi di-deploy, secret dipasang, PR #13 di-merge, lalu flag Vercel dinyalakan dan production di-redeploy.
+- `ALLOWED_ORIGINS` diperbaiki agar memuat domain dengan `www`, dan bug RFID guru diperbaiki lewat PR #14.
+- Backup baru dibuat, lalu migration `20261015000100`, `20261015000200`, dan `20261015000300` diterapkan. Hasil verifikasi: semua kolom true.
+- Fungsi `face-attendance` versi guru di-deploy (setelah login CLI ulang dengan akun pemilik karena error 403), lalu PR #15 di-merge.
 
 ## 9. Masalah yang ditemukan dan pelajarannya
 
@@ -121,11 +123,12 @@ Semua langkah dijalankan manual oleh pemilik repo dari `C:\Project\LPQ Al-Fath M
 |---|---|---|
 | Tap RFID santri gagal "Koneksi ke backend terputus" | `ALLOWED_ORIGINS` hanya berisi domain tanpa `www` | Isi kedua varian domain. Cek dengan `curl.exe -i -X OPTIONS ... -H "Origin: https://www.<domain>"` |
 | Tap RFID guru tertahan di "memproses data" | Bug lama sejak Juli: variabel `guruClasses` dipakai sebelum dideklarasikan di blok yang sama, ditambah `try` tanpa `catch` | PR #14 (`ed4fa05`) |
-| Wajah tidak dikenali setelah `test:face` | Kalibrasi kosong, sehingga `calibration_required` | Kalibrasi bawaan (`9bddef2`, branch) |
+| Wajah tidak dikenali setelah `test:face` | Kalibrasi kosong, sehingga `calibration_required` | Kalibrasi bawaan (`9bddef2`, PR #15) |
 | Wajah "meragukan" | Orang yang sama terdaftar sebagai santri dan guru | Untuk uji, daftarkan satu orang di satu tempat saja |
 | Kotak HUD tidak muncul | Kotak face-api memakai *getter*, sehingga hasil spread berisi NaN | `plainBox` |
-| Validator urutan migration gagal setelah PR #13 | Daftar di validator tidak ikut diperbarui | Diperbarui di branch |
+| Validator urutan migration gagal setelah PR #13 | Daftar di validator tidak ikut diperbarui | Diperbarui di PR #15 |
 | `supabase link` atau `--db-url` ke production gagal | Akun CLI kurang hak akses; koneksi langsung hanya IPv6 | Pakai akun pemilik project dan Session pooler (IPv4) |
+| `supabase functions deploy` gagal 403 | Login CLI memakai akun tanpa hak akses project | `supabase logout`, lalu `supabase login` dengan akun pemilik, atau `SUPABASE_ACCESS_TOKEN` dari akun pemilik |
 | Volume DB lokal Postgres 17 tidak cocok dengan config 15 | Mesin lokal memakai PG17 | `major_version = 17` hanya di lokal, **jangan di-commit** |
 
 ## 10. Keputusan produk
@@ -140,9 +143,13 @@ Semua langkah dijalankan manual oleh pemilik repo dari `C:\Project\LPQ Al-Fath M
 - Kalibrasi memakai nilai bawaan selama belum ada nilai tersimpan, dan akan disesuaikan kalau ternyata tidak cocok.
 
 ## 11. Pekerjaan berikutnya
-1. **Uji lokal fitur guru dan kalibrasi bawaan.** Jalankan `git pull`, `supabase migration up`, lalu `npm run test:face`. Setelah itu uji registrasi admin (Guru Demo A), Wajah Saya (Guru Demo B), kiosk di dalam dan di luar jam sesi, serta tap RFID guru dan santri.
-2. **Bawa branch ke production:** buat PR, backup, apply 3 migration, verifikasi, deploy fungsi, merge, lalu uji (lihat bagian 7).
-3. **Kalibrasi dengan santri sungguhan.** Kumpulkan `best_distance`/`second_distance` dari log `face_match` selama beberapa hari, lalu sesuaikan 0,40 / 0,08. Ambang senyum bisa disetel dengan `/absensi-wajah?kalibrasi-senyum`.
-4. **Kebijakan retensi data wajah:** berapa lama template disimpan untuk santri yang sudah lulus atau nonaktif.
-5. **Pembersihan opsional:** fungsi `change_santri_jilid` versi lama masih ada di production (frontend memakai `v2`). Ini butuh migration pembersihan terpisah.
-6. **Perbaikan terpisah:** test `santriTier` yang gagal di Windows, dan 2 error tipe lama di fungsi `face-attendance`.
+1. **Selesaikan uji production fitur guru:**
+   - tap RFID santri dan guru;
+   - registrasi lewat Manajemen Guru dan Wajah Saya;
+   - kiosk di dalam dan di luar jam sesi, tanpa poin ganda.
+
+   Kalau ada yang gagal, lakukan Instant Rollback di Vercel.
+2. **Kalibrasi dengan santri sungguhan.** Kumpulkan `best_distance`/`second_distance` dari log `face_match` selama beberapa hari, lalu sesuaikan 0,40 / 0,08. Ambang senyum bisa disetel dengan `/absensi-wajah?kalibrasi-senyum`.
+3. **Kebijakan retensi data wajah:** berapa lama template disimpan untuk santri yang sudah lulus atau nonaktif.
+4. **Pembersihan opsional:** fungsi `change_santri_jilid` versi lama masih ada di production (frontend memakai `v2`). Ini butuh migration pembersihan terpisah.
+5. **Perbaikan terpisah:** test `santriTier` yang gagal di Windows, dan 2 error tipe lama di fungsi `face-attendance`.
