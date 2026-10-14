@@ -36,8 +36,8 @@ function chip(context, x, y, text, color, unit) {
 }
 
 function drawFace(context, track, { now, unit, reducedMotion, frameWidth, mode, smileCalibration }) {
-  // Gesture: ready once five frames are buffered. Passive: scanning while frames are being collected.
-  const ready = track.status === 'watching' && (mode === 'passive' ? track.progress > 0 : track.frames.length === 5);
+  // Gesture: ready once the face held frontal for five recent passes. Passive: scanning while frames are being collected.
+  const ready = track.status === 'watching' && (mode === 'passive' ? track.progress > 0 : (track.frontalTimes?.length || 0) >= 5);
   const tone = palette[ready ? 'ready' : track.status];
   track.view = track.view && !reducedMotion ? lerpBox(track.view, track.box, SMOOTHING) : { ...track.box };
   const raw = mirrorBox(track.view, frameWidth);

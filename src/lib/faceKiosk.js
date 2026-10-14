@@ -19,6 +19,17 @@ const BASELINE_DRIFT = 0.004;
 export const MIN_FACE_RATIO = 0.08;
 export const TRACK_TTL_MS = 1500;
 export const FRAME_MAX_AGE_MS = 1500;
+// The hand model runs on every HAND_DETECT_EVERY-th scanning pass; gesture streaks only count those passes.
+export const HAND_DETECT_EVERY = 2;
+// A confirmed gesture or smile may wait this long for its five descriptor frames before it lapses.
+export const CONFIRM_PENDING_MS = 2000;
+
+// Descriptors are only computed for faces that are frontal and starting to confirm, or already confirmed.
+export const wantsDescriptor = (track, frontal) => frontal && (track.gestureStreak > 0 || track.smileStreak > 0 || Boolean(track.pendingBy));
+// Timestamps of recent frontal passes (at most five), so the HUD can show a face as ready without descriptors.
+export const recentFrontal = (times, now, frontal) => [...times.filter(time => now - time <= FRAME_MAX_AGE_MS), ...(frontal ? [now] : [])].slice(-5);
+// Five frames spanning the server's minimum interval are enough to send.
+export const framesReady = (frames, minSpanMs) => frames.length === 5 && frames[4].at - frames[0].at >= minSpanMs;
 
 // face-api boxes expose x/y/width/height as prototype getters, which object spread drops; copy them explicitly.
 export const plainBox = box => ({ x: box.x, y: box.y, width: box.width, height: box.height });
