@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createChallengeCache } from '../src/lib/faceChallengeCache.js';
 import { createPerfMeter, noopPerf } from '../src/lib/kioskPerf.js';
 import { framesReady, recentFrontal, wantsDescriptor, FRAME_MAX_AGE_MS } from '../src/lib/faceKiosk.js';
-import { ENROLL_DETECTOR_SIZE, KIOSK_DETECTOR_SIZE, parseDetectorSize } from '../src/lib/faceCameraEngine.js';
+import { chooseBackend, ENROLL_DETECTOR_SIZE, isSoftwareRenderer, KIOSK_DETECTOR_SIZE, parseDetectorSize, readBackendPreference } from '../src/lib/faceCameraEngine.js';
 import { PASSIVE_MIN_SPAN_MS } from '../supabase/functions/_shared/faceCapture.js';
 
 const clock = () => { let time = 0; return { now: () => time, advance: ms => { time += ms; } }; };
@@ -91,4 +91,16 @@ test('detector size only accepts sizes TinyFaceDetector supports', () => {
   assert.equal(parseDetectorSize('384'), 384);
   assert.equal(parseDetectorSize('300'), KIOSK_DETECTOR_SIZE);
   assert.equal(ENROLL_DETECTOR_SIZE, 416, 'enrollment keeps the size existing templates were made with');
+});
+
+test('auto backend skips WebGL when the browser only has a software renderer', () => {
+  assert.equal(isSoftwareRenderer('ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero)), SwiftShader driver)'), true);
+  assert.equal(isSoftwareRenderer('ANGLE (Microsoft, Microsoft Basic Render Driver Direct3D11 vs_5_0 ps_5_0)'), true);
+  assert.equal(isSoftwareRenderer('ANGLE (Intel, Intel(R) UHD Graphics 620 Direct3D11 vs_5_0 ps_5_0, D3D11)'), false);
+  assert.equal(chooseBackend('auto', 'ANGLE (Intel, Intel(R) UHD Graphics 620 Direct3D11 vs_5_0 ps_5_0, D3D11)'), 'webgl');
+  assert.equal(chooseBackend('auto', 'SwiftShader'), 'wasm');
+  assert.equal(chooseBackend('auto', null), 'wasm', 'no WebGL at all');
+  assert.equal(chooseBackend('wasm', 'Intel(R) UHD Graphics 620'), 'wasm', 'a device preference wins');
+  assert.equal(chooseBackend('webgl', 'SwiftShader'), 'webgl');
+  assert.equal(readBackendPreference(), 'auto', 'no storage means auto');
 });

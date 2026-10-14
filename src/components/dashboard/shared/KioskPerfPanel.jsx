@@ -32,8 +32,9 @@ export default function KioskPerfPanel({ meter }) {
         <dt>{row.label}</dt>
         <dd>{ms(row.average)} <span>terakhir {ms(row.last)} · n={row.count}</span></dd>
       </div>)}
-      <div className="face-perf__row"><dt>sumber model</dt><dd>{info['sumber model'] || '–'}</dd></div>
-      <div className="face-perf__row"><dt>ukuran deteksi</dt><dd>{info['ukuran deteksi'] || '–'}</dd></div>
+      {Object.entries(info).filter(([key]) => key !== 'kesetaraan').map(([key, value]) => <div key={key} className="face-perf__row">
+        <dt>{key}</dt><dd>{String(value)}</dd>
+      </div>)}
     </dl>
     <div className="face-perf__check">
       <button type="button" className="face-perf__button" onClick={() => meter.requestSelfCheck()}>Uji kesetaraan deskriptor</button>
