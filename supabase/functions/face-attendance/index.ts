@@ -3,7 +3,7 @@ import { getServiceRoleClient } from '../_shared/supabaseAdmin.ts';
 import { handleOptions } from '../_shared/cors.ts';
 import { ok, fail } from '../_shared/response.ts';
 import { logSafe } from '../_shared/safeLogger.ts';
-import { CALIBRATION_HINT, isUuid as uuid, parseCalibration, validateCapture, validateConsent } from '../_shared/faceCapture.js';
+import { CALIBRATION_HINT, isUuid as uuid, parseCalibration, validateCapture, validateConsent, validateSelfConsent } from '../_shared/faceCapture.js';
 import { getAttendanceSessionTimes } from '../_shared/attendanceConfiguration.js';
 import { getJakartaDateString, normalizeAttendanceSessionName, resolveSantriAttendanceSession } from '../_shared/attendanceRules.js';
 import { computeAttendancePointAward } from '../_shared/attendancePoints.js';
@@ -18,6 +18,7 @@ const messages: Record<string, string> = {
   UNSTABLE_CAPTURE: 'Hasil beberapa frame belum konsisten. Silakan ulangi.',
   RATE_LIMITED: 'Terlalu banyak percobaan. Tunggu sebentar sebelum mencoba lagi.',
   ACTIVE_SANTRI_REQUIRED: 'Santri aktif tidak ditemukan.',
+  ACTIVE_GURU_REQUIRED: 'Registrasi wajah mandiri hanya untuk akun guru yang aktif.',
 };
 
 async function readBody(req: Request) {
@@ -51,6 +52,8 @@ Deno.serve(async (req) => {
       enroll:['action','santriId','consent','challengeId','modelVersion','descriptors','evidence'],
       recognize:['action','challengeId','modelVersion','descriptors','evidence'],
       retry:['action','receiptId'],rfid:['action','rfidTag','receiptId'],
+      self_status:['action'],self_delete:['action'],
+      self_enroll:['action','challengeId','modelVersion','descriptors','evidence','consent'],
     };
     if (!payload || !fields[payload.action] || Object.keys(payload).some(key=>!fields[payload.action].includes(key))) throw new Error('INVALID_CAPTURE');
     const admin = getServiceRoleClient();
@@ -64,16 +67,23 @@ Deno.serve(async (req) => {
       if (payload.action === 'calibrate') return ok(req, await operation('calibrate', { action:'calibrate', ...parseCalibration(payload) }));
       return ok(req, await operation(payload.action, payload));
     }
+    // A guru acts only on their own face; the database checks the caller has an active guru row.
+    if (payload.action === 'self_status' || payload.action === 'self_delete') return ok(req, await operation(payload.action, {}));
     if (payload.action === 'challenge') {
-      if (!['enroll', 'attendance'].includes(payload.purpose)) throw new Error('INVALID_CAPTURE');
+      if (!['enroll', 'self_enroll', 'attendance'].includes(payload.purpose)) throw new Error('INVALID_CAPTURE');
       if (payload.purpose === 'enroll') {
         if (!uuid(payload.santriId)) throw new Error('INVALID_REQUEST');
         validateConsent(payload.consent, getJakartaDateString());
       }
+      if (payload.purpose === 'self_enroll') {
+        if (payload.santriId !== undefined) throw new Error('INVALID_REQUEST');
+        validateSelfConsent(payload.consent);
+        return ok(req, await operation('challenge', { purpose: 'self_enroll' }));
+      }
       return ok(req, await operation('challenge', payload));
     }
     let santriId; let receiptId; let source;
-    if (payload.action === 'enroll' || payload.action === 'recognize') {
+    if (payload.action === 'enroll' || payload.action === 'self_enroll' || payload.action === 'recognize') {
       if (!uuid(payload.challengeId)) throw new Error('INVALID_REQUEST');
       const challenge = await operation('inspect', { challengeId: payload.challengeId });
       validateCapture(payload, challenge);
@@ -81,14 +91,21 @@ Deno.serve(async (req) => {
         validateConsent(payload.consent, getJakartaDateString());
         return ok(req, await operation('enroll', payload));
       }
+      if (payload.action === 'self_enroll') {
+        validateSelfConsent(payload.consent);
+        return ok(req, await operation('self_enroll', payload));
+      }
       const { bestDistance, secondDistance, ...match } = await operation('match', payload);
       // Calibration aid: distances stay in server logs and never reach the browser.
       logSafe('info', 'face_match', { state: match.state, best_distance: bestDistance ?? null, second_distance: secondDistance ?? null });
+      // A guru match records nothing here: the kiosk runs the same guru flow as an RFID tap.
+      if (match.state === 'guru_matched') return ok(req, { state: match.state, guruId: match.guruId, receiptId: match.receiptId });
       if (match.state !== 'matched') return ok(req, match);
       santriId = match.santriId; receiptId = match.receiptId; source = 'face';
     } else if (payload.action === 'retry') {
       if (!uuid(payload.receiptId)) throw new Error('INVALID_REQUEST');
       const match = await operation('resume', payload);
+      if (match.state === 'guru_matched') return ok(req, { state: match.state, guruId: match.guruId, receiptId: match.receiptId });
       santriId = match.santriId; receiptId = match.receiptId; source = 'face';
     } else if (payload.action === 'rfid') {
       if (typeof payload.rfidTag !== 'string' || !payload.rfidTag.trim() || payload.rfidTag.length > 64 || !uuid(payload.receiptId)) throw new Error('INVALID_REQUEST');

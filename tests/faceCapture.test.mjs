@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { captureSteps, isUuid, parseCalibration, validateCapture, validateConsent, FACE_MODEL_VERSION, getCameraErrorMessage, PASSIVE_MIN_SPAN_MS } from '../supabase/functions/_shared/faceCapture.js';
+import { captureSteps, isUuid, parseCalibration, validateCapture, validateConsent, validateSelfConsent, GURU_SELF_NOTICE_VERSION, FACE_MODEL_VERSION, getCameraErrorMessage, PASSIVE_MIN_SPAN_MS } from '../supabase/functions/_shared/faceCapture.js';
 
 const valid = () => ({ modelVersion:FACE_MODEL_VERSION, descriptors:Array.from({length:5},()=>Array(128).fill(0.01)),
   evidence:captureSteps('left').map((pose,i)=>({pose,faceCount:1,quality:true,elapsedMs:(i+1)*500})) });
@@ -62,6 +62,15 @@ test('kiosk attendance accepts five frontal frames without a head-turn challenge
 });
 test('enrollment still requires the ordered head-turn challenge',()=>{
   assert.throws(()=>validateCapture(passive(),{purpose:'enroll',firstDirection:'left'}));
+});
+test('guru self-enrolment needs the teacher\'s own confirmation and the head-turn challenge',()=>{
+  assert.doesNotThrow(()=>validateSelfConsent({confirmed:true,noticeVersion:GURU_SELF_NOTICE_VERSION}));
+  for (const bad of [undefined,{},{confirmed:'true',noticeVersion:'x'},{confirmed:true},{confirmed:true,noticeVersion:'  '},{confirmed:true,noticeVersion:'x'.repeat(101)}]) {
+    assert.throws(()=>validateSelfConsent(bad),/CONSENT_REQUIRED/);
+  }
+  const payload=valid();payload.descriptors[1][0]+=0.35;
+  assert.doesNotThrow(()=>validateCapture(payload,{firstDirection:'left',purpose:'self_enroll'}));
+  assert.throws(()=>validateCapture(passive(),{purpose:'self_enroll',firstDirection:'left'}));
 });
 test('calibration accepts comma or dot decimals and rejects implausible thresholds',()=>{
   assert.deepEqual(parseCalibration({maxDistance:'0,40',minMargin:'0.08',testReference:' LOKAL '}),{maxDistance:0.4,minMargin:0.08,testReference:'LOKAL'});
