@@ -5,7 +5,7 @@ import { loadFaceEngine, frameQuality, facePose, FACE_LOSS_GRACE_MS, FACE_MODEL_
 import { faceAttendanceRequest } from '@/lib/faceAttendanceApi';
 import { createChallengeCache } from '@/lib/faceChallengeCache';
 import { loadGestureEngine } from '@/lib/gestureEngine';
-import { assignGesturesToFaces, CONFIRM_GESTURES, CONFIRM_PENDING_MS, createSmileTracker, FRAME_MAX_AGE_MS, framesReady, GESTURE_CONFIRM_FRAMES, HAND_DETECT_EVERY, matchTracks, MIN_FACE_RATIO, plainBox, recentFrontal, SMILE_CONFIRM_FRAMES, SMILE_SYMBOL, TRACK_TTL_MS, wantsDescriptor } from '@/lib/faceKiosk';
+import { assignGesturesToFaces, CONFIRM_GESTURES, CONFIRM_PENDING_MS, FRAME_MAX_AGE_MS, framesReady, GESTURE_CONFIRM_FRAMES, HAND_DETECT_EVERY, matchTracks, MIN_FACE_RATIO, plainBox, recentFrontal, TRACK_TTL_MS, wantsDescriptor } from '@/lib/faceKiosk';
 import { drawKioskOverlay } from '@/lib/kioskOverlay';
 import { noopPerf, resourceSource } from '@/lib/kioskPerf';
 import { captureSteps, descriptorDistance, FACE_MODEL_VERSION, getCameraErrorMessage, PASSIVE_MIN_SPAN_MS } from '../../../../supabase/functions/_shared/faceCapture.js';
@@ -26,11 +26,11 @@ const PASSIVE_RETRY_MS = 4000;
 // Single-face kiosk has no guide ring, so faces may sit anywhere but must be reasonably close.
 const PASSIVE_MIN_FACE_RATIO = 0.12;
 const passiveReadyMessage = 'Kamera aktif. Hadapkan wajah ke kamera, kehadiran tercatat otomatis.';
-const gestureReadyMessage = 'Kamera aktif. Hadapkan wajah, lalu acungkan 👍, ✌️, atau tersenyum 😊.';
+const gestureReadyMessage = 'Kamera aktif. Hadapkan wajah, lalu acungkan jempol 👍.';
 // Always-on kiosks recover from camera, model and network failures on their own.
 const AUTO_RETRY_MS = 5000;
 
-export default function FaceCameraCapture({ purpose = 'attendance', mode = 'passive', alwaysOn = false, smileCalibration = false,
+export default function FaceCameraCapture({ purpose = 'attendance', mode = 'passive', alwaysOn = false,
   detectorSize = KIOSK_DETECTOR_SIZE, perf = noopPerf, santriId, guruId, consent, onCapture }) {
   const gestureMode = purpose === 'attendance' && mode === 'gesture';
   // 'enroll' (admin registers a santri), 'self_enroll' (a guru registers themself) and 'guru_enroll'
@@ -320,7 +320,7 @@ export default function FaceCameraCapture({ purpose = 'attendance', mode = 'pass
     }
   }
 
-  // Multi-face kiosk: faces are only tracked locally until their owner confirms (👍, ✌️ or a held smile); then that one face is recognized.
+  // Multi-face kiosk: faces are only tracked locally until their owner confirms with 👍; then that one face is recognized.
   async function runGestureAttendance(engine, ticket, handsLoading) {
     setState('loading'); setMessage('Memuat model gesture tangan...');
     const hands = await handsLoading;
@@ -342,12 +342,12 @@ export default function FaceCameraCapture({ purpose = 'attendance', mode = 'pass
       perf.record('konfirmasi', performance.now() - confirmStart);
       if (ticket !== generation.current) return;
       track.status = result?.success ? 'done' : 'unknown'; track.label = result?.name || '';
-      track.retryAt = performance.now() + PASSIVE_RETRY_MS; track.gestureStreak = 0; track.smileStreak = 0;
+      track.retryAt = performance.now() + PASSIVE_RETRY_MS; track.gestureStreak = 0;
       setState(result?.success ? 'success' : 'unrecognized');
       setMessage(result?.message || 'Wajah belum dikenali. Silakan gunakan kartu RFID.'); resultUntil = performance.now() + 3000;
     };
     let handResults = [];
-    const stopHud = startHud(() => ({ tracks, hands: handResults, smileCalibration }), 'gesture');
+    const stopHud = startHud(() => ({ tracks, hands: handResults }), 'gesture');
     try {
       challenges.prefetch();
       setState('active'); setMessage(gestureReadyMessage);
@@ -365,7 +365,7 @@ export default function FaceCameraCapture({ purpose = 'attendance', mode = 'pass
         const { matches, unmatched } = matchTracks(tracks, boxes);
         const seen = new Map(matches.map(match => [match.detection, tracks[match.track]]));
         for (const index of unmatched) {
-          const track = { id: nextId++, box: boxes[index], frames: [], frontalTimes: [], status: 'watching', gestureStreak: 0, smileStreak: 0, smile: createSmileTracker(),
+          const track = { id: nextId++, box: boxes[index], frames: [], frontalTimes: [], status: 'watching', gestureStreak: 0,
             handGesture: null, retryAt: 0, pendingBy: null, pendingUntil: 0, label: '', lastSeen: now, createdAt: now, hand: null };
           tracks.push(track); seen.set(index, track);
         }
@@ -381,8 +381,6 @@ export default function FaceCameraCapture({ purpose = 'attendance', mode = 'pass
             track.gestureStreak = owner && owner.gesture === track.handGesture ? track.gestureStreak + 1 : owner ? 1 : 0;
             track.handGesture = owner?.gesture || null; track.hand = owner ? handResults[owner.handIndex] : null;
           }
-          // Smiles only count on a frontal, good-quality face, so a side glance or blur cannot confirm.
-          track.smileStreak = frontal && track.smile.update(face.landmarks.positions) ? track.smileStreak + 1 : 0;
           if (track.status === 'unknown' && now >= track.retryAt) track.status = 'watching';
           if (track.pendingBy && now > track.pendingUntil) track.pendingBy = null;
           // Descriptors only for faces starting to confirm; idle, finished and rejected faces cost detection only.
@@ -400,8 +398,7 @@ export default function FaceCameraCapture({ purpose = 'attendance', mode = 'pass
         }
         for (const track of seen.values()) {
           if (track.status !== 'watching') continue;
-          const confirmedBy = track.gestureStreak >= GESTURE_CONFIRM_FRAMES ? CONFIRM_GESTURES[track.handGesture].symbol
-            : track.smileStreak >= SMILE_CONFIRM_FRAMES ? SMILE_SYMBOL : null;
+          const confirmedBy = track.gestureStreak >= GESTURE_CONFIRM_FRAMES ? CONFIRM_GESTURES[track.handGesture].symbol : null;
           // A confirmation that arrives before five descriptor frames waits briefly for them.
           if (confirmedBy && !track.pendingBy) { track.pendingBy = confirmedBy; track.pendingUntil = now + CONFIRM_PENDING_MS; }
           if (!inFlight && track.pendingBy && framesReady(track.frames, PASSIVE_MIN_SPAN_MS)) { track.confirmedBy = track.pendingBy; confirm(track); }
@@ -415,7 +412,7 @@ export default function FaceCameraCapture({ purpose = 'attendance', mode = 'pass
           const visible = tracks.filter(track => track.lastSeen === now);
           if (inFlight) { setState('recognizing'); setMessage('Mengonfirmasi kehadiran...'); }
           else if (!visible.length) { setState('active'); setMessage(gestureReadyMessage); }
-          else { setState('detected'); setMessage(`${visible.length} wajah terdeteksi. Acungkan 👍, ✌️, atau tersenyum 😊 untuk absen.`); }
+          else { setState('detected'); setMessage(`${visible.length} wajah terdeteksi. Acungkan jempol 👍 untuk absen.`); }
         }
         await pause(60);
       }

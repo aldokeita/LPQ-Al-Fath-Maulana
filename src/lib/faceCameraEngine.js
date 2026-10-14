@@ -69,7 +69,7 @@ async function initialize() {
     async detect(video) {
       return api.detectAllFaces(video, options(ENROLL_DETECTOR_SIZE)).withFaceLandmarks().withFaceDescriptors();
     },
-    // Kiosk scanning: boxes and landmarks only (HUD, tracking, pose, smile). Descriptors come from describe().
+    // Kiosk scanning: boxes and landmarks only (HUD, tracking, pose). Descriptors come from describe().
     detectFaces,
     describe,
     // On-site check (?debug-kinerja): the kiosk path must give the descriptor the enrollment path gives.

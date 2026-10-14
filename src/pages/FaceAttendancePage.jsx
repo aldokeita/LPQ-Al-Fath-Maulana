@@ -27,22 +27,20 @@ const rejectionMessages = {
 };
 const MODE_STORAGE_KEY = 'lpq-face-kiosk-mode';
 const kioskModes = [
-  { value:'gesture', label:'Gesture', hint:'Banyak wajah, konfirmasi 👍 ✌️ 😊', Icon:ThumbsUp },
+  { value:'gesture', label:'Gesture', hint:'Banyak wajah, konfirmasi 👍', Icon:ThumbsUp },
   { value:'passive', label:'Otomatis', hint:'Satu wajah, langsung tercatat', Icon:Zap },
 ];
 // Stacked check-ins: the newest card is full size, older ones shrink below it instead of vanishing.
 const CARD_LIFETIME_MS = 12000;
 const MAX_CARDS = 3;
 const depthStyle = depth => ({ opacity: depth === 0 ? 1 : depth === 1 ? 0.9 : 0.75, y: 0, scale: 1 });
-// Per-device kiosk preference; storage may be unavailable (private mode), so fall back silently.
-// Opening the kiosk with ?kalibrasi-senyum shows smile measurements on the HUD for on-site tuning.
 // ?debug-kinerja shows a timing panel; ?ukuran-deteksi=320 tries a smaller detector size on site.
 const kioskParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
-const smileCalibration = kioskParams.has('kalibrasi-senyum');
 const perfMeter = kioskParams.has('debug-kinerja') ? createPerfMeter() : noopPerf;
 const detectorSize = parseDetectorSize(kioskParams.get('ukuran-deteksi'));
 const loadLevelConfig = () => supabase.from('website_content').select('content').eq('key','level_config').maybeSingle()
   .then(({ data, error }) => { if (error) throw error; return data?.content; });
+// Per-device kiosk preference; storage may be unavailable (private mode), so fall back silently.
 const readMode = () => { try { return localStorage.getItem(MODE_STORAGE_KEY) === 'passive' ? 'passive' : 'gesture'; } catch { return 'gesture'; } };
 
 export default function FaceAttendancePage() {
@@ -150,7 +148,7 @@ export default function FaceAttendancePage() {
       <div className="face-page__stage">
         {facePilotEnabled
           // Remounting on mode change stops the running camera loop cleanly.
-          ? <FaceCameraCapture key={mode} mode={mode} alwaysOn smileCalibration={smileCalibration} detectorSize={detectorSize} perf={perfMeter} onCapture={capture} />
+          ? <FaceCameraCapture key={mode} mode={mode} alwaysOn detectorSize={detectorSize} perf={perfMeter} onCapture={capture} />
           : <section className="face-page__panel face-page__disabled" aria-labelledby="face-disabled-title">
             <Fingerprint aria-hidden="true" />
             <h2 id="face-disabled-title">Mode pilot belum aktif</h2>

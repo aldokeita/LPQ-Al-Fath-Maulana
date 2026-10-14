@@ -49,10 +49,9 @@ test('take surfaces a request error so the kiosk can report it', async () => {
 });
 
 test('descriptors are only wanted for frontal faces that are confirming', () => {
-  const idle = { gestureStreak: 0, smileStreak: 0, pendingBy: null };
+  const idle = { gestureStreak: 0, pendingBy: null };
   assert.equal(wantsDescriptor(idle, true), false);
   assert.equal(wantsDescriptor({ ...idle, gestureStreak: 1 }, true), true);
-  assert.equal(wantsDescriptor({ ...idle, smileStreak: 2 }, true), true);
   assert.equal(wantsDescriptor({ ...idle, pendingBy: '👍' }, true), true);
   assert.equal(wantsDescriptor({ ...idle, gestureStreak: 3 }, false), false);
 });

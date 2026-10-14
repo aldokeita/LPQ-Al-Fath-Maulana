@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { assignGesturesToFaces, createSmileTracker, GESTURE_MIN_SCORE, iou, matchTracks, mirrorBox, plainBox, SMILE_BASELINE_FRAMES, smileScore } from '../src/lib/faceKiosk.js';
+import { assignGesturesToFaces, GESTURE_MIN_SCORE, iou, matchTracks, mirrorBox, plainBox } from '../src/lib/faceKiosk.js';
 
 const box = (x, y, width = 100, height = 120) => ({ x, y, width, height });
 
@@ -35,43 +35,9 @@ test('face-api style boxes with getter fields become plain boxes the overlay can
   assert.deepEqual(mirrorBox(plainBox(new GetterBox()), 100), box(60, 20, 30, 40));
 });
 
-test('a peace sign confirms like a thumb, other hand shapes do not', () => {
+test('only a thumb confirms; the peace sign and other hand shapes do not', () => {
   const faces = [box(100, 100)];
   const hand = gesture => ({ x: 180, y: 330, score: 0.9, gesture });
-  assert.deepEqual(assignGesturesToFaces([hand('Victory')], faces).get(0), { handIndex: 0, gesture: 'Victory' });
-  for (const gesture of ['Open_Palm', 'Closed_Fist', 'Pointing_Up', 'ILoveYou', 'None']) assert.equal(assignGesturesToFaces([hand(gesture)], faces).size, 0, gesture);
-});
-
-// Synthetic 68-point face: only the points the smile score reads are placed; the rest sit at the origin.
-const face68 = ({ mouthWidth, cornerLift, roll = 0 }) => {
-  const points = Array.from({ length: 68 }, () => ({ x: 0, y: 0 }));
-  const place = (index, x, y) => { points[index] = { x: x * Math.cos(roll) - y * Math.sin(roll), y: x * Math.sin(roll) + y * Math.cos(roll) }; };
-  place(36, -50, 0); place(45, 50, 0);
-  place(62, 0, 66); place(66, 0, 74);
-  place(48, -mouthWidth / 2, 70 - cornerLift); place(54, mouthWidth / 2, 70 - cornerLift);
-  return points;
-};
-const neutral = (extra = {}) => face68({ mouthWidth: 55, cornerLift: 3, ...extra });
-const smiling = (extra = {}) => face68({ mouthWidth: 68, cornerLift: 9, ...extra });
-
-test('mouth geometry is measured level with the eyes, against the inner lip line', () => {
-  const flat = smileScore(smiling()); const tilted = smileScore(smiling({ roll: 0.35 }));
-  assert.ok(Math.abs(flat.widthRatio - 0.68) < 1e-9 && Math.abs(flat.lift - 9 / 68) < 1e-9);
-  assert.ok(Math.abs(tilted.widthRatio - flat.widthRatio) < 1e-9 && Math.abs(tilted.lift - flat.lift) < 1e-9);
-  assert.deepEqual(smileScore([]), { widthRatio: 0, lift: 0 });
-});
-
-test('a smile counts only as a change from the same face\'s neutral mouth', () => {
-  const tracker = createSmileTracker();
-  for (let i = 0; i < SMILE_BASELINE_FRAMES + 1; i++) assert.equal(tracker.update(neutral()), false, 'learning the neutral mouth');
-  assert.equal(tracker.update(face68({ mouthWidth: 68, cornerLift: 3 })), false, 'wider but not lifted');
-  assert.equal(tracker.update(face68({ mouthWidth: 56, cornerLift: 9 })), false, 'lifted but not wider');
-  assert.equal(tracker.update(smiling({ roll: 0.3 })), true, 'wider and lifted, head tilted');
-
-  const alreadySmiling = createSmileTracker();
-  for (let i = 0; i < 10; i++) assert.equal(alreadySmiling.update(smiling()), false, 'no change from baseline, no confirmation');
-
-  const early = createSmileTracker();
-  early.update(neutral());
-  assert.equal(early.update(smiling()), false, 'needs a baseline before a smile can count');
+  assert.deepEqual(assignGesturesToFaces([hand('Thumb_Up')], faces).get(0), { handIndex: 0, gesture: 'Thumb_Up' });
+  for (const gesture of ['Victory', 'Open_Palm', 'Closed_Fist', 'Pointing_Up', 'ILoveYou', 'None']) assert.equal(assignGesturesToFaces([hand(gesture)], faces).size, 0, gesture);
 });
