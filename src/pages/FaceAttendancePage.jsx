@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
-import { ArrowLeft, Sun, Moon, ScanFace, Fingerprint, ShieldCheck, ThumbsUp, Zap } from 'lucide-react';
-import { MotionConfig } from 'framer-motion';
+import { ArrowLeft, Sun, Moon, ScanFace, Fingerprint, ThumbsUp, Zap } from 'lucide-react';
+import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
 import { useTheme } from '@/contexts/ThemeContext';
 import { supabase } from '@/lib/customSupabaseClient';
 import { faceAttendanceRequest, facePilotEnabled } from '@/lib/faceAttendanceApi';
@@ -22,21 +22,38 @@ const rejectionMessages = {
 };
 const MODE_STORAGE_KEY = 'lpq-face-kiosk-mode';
 const kioskModes = [
-  { value:'gesture', label:'Jempol 👍', hint:'Banyak wajah, absen setelah acungkan jempol', Icon:ThumbsUp },
+  { value:'gesture', label:'Gesture', hint:'Banyak wajah, konfirmasi 👍 ✌️ 😊', Icon:ThumbsUp },
   { value:'passive', label:'Otomatis', hint:'Satu wajah, langsung tercatat', Icon:Zap },
 ];
+// Stacked check-ins: the newest card is full size, older ones shrink below it instead of vanishing.
+const CARD_LIFETIME_MS = 12000;
+const MAX_CARDS = 3;
+const depthStyle = depth => ({ opacity: depth === 0 ? 1 : depth === 1 ? 0.9 : 0.75, y: 0, scale: 1 });
 // Per-device kiosk preference; storage may be unavailable (private mode), so fall back silently.
+// Opening the kiosk with ?kalibrasi-senyum shows smile measurements on the HUD for on-site tuning.
+const smileCalibration = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('kalibrasi-senyum');
 const readMode = () => { try { return localStorage.getItem(MODE_STORAGE_KEY) === 'passive' ? 'passive' : 'gesture'; } catch { return 'gesture'; } };
 
 export default function FaceAttendancePage() {
   const { isDark, toggleTheme } = useTheme();
   const [mode, setMode] = useState(readMode);
   const chooseMode = value => { setMode(value); try { localStorage.setItem(MODE_STORAGE_KEY, value); } catch { /* preference only */ } };
-  const [card, setCard] = useState(null); const [notice, setNotice] = useState('');
-  const timer = useRef(null); const alive = useRef(true);
-  useEffect(() => { alive.current = true; return () => { alive.current = false; clearTimeout(timer.current); }; }, []);
+  const [cards, setCards] = useState([]); const [notice, setNotice] = useState('');
+  const alive = useRef(true); const nextCard = useRef(1);
+  useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
+  // Expire cards one by one; a new check-in never clears the others.
+  useEffect(() => {
+    if (!cards.length) return undefined;
+    const soonest = Math.min(...cards.map(entry => entry.expiresAt));
+    const timer = setTimeout(() => setCards(current => current.filter(entry => entry.expiresAt > Date.now())), Math.max(0, soonest - Date.now()) + 50);
+    return () => clearTimeout(timer);
+  }, [cards]);
+  const pushCard = (santriId, props) => setCards(current => [
+    { id:nextCard.current++, santriId, props, expiresAt:Date.now() + CARD_LIFETIME_MS },
+    ...current.filter(entry => entry.santriId !== santriId),
+  ].slice(0, MAX_CARDS));
   async function capture(payload) {
-    clearTimeout(timer.current); setCard(null); setNotice('');
+    setNotice('');
     const result = await faceAttendanceRequest({ action: 'recognize', ...payload });
     if (!['saved','already_recorded'].includes(result.state)) return { success: false, message: rejectionMessages[result.state] || result.message || 'Absensi belum dicatat.' };
     try {
@@ -52,11 +69,10 @@ export default function FaceAttendancePage() {
       ]);
       const level = resolveSantriLevel({ points:result.points, gender:student.jenis_kelamin, config:config.data?.content });
       if (alive.current) {
-        setCard({ name:student.nama_lengkap, photo, jilid:student.jilid, points:result.points, pointsAward:result.pointsAward,
+        pushCard(student.id, { name:student.nama_lengkap, photo, jilid:student.jilid, points:result.points, pointsAward:result.pointsAward,
           kelas:student.class?.nama_kelas, sesi:result.attendance.sesi, time:result.attendance.check_in_time, status:result.attendance.status,
           levelInfo:{ ...level, label:level.name, color:level.accentColor || level.color }, monthlyStats, ...highlights,
           message:result.created ? getSantriAttendanceSuccessMessage({ assignedSession:result.attendance.sesi, attendedSession:result.attendance.attended_session }) : 'Absensi sudah tercatat.' });
-        timer.current = setTimeout(() => { if (alive.current) setCard(null); },5000);
       }
       return { success:true, name:student.nama_lengkap,
         message:result.created ? `Absensi ${student.nama_lengkap} tersimpan. Silakan bergantian dengan santri berikutnya.` : `${student.nama_lengkap} sudah absen. Record pertama tetap dipertahankan.` };
@@ -65,50 +81,49 @@ export default function FaceAttendancePage() {
       return { success:true, message:'Kehadiran sudah tersimpan; informasi profil belum dapat dimuat.' };
     }
   }
+  const latest = cards[0];
   return <div className="attendance-page face-page">
     <Helmet><title>Absensi Wajah - LPQ Al-Fath Maulana</title></Helmet>
     <div className="attendance-page__bg" aria-hidden="true" />
     <header className="face-page__header">
-      <Link className="attendance-header__back" to="/absensi-digital"><ArrowLeft aria-hidden="true" /> Absensi Digital</Link>
+      <Link className="attendance-header__back face-page__back" to="/absensi-digital" aria-label="Kembali ke Absensi Digital"><ArrowLeft aria-hidden="true" /><span>Absensi Digital</span></Link>
+      <h1 className="face-page__title">Absensi Wajah</h1>
+      {facePilotEnabled && <div className="face-page__modes" role="radiogroup" aria-label="Mode absensi wajah">
+        {kioskModes.map(({ value, label, hint, Icon }) => <button key={value} type="button" role="radio" aria-checked={mode === value}
+          title={hint} className={`face-page__mode ${mode === value ? 'is-active' : ''}`} onClick={() => chooseMode(value)}>
+          <Icon aria-hidden="true" /><span>{label}</span>
+        </button>)}
+      </div>}
       <button type="button" className="attendance-header__icon-btn face-page__theme" onClick={toggleTheme} aria-label={isDark ? 'Mode terang' : 'Mode gelap'}>{isDark ? <Sun /> : <Moon />}</button>
     </header>
     <main className="face-page__main">
-      <div className="face-page__intro">
-        <p className="face-page__eyebrow"><ShieldCheck aria-hidden="true" /> Pilot terawasi</p>
-        <h1>Absensi Wajah</h1>
-        <p>{mode === 'gesture' ? 'Hadapkan wajah ke kamera lalu acungkan jempol 👍. Beberapa santri bisa terdeteksi bersamaan.'
-          : 'Hadapkan wajah ke kamera. Kehadiran dikenali dan dicatat otomatis, satu santri setiap kali.'}</p>
-      </div>
       <div className="face-page__stage">
-        {facePilotEnabled ? <div className="face-page__camera-column">
-          <div className="face-page__modes" role="radiogroup" aria-label="Mode absensi wajah">
-            {kioskModes.map(({ value, label, hint, Icon }) => <button key={value} type="button" role="radio" aria-checked={mode === value}
-              className={`face-page__mode ${mode === value ? 'is-active' : ''}`} onClick={() => chooseMode(value)}>
-              <Icon aria-hidden="true" /><span><strong>{label}</strong><small>{hint}</small></span>
-            </button>)}
-          </div>
-          {/* Remounting on mode change stops the running camera loop cleanly. */}
-          <FaceCameraCapture key={mode} mode={mode} onCapture={capture} />
-        </div> : <section className="face-page__panel face-page__disabled" aria-labelledby="face-disabled-title">
-          <Fingerprint aria-hidden="true" />
-          <h2 id="face-disabled-title">Mode pilot belum aktif</h2>
-          <p role="status">Halaman ini memerlukan backend pilot terpisah. Kartu RFID tetap dapat digunakan.</p>
-          <Link className="face-page__link" to="/absensi-digital">Kembali ke absensi RFID</Link>
-        </section>}
-        <aside className="face-page__aside" aria-label="Hasil absensi">
+        {facePilotEnabled
+          // Remounting on mode change stops the running camera loop cleanly.
+          ? <FaceCameraCapture key={mode} mode={mode} alwaysOn smileCalibration={smileCalibration} onCapture={capture} />
+          : <section className="face-page__panel face-page__disabled" aria-labelledby="face-disabled-title">
+            <Fingerprint aria-hidden="true" />
+            <h2 id="face-disabled-title">Mode pilot belum aktif</h2>
+            <p role="status">Halaman ini memerlukan backend pilot terpisah. Kartu RFID tetap dapat digunakan.</p>
+            <Link className="face-page__link" to="/absensi-digital">Kembali ke absensi RFID</Link>
+          </section>}
+        <section className="face-page__results" aria-label="Hasil absensi">
           {notice && <p className="face-page__notice" role="status">{notice}</p>}
-          <div className="face-page__result" aria-live="polite">{card ? <MotionConfig reducedMotion="user"><AttendanceProfileCard {...card} showSuccessBadge /></MotionConfig>
-            : <div className="face-page__panel face-page__empty">
+          <p className="sr-only" aria-live="polite">{latest ? `${latest.props.name} hadir. ${latest.props.message}` : ''}</p>
+          {cards.length ? <MotionConfig reducedMotion="user"><div className="face-page__stack">
+            <AnimatePresence initial={false}>
+              {cards.map((entry, depth) => <motion.div key={entry.id} layout className={`face-page__stack-item is-depth-${depth}`}
+                initial={{ opacity:0, y:-28, scale:0.96 }} animate={depthStyle(depth)} exit={{ opacity:0, scale:0.9, transition:{ duration:0.25 } }}
+                transition={{ type:'spring', stiffness:260, damping:30 }}>
+                <AttendanceProfileCard {...entry.props} showSuccessBadge={depth === 0} />
+              </motion.div>)}
+            </AnimatePresence>
+          </div></MotionConfig>
+            : <div className="face-page__empty" role="status">
               <span className="face-page__empty-icon" aria-hidden="true"><ScanFace /></span>
-              <p className="face-page__result-hint">Profile Card tampil setelah kehadiran tersimpan.</p>
-              <ol className="face-page__steps">
-                <li><span>Petugas menekan <strong>Mulai kamera</strong> sekali, lalu kamera tetap aktif.</span></li>
-                <li><span>{mode === 'gesture' ? 'Santri menghadap kamera lalu mengacungkan jempol 👍 sampai label berubah.' : 'Santri menghadap lurus ke kamera sekitar satu detik.'}</span></li>
-                <li><span>Setelah Profile Card tampil, santri bergeser untuk santri berikutnya.</span></li>
-              </ol>
+              <p>Profile Card tampil di sini setelah absen.</p>
             </div>}
-          </div>
-        </aside>
+        </section>
       </div>
     </main>
   </div>;

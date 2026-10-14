@@ -43,62 +43,72 @@
 
 .face-page__header {
   position: relative; z-index: 1;
-  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
-  width: min(100% - 2rem, 1200px); margin: 0 auto; padding: 1rem 0;
+  display: flex; align-items: center; gap: 0.75rem;
+  width: min(100% - 2rem, 1200px); margin: 0 auto; padding: 0.85rem 0;
 }
-.face-page__header svg { width: 20px; height: 20px; }
-.face-page__theme { min-width: 44px; min-height: 44px; }
+.face-page__header svg { width: 18px; height: 18px; }
+.face-page__theme { min-width: 44px; min-height: 44px; margin-left: auto; }
+.face-page__back { min-height: 40px; }
+.face-page__title { font-size: 1.05rem; font-weight: 750; letter-spacing: -0.01em; color: var(--face-text); white-space: nowrap; }
 
 .face-page__main {
   position: relative; z-index: 1;
-  width: min(100% - 2rem, 1200px); margin: 0 auto; padding-bottom: 2.5rem;
-  display: grid; gap: clamp(1rem, 2.5vw, 1.75rem);
+  width: min(100% - 2rem, 1200px); margin: 0 auto; padding-bottom: 1.5rem;
 }
 
-.face-page__eyebrow {
-  display: inline-flex; align-items: center; gap: 0.4rem;
-  margin-bottom: 0.6rem; padding: 0.3rem 0.75rem; border-radius: 999px;
-  border: 1px solid var(--face-glass-border); background: var(--face-chip-bg);
-  color: var(--face-teal); font-size: 0.75rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+/* Portrait kiosk (default): camera on top, Profile Cards below. Wide landscape screens use two columns. */
+.face-page__stage { display: grid; gap: clamp(1rem, 2vw, 1.5rem); align-items: start; }
+@media (min-width: 1024px) and (orientation: landscape) {
+  .face-page__stage { grid-template-columns: minmax(0, 1.5fr) minmax(340px, 1fr); }
+  .face-page__results { position: sticky; top: 1rem; }
 }
-.face-page__eyebrow svg { width: 14px; height: 14px; }
-.face-page__intro h1 {
-  font-size: clamp(1.9rem, 4vw, 2.8rem); font-weight: 780; letter-spacing: -0.02em; line-height: 1.1;
-  color: var(--face-text); margin-bottom: 0.4rem;
+@media (orientation: portrait) and (min-width: 700px) {
+  .face-page__main, .face-page__header { width: min(100% - 3rem, 1100px); }
 }
-.face-page__intro > p:last-child { max-width: 46ch; color: var(--face-text-soft); }
 
-.face-page__stage { display: grid; gap: clamp(1rem, 2.5vw, 1.75rem); align-items: start; }
-@media (min-width: 1024px) {
-  .face-page__stage { grid-template-columns: minmax(0, 1.55fr) minmax(320px, 1fr); }
-  .face-page__aside { position: sticky; top: 1.5rem; }
-}
-.face-page__aside { display: grid; gap: 1rem; min-width: 0; }
-.face-page__camera-column { display: grid; gap: 0.85rem; min-width: 0; }
 .face-page__modes {
-  display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem; padding: 0.35rem; border-radius: 1.1rem;
+  display: flex; gap: 0.25rem; padding: 0.25rem; border-radius: 999px; margin-left: auto;
   border: 1px solid var(--face-glass-border); background: var(--face-chip-bg); box-shadow: inset 1px 1px 0 var(--face-glass-highlight);
 }
+.face-page__modes + .face-page__theme { margin-left: 0; }
 .face-page__mode {
-  display: flex; align-items: center; gap: 0.6rem; min-height: 52px; padding: 0.55rem 0.8rem; border-radius: 0.85rem; text-align: left;
-  color: var(--face-text-soft); border: 1px solid transparent; background: transparent;
+  display: inline-flex; align-items: center; gap: 0.4rem; min-height: 40px; padding: 0 0.9rem; border-radius: 999px;
+  font-size: 0.85rem; font-weight: 650; color: var(--face-text-soft); border: 1px solid transparent; background: transparent;
   transition: background 0.25s ease, color 0.25s ease, box-shadow 0.25s ease, transform 0.3s var(--face-ease-spring);
 }
-.face-page__mode svg { width: 20px; height: 20px; flex-shrink: 0; }
-.face-page__mode span { display: grid; gap: 0.1rem; min-width: 0; }
-.face-page__mode strong { font-size: 0.92rem; color: var(--face-text); }
-.face-page__mode small { font-size: 0.74rem; line-height: 1.3; }
+.face-page__mode svg { width: 16px; height: 16px; flex-shrink: 0; }
 .face-page__mode:hover { background: var(--face-glass-bg); }
-.face-page__mode:active { transform: scale(0.98); }
+.face-page__mode:active { transform: scale(0.97); }
 .face-page__mode:focus-visible { outline: 2px solid rgb(34 211 238); outline-offset: 2px; }
 .face-page__mode.is-active {
   color: var(--face-teal); border-color: rgb(34 211 238 / 0.4); background: var(--face-glass-bg);
   box-shadow: inset 1px 1px 0 var(--face-glass-highlight), 0 8px 18px -12px rgb(13 148 136 / 0.6);
 }
-.face-page__result { display: flex; justify-content: center; width: 100%; min-width: 0; }
+
+/* Stacked Profile Cards: the newest stays full size; older ones shrink instead of vanishing.
+   The card component itself is untouched; only its wrapper is sized and zoomed. */
+.face-page__results { display: grid; gap: 1rem; min-width: 0; }
+.face-page__stack { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.75rem; justify-items: center; align-items: start; }
+.face-page__stack-item { min-width: 0; width: 100%; display: flex; justify-content: center; }
+.face-page__stack-item.is-depth-1, .face-page__stack-item.is-depth-2 { zoom: 0.6; }
+@media (min-width: 1024px) and (orientation: landscape) {
+  /* Landscape: older cards sit as two small cards under the newest one. */
+  .face-page__stack { grid-template-columns: 1fr 1fr; }
+  .face-page__stack-item.is-depth-0 { grid-column: 1 / -1; }
+  .face-page__stack-item.is-depth-1, .face-page__stack-item.is-depth-2 { zoom: 0.48; }
+}
+@media (orientation: portrait) and (min-width: 900px) {
+  /* Vertical kiosk monitor: the newest card fills the left, older cards stack small on the right,
+     so all three fit below the camera without scrolling. */
+  .face-page__stack { grid-template-columns: minmax(0, 1fr) 300px; }
+  .face-page__stack-item.is-depth-0 { grid-column: 1; grid-row: 1 / span 2; zoom: 1.1; }
+  .face-page__stack-item.is-depth-0:only-child { grid-column: 1 / -1; }
+  .face-page__stack-item.is-depth-1 { grid-column: 2; grid-row: 1; zoom: 0.55; }
+  .face-page__stack-item.is-depth-2 { grid-column: 2; grid-row: 2; zoom: 0.55; }
+}
 
 /* ---------- Shared glass surface ---------- */
-.face-camera,
+.face-camera__frame,
 .face-page__panel {
   position: relative; isolation: isolate;
   border: 1px solid var(--face-glass-border); border-radius: 1.75rem;
@@ -111,15 +121,16 @@
   backdrop-filter: blur(26px) saturate(1.35);
 }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .face-camera, .face-page__panel { background: hsl(var(--att-surface)); }
+  .face-camera__frame, .face-page__panel { background: hsl(var(--att-surface)); }
 }
 
 /* ---------- Camera ---------- */
 .face-camera {
   --face-ring: rgb(148 163 184 / 0.7);
   --face-ring-glow: rgb(148 163 184 / 0);
-  padding: clamp(0.75rem, 2vw, 1.25rem);
+  display: grid; gap: 0.6rem; min-width: 0;
 }
+.face-camera__frame { padding: clamp(0.5rem, 1.2vw, 0.85rem); }
 .face-camera--active, .face-camera--detected, .face-camera--waiting { --face-ring: rgb(103 232 249); --face-ring-glow: rgb(34 211 238 / 0.45); }
 .face-camera--permission, .face-camera--loading, .face-camera--recognizing { --face-ring: rgb(167 139 250); --face-ring-glow: rgb(139 92 246 / 0.5); }
 .face-camera--success { --face-ring: rgb(45 212 191); --face-ring-glow: rgb(20 184 166 / 0.6); }
@@ -204,13 +215,15 @@
   background: linear-gradient(135deg, rgb(13 148 136 / 0.95), rgb(37 99 235 / 0.9));
 }
 
+/* Status and controls live outside the camera frame, as one slim bar. */
+.face-camera__bar { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem 1rem; flex-wrap: wrap; padding: 0 0.25rem; }
 .face-camera__status {
-  display: flex; align-items: center; gap: 0.75rem; min-height: 4.25rem; padding: 1rem 0.25rem 0.75rem;
+  display: flex; align-items: center; gap: 0.65rem; flex: 1 1 18rem; min-width: 0; min-height: 2.75rem;
   font-weight: 650; color: var(--face-text);
 }
-.face-camera__status p { font-size: clamp(0.98rem, 1.6vw, 1.12rem); line-height: 1.4; }
+.face-camera__status p { font-size: clamp(0.95rem, 1.5vw, 1.05rem); line-height: 1.4; }
 .face-camera__status-icon {
-  display: grid; place-items: center; flex-shrink: 0; width: 2.6rem; height: 2.6rem; border-radius: 0.9rem;
+  display: grid; place-items: center; flex-shrink: 0; width: 2.3rem; height: 2.3rem; border-radius: 0.8rem;
   color: var(--face-ring); background: var(--face-chip-bg); border: 1px solid var(--face-glass-border);
   box-shadow: inset 1px 1px 0 var(--face-glass-highlight), 0 6px 16px -10px var(--face-ring-glow);
   transition: color 0.3s ease, box-shadow 0.3s ease;
@@ -220,9 +233,9 @@
 .face-page .face-camera--success .face-camera__status-icon,
 .face-enrollment .face-camera--success .face-camera__status-icon { color: var(--face-teal); }
 
-.face-camera__controls { display: flex; flex-wrap: wrap; gap: 0.65rem; }
-.face-camera__controls button { min-height: 44px; gap: 0.5rem; border-radius: 999px; padding-inline: 1.15rem; white-space: nowrap; }
-.face-camera__controls svg { width: 18px; height: 18px; }
+.face-camera__controls { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.face-camera__controls button { min-height: 40px; gap: 0.4rem; border-radius: 999px; padding-inline: 0.95rem; white-space: nowrap; }
+.face-camera__controls svg { width: 16px; height: 16px; }
 .face-camera__primary {
   color: #fff; border: 1px solid rgb(153 246 228 / 0.7);
   background: linear-gradient(135deg, rgb(13 148 136), rgb(37 99 235));
@@ -247,32 +260,20 @@
 }
 
 .face-camera__privacy {
-  display: flex; align-items: flex-start; gap: 0.5rem;
-  margin-top: 1rem; font-size: 0.82rem; line-height: 1.55; color: var(--face-text-soft);
+  display: flex; align-items: flex-start; gap: 0.45rem; padding: 0 0.25rem;
+  font-size: 0.78rem; line-height: 1.5; color: var(--face-text-soft);
 }
 .face-camera__privacy svg { width: 16px; height: 16px; flex-shrink: 0; margin-top: 0.15rem; color: var(--face-teal); }
 
 /* ---------- Result / empty / disabled ---------- */
 .face-page__panel { padding: clamp(1.25rem, 3vw, 2rem); width: 100%; color: var(--face-text); }
-.face-page__empty { display: grid; justify-items: center; gap: 1rem; text-align: center; }
+.face-page__empty { display: grid; justify-items: center; gap: 0.75rem; padding: clamp(2rem, 6vh, 4rem) 1rem; text-align: center; color: var(--face-text-soft); }
 .face-page__empty-icon {
   display: grid; place-items: center; width: 4rem; height: 4rem; border-radius: 1.25rem; color: var(--face-teal);
   background: linear-gradient(135deg, var(--face-aurora-a), var(--face-aurora-b)), var(--face-chip-bg);
   border: 1px solid var(--face-glass-border); box-shadow: inset 1px 1px 0 var(--face-glass-highlight);
 }
 .face-page__empty-icon svg { width: 28px; height: 28px; }
-.face-page__result-hint { font-weight: 650; color: var(--face-text); }
-.face-page__steps {
-  display: grid; gap: 0.6rem; width: 100%; margin: 0; padding: 0; list-style: none; counter-reset: face-step; text-align: left;
-  font-size: 0.9rem; color: var(--face-text-soft);
-}
-.face-page__steps li { display: flex; align-items: flex-start; gap: 0.65rem; counter-increment: face-step; }
-.face-page__steps li::before {
-  content: counter(face-step); display: grid; place-items: center; flex-shrink: 0; width: 1.6rem; height: 1.6rem;
-  border-radius: 50%; font-size: 0.75rem; font-weight: 800; color: var(--face-teal);
-  background: var(--face-chip-bg); border: 1px solid var(--face-glass-border);
-}
-.face-page__steps strong { color: var(--face-text); }
 
 .face-page__disabled { display: grid; justify-items: start; gap: 0.75rem; }
 .face-page__disabled > svg { width: 36px; height: 36px; color: var(--face-teal); }
@@ -364,7 +365,7 @@
 .face-enrollment__consent-note { font-size: 0.82rem; color: var(--face-text-soft); }
 .face-enrollment__calibration code { font-size: 0.8em; padding: 0.05rem 0.3rem; border-radius: 0.3rem; background: var(--face-chip-bg); }
 .face-enrollment__agreement input { margin-top: 0.2rem; width: 18px; height: 18px; flex-shrink: 0; accent-color: #0891b2; }
-.face-enrollment .face-camera { box-shadow: inset 1px 1px 0 var(--face-glass-highlight); }
+.face-enrollment .face-camera__frame { box-shadow: inset 1px 1px 0 var(--face-glass-highlight); }
 
 .face-enrollment__next {
   justify-self: start; min-height: 44px; gap: 0.5rem; border-radius: 999px; padding-inline: 1.25rem; color: #fff;
@@ -404,7 +405,9 @@
   .face-enrollment__fields { grid-template-columns: 1fr; }
   .face-enrollment__stepper { flex-direction: column; }
   .face-page__main { width: calc(100% - 2rem); }
-  .face-camera, .face-page__panel { border-radius: 1.35rem; }
+  .face-camera__frame, .face-page__panel { border-radius: 1.35rem; }
+  .face-page__title { display: none; }
+  .face-page__back span { display: none; }
   .face-camera__track-label { font-size: 0.6rem; }
   .face-camera__track-dot { width: 1.75rem; height: 1.75rem; }
 }
