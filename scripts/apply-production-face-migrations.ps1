@@ -5,9 +5,9 @@ param(
   [int]$MaxBackupAgeHours = 24
 )
 
-# Applies ONLY the two face attendance pilot migrations to a remote Supabase database:
+# Applies ONLY the pending face attendance pilot migration(s) listed in $expected:
 #   1. refuses without a recent backup made by backup-production-database.ps1 for this project;
-#   2. dry run: the pending list must be exactly the two face migrations, nothing else;
+#   2. dry run: the pending list must be exactly $expected, nothing else;
 #   3. asks you to type the Project Ref, then runs `supabase db push` (the CLI asks Y/n once more);
 #   4. dry run again: the remote must be up to date.
 # The pilot stays off: no function is deployed and no secret is set here.
@@ -19,7 +19,8 @@ Set-Location $root
 
 if ($ProjectRef -notmatch '^[a-z]{20}$') { throw "Project Ref format is invalid." }
 
-$expected = @("20261007000100_face_attendance_pilot.sql", "20261014000100_face_attendance_passive_kiosk.sql")
+# 20261007000100 and 20261014000100 are already applied in production; only the guru step is pending.
+$expected = @("20261015000100_face_attendance_guru.sql")
 foreach ($name in $expected) {
   if (-not (Test-Path -LiteralPath (Join-Path $root "supabase\migrations\$name") -PathType Leaf)) { throw "Missing migration: $name" }
 }
@@ -58,14 +59,14 @@ try {
   Write-Host "1/3 Dry run (nothing is changed)..."
   $pending = Invoke-DryRun $dbUrl (Join-Path $logDir "dry-run-before.txt")
   if (($pending -join "|") -ne ($expected -join "|")) {
-    throw "Pending migrations are not exactly the two face migrations. Found: [$($pending -join ', ')]. Stopping without changes."
+    throw "Pending migrations are not exactly [$($expected -join ', ')]. Found: [$($pending -join ', ')]. Stopping without changes."
   }
 
   Write-Host ""
   Write-Host "Only these migrations will be applied to $ProjectRef :"
   $expected | ForEach-Object { Write-Host "  - $_" }
-  Write-Host "They add the private biometric schema, two service-role-only RPCs, and allow attendance.source = 'face'."
-  Write-Host "Apply outside class hours: attendance is locked for a moment while its check constraint is replaced."
+  Write-Host "It adds private guru face tables and lets the service-role-only face RPC enrol and match gurus."
+  Write-Host "No attendance table is altered; the face RPC is replaced in one transaction."
   $confirm = (Read-Host "Type the Project Ref to apply, anything else to cancel").Trim()
   if ($confirm -ne $ProjectRef) { Write-Host "Cancelled. Nothing was changed."; return }
 
