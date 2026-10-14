@@ -20,7 +20,8 @@ Set-Location $root
 if ($ProjectRef -notmatch '^[a-z]{20}$') { throw "Project Ref format is invalid." }
 
 # 20261007000100 and 20261014000100 are already applied in production; only the guru steps are pending.
-$expected = @("20261015000100_face_attendance_guru.sql", "20261015000200_face_attendance_guru_admin.sql")
+$expected = @("20261015000100_face_attendance_guru.sql", "20261015000200_face_attendance_guru_admin.sql",
+  "20261015000300_face_attendance_default_calibration.sql")
 foreach ($name in $expected) {
   if (-not (Test-Path -LiteralPath (Join-Path $root "supabase\migrations\$name") -PathType Leaf)) { throw "Missing migration: $name" }
 }
@@ -65,7 +66,8 @@ try {
   Write-Host ""
   Write-Host "Only these migrations will be applied to $ProjectRef :"
   $expected | ForEach-Object { Write-Host "  - $_" }
-  Write-Host "They add private guru face tables and let the service-role-only face RPC enrol (self or admin) and match gurus."
+  Write-Host "They add private guru face tables, let the service-role-only face RPC enrol (self or admin) and match gurus,"
+  Write-Host "and use built-in calibration defaults (0.40 / 0.08) while no calibration is saved."
   Write-Host "No attendance table is altered; the face RPC is replaced in one transaction."
   $confirm = (Read-Host "Type the Project Ref to apply, anything else to cancel").Trim()
   if ($confirm -ne $ProjectRef) { Write-Host "Cancelled. Nothing was changed."; return }

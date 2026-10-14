@@ -33,7 +33,9 @@ begin
   if r->>'registered'<>'true' or (select count(*) from biometric_private.samples where santri_id=s)<>5 then raise exception 'TEST FAIL: enrollment'; end if;
   ch:=public.pilot_face_operation(g,'challenge','{"purpose":"attendance"}');
   r:=public.pilot_face_operation(g,'match',jsonb_build_object('challengeId',ch->>'id','modelVersion','faceapi-1.7.15-resnet128','descriptors',capture));
-  if r->>'state'<>'calibration_required' then raise exception 'TEST FAIL: uncalibrated matching'; end if;
+  -- No saved calibration: the built-in defaults (0.40 / 0.08) apply.
+  if r->>'state'<>'matched' or r->>'santriId'<>s::text then raise exception 'TEST FAIL: default calibration matching %',r->>'state'; end if;
+  if public.pilot_face_operation(a,'status',jsonb_build_object('santriId',s))->'defaultCalibration'->>'maxDistance'<>'0.40' then raise exception 'TEST FAIL: default calibration status'; end if;
   perform public.pilot_face_operation(a,'calibrate','{"maxDistance":0.4,"minMargin":0.1,"testReference":"TEST SYNTHETIC ONLY"}');
   ch:=public.pilot_face_operation(g,'challenge','{"purpose":"attendance"}');
   r:=public.pilot_face_operation(g,'match',jsonb_build_object('challengeId',ch->>'id','modelVersion','faceapi-1.7.15-resnet128','descriptors',capture));
@@ -80,7 +82,7 @@ begin
   if (select points from public.santri where id=s2)<>1 or
     (select status from public.attendance where user_id=s2 and attendance_date=day)<>'Tidak Hadir' then raise exception 'TEST FAIL: partial save not rolled back'; end if;
   alter table public.santri drop constraint test_face_save_failure;
-  raise notice 'Face SQL integration: permissions, consent, calibration, matching, ambiguity, fractional points, cross-method duplicate, retry, inactive, deletion, absent restore, save rollback PASS';
+  raise notice 'Face SQL integration: permissions, consent, calibration, default calibration, matching, ambiguity, fractional points, cross-method duplicate, retry, inactive, deletion, absent restore, save rollback PASS';
 end $$;
 set local role authenticated;
 do $$ begin

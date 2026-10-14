@@ -73,7 +73,8 @@ $expectedNames = @(
   "20261007000100_face_attendance_pilot.sql",
   "20261014000100_face_attendance_passive_kiosk.sql",
   "20261015000100_face_attendance_guru.sql",
-  "20261015000200_face_attendance_guru_admin.sql"
+  "20261015000200_face_attendance_guru_admin.sql",
+  "20261015000300_face_attendance_default_calibration.sql"
 )
 
 $actualNames = $files | ForEach-Object { $_.Name }

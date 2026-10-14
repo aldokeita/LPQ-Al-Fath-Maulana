@@ -21,11 +21,11 @@ export default function FaceEnrollmentDialog({ santri, onClose }) {
   const [status, setStatus] = useState(null); const [message, setMessage] = useState('Memuat status registrasi...');
   const [busy, setBusy] = useState(false); const [ready, setReady] = useState(false); const [hasError, setHasError] = useState(false);
   const [calibration, setCalibration] = useState({ maxDistance:'', minMargin:'', testReference:'' });
-  const [savedCalibration, setSavedCalibration] = useState(null);
+  const [savedCalibration, setSavedCalibration] = useState(null); const [defaultCalibration, setDefaultCalibration] = useState(null);
   useEffect(() => {
     let mounted = true;
     faceAttendanceRequest({ action:'status', santriId:santri.id }).then(data => {
-      if (!mounted) return; setStatus(data.enrollment); setMessage('');
+      if (!mounted) return; setStatus(data.enrollment); setMessage(''); setDefaultCalibration(data.defaultCalibration || null);
       if (data.calibration) {
         setSavedCalibration(data.calibration);
         setCalibration({ maxDistance:String(data.calibration.maxDistance), minMargin:String(data.calibration.minMargin), testReference:data.calibration.testReference });
@@ -74,14 +74,15 @@ export default function FaceEnrollmentDialog({ santri, onClose }) {
       {!ready ? <Button type="button" className="face-enrollment__next" disabled={!status || !complete || busy} onClick={() => setReady(true)}><ScanFace aria-hidden="true" />{status?.registered ? 'Daftarkan ulang melalui kamera' : 'Lanjut ke kamera'}</Button>
         : <><FaceCameraCapture purpose="enroll" santriId={santri.id} consent={consent} onCapture={register} /><Button type="button" variant="outline" onClick={() => setReady(false)}>Kembali ke persetujuan</Button></>}
       <details className="face-enrollment__calibration"><summary><SlidersHorizontal aria-hidden="true" /> Kalibrasi pengenalan pilot</summary>
-        <p>Nilai ini adalah ambang jarak, bukan persentase akurasi. Setiap percobaan absen wajah mencatat <code>best_distance</code> dan <code>second_distance</code> di log server; pilih jarak maksimum sedikit di atas jarak santri yang benar dan di bawah jarak orang lain. Tanpa kalibrasi, pengenalan tidak mencatat absensi.</p>
+        <p>Nilai ini adalah ambang jarak, bukan persentase akurasi. Setiap percobaan absen wajah mencatat <code>best_distance</code> dan <code>second_distance</code> di log server; pilih jarak maksimum sedikit di atas jarak santri yang benar dan di bawah jarak orang lain. Selama belum ada kalibrasi tersimpan, pengenalan memakai nilai bawaan.</p>
         <form onSubmit={async event => { event.preventDefault(); setBusy(true);
           let parsed;
           try { parsed = parseCalibration(calibration); } catch { setHasError(true); setMessage(CALIBRATION_HINT); setBusy(false); return; }
           try { await faceAttendanceRequest({ action:'calibrate', ...parsed }); setSavedCalibration(parsed); setHasError(false); setMessage('Kalibrasi pilot tersimpan.'); }
           catch (error) { setHasError(true); setMessage(error.message); } finally { setBusy(false); }
         }}>
-          {savedCalibration && <p className="face-enrollment__saved">Tersimpan: jarak maksimum <strong>{formatDecimal(savedCalibration.maxDistance)}</strong> · selisih minimum <strong>{formatDecimal(savedCalibration.minMargin)}</strong></p>}
+          {savedCalibration ? <p className="face-enrollment__saved">Tersimpan: jarak maksimum <strong>{formatDecimal(savedCalibration.maxDistance)}</strong> · selisih minimum <strong>{formatDecimal(savedCalibration.minMargin)}</strong></p>
+            : defaultCalibration && <p className="face-enrollment__saved">Belum ada kalibrasi tersimpan. Dipakai nilai bawaan: jarak maksimum <strong>{formatDecimal(defaultCalibration.maxDistance)}</strong> · selisih minimum <strong>{formatDecimal(defaultCalibration.minMargin)}</strong></p>}
           <label>Jarak maksimum (0,20–0,60)<Input required type="text" inputMode="decimal" placeholder="contoh 0,40" value={calibration.maxDistance} onChange={e => setCalibration({ ...calibration, maxDistance:e.target.value })} />
             <span className="face-enrollment__hint">Lebih kecil = lebih ketat. Pilih sedikit di atas <code>best_distance</code> santri yang benar.</span></label>
           <label>Selisih minimum kandidat pertama dan kedua (0,01–0,30)<Input required type="text" inputMode="decimal" placeholder="contoh 0,08" value={calibration.minMargin} onChange={e => setCalibration({ ...calibration, minMargin:e.target.value })} />
