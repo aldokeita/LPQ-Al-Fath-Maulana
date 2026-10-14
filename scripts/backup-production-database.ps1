@@ -20,7 +20,7 @@ if ($ProjectRef -notmatch '^[a-z]{20}$') { throw "Project Ref format is invalid.
 
 Write-Host "Paste the Session pooler URI from Dashboard > Connect > Session pooler (keep [YOUR-PASSWORD] as is):"
 $template = (Read-Host "URI").Trim()
-$pattern = '^postgresql://postgres\.(?<ref>[a-z]{20}):\[YOUR-PASSWORD\]@(?<host>[a-z0-9.-]+\.pooler\.supabase\.com):(?<port>\d+)/postgres$'
+$pattern = '^postgresql:\/\/postgres\.(?<ref>[a-z]{20}):\[YOUR-PASSWORD\]@(?<host>[a-z0-9.-]+\.pooler\.supabase\.com):(?<port>\d+)/postgres$'
 $match = [regex]::Match($template, $pattern)
 if (-not $match.Success) { throw "URI is not a Supabase pooler URI with the [YOUR-PASSWORD] placeholder." }
 if ($match.Groups['ref'].Value -ne $ProjectRef) { throw "URI belongs to project $($match.Groups['ref'].Value), not $ProjectRef. Refusing." }
