@@ -1,5 +1,10 @@
 import { FACE_MODEL_VERSION } from '../../supabase/functions/_shared/faceCapture.js';
 
+// A face may slip out of the guide while turning; keep progress this long before restarting.
+export const FACE_LOSS_GRACE_MS = 2500;
+// The preview is mirrored like a selfie, so raw-frame poses are shown from the user's own point of view.
+export const mirroredPose = pose => ({ left: 'right', right: 'left' }[pose] || pose);
+
 let loadPromise;
 export const loadFaceEngine = () => {
   if (!loadPromise) loadPromise = initialize().catch(error => { loadPromise = null; throw error; });
