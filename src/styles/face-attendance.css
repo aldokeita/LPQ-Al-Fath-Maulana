@@ -74,6 +74,27 @@
   .face-page__aside { position: sticky; top: 1.5rem; }
 }
 .face-page__aside { display: grid; gap: 1rem; min-width: 0; }
+.face-page__camera-column { display: grid; gap: 0.85rem; min-width: 0; }
+.face-page__modes {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem; padding: 0.35rem; border-radius: 1.1rem;
+  border: 1px solid var(--face-glass-border); background: var(--face-chip-bg); box-shadow: inset 1px 1px 0 var(--face-glass-highlight);
+}
+.face-page__mode {
+  display: flex; align-items: center; gap: 0.6rem; min-height: 52px; padding: 0.55rem 0.8rem; border-radius: 0.85rem; text-align: left;
+  color: var(--face-text-soft); border: 1px solid transparent; background: transparent;
+  transition: background 0.25s ease, color 0.25s ease, box-shadow 0.25s ease, transform 0.3s var(--face-ease-spring);
+}
+.face-page__mode svg { width: 20px; height: 20px; flex-shrink: 0; }
+.face-page__mode span { display: grid; gap: 0.1rem; min-width: 0; }
+.face-page__mode strong { font-size: 0.92rem; color: var(--face-text); }
+.face-page__mode small { font-size: 0.74rem; line-height: 1.3; }
+.face-page__mode:hover { background: var(--face-glass-bg); }
+.face-page__mode:active { transform: scale(0.98); }
+.face-page__mode:focus-visible { outline: 2px solid rgb(34 211 238); outline-offset: 2px; }
+.face-page__mode.is-active {
+  color: var(--face-teal); border-color: rgb(34 211 238 / 0.4); background: var(--face-glass-bg);
+  box-shadow: inset 1px 1px 0 var(--face-glass-highlight), 0 8px 18px -12px rgb(13 148 136 / 0.6);
+}
 .face-page__result { display: flex; justify-content: center; width: 100%; min-width: 0; }
 
 /* ---------- Shared glass surface ---------- */
@@ -110,6 +131,8 @@
   background: radial-gradient(circle at 50% 40%, #1e293b, #0b1220 70%);
   box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.06), inset 0 -40px 60px -30px rgb(0 0 0 / 0.55);
 }
+/* Gesture mode draws mirrored boxes in raw-frame space, so the canvas itself is not flipped. */
+.face-camera__overlay { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
 /* Selfie-style mirror; detection still reads the raw frame. */
 .face-camera__viewport video { display: block; width: 100%; height: 100%; object-fit: contain; transform: scaleX(-1); }
 

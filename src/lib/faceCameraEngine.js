@@ -45,11 +45,12 @@ async function initialize() {
   };
 }
 
-export function frameQuality(video, result, canvas) {
+// Defaults suit the single-face guide; the multi-face kiosk passes centered:false and a smaller minimum size.
+export function frameQuality(video, result, canvas, { centered = true, minRatio = 0.2 } = {}) {
   const { box, score } = result.detection;
   const ratio = box.width / video.videoWidth;
-  if (score < 0.85 || ratio < 0.2 || ratio > 0.7
-    || Math.abs((box.x + box.width / 2) / video.videoWidth - 0.5) > 0.22) return false;
+  if (score < 0.85 || ratio < minRatio || ratio > 0.7
+    || (centered && Math.abs((box.x + box.width / 2) / video.videoWidth - 0.5) > 0.22)) return false;
   canvas.width = 48; canvas.height = 48;
   const context = canvas.getContext('2d', { willReadFrequently: true });
   context.drawImage(video, box.x, box.y, box.width, box.height, 0, 0, 48, 48);

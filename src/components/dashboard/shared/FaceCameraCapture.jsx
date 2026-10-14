@@ -3,6 +3,8 @@ import { AlertTriangle, ArrowLeft, ArrowRight, Camera, CheckCircle2, Circle, Loa
 import { Button } from '@/components/ui/button';
 import { loadFaceEngine, frameQuality, facePose, FACE_LOSS_GRACE_MS, mirroredPose } from '@/lib/faceCameraEngine';
 import { faceAttendanceRequest } from '@/lib/faceAttendanceApi';
+import { loadGestureEngine } from '@/lib/gestureEngine';
+import { assignThumbsToFaces, FRAME_MAX_AGE_MS, matchTracks, MIN_FACE_RATIO, mirrorBox, THUMB_CONFIRM_FRAMES, TRACK_TTL_MS } from '@/lib/faceKiosk';
 import { captureSteps, descriptorDistance, FACE_MODEL_VERSION, getCameraErrorMessage, PASSIVE_MIN_SPAN_MS } from '../../../../supabase/functions/_shared/faceCapture.js';
 
 // Keyed by the mirrored (on-screen) direction; capture logic keeps using raw-frame poses.
@@ -18,8 +20,12 @@ const PASSIVE_CHALLENGE_REFRESH_MS = 30000;
 // An unrecognized santri who stays in front of the camera gets another attempt after this delay.
 const PASSIVE_RETRY_MS = 4000;
 const passiveReadyMessage = 'Kamera aktif. Hadapkan wajah ke kamera, kehadiran tercatat otomatis.';
+const gestureReadyMessage = 'Kamera aktif. Santri yang ingin absen: hadapkan wajah ke kamera lalu acungkan jempol 👍.';
+const trackColors = { watching: 'rgba(226, 232, 240, 0.85)', ready: 'rgb(103, 232, 249)', sending: 'rgb(167, 139, 250)', done: 'rgb(45, 212, 191)', unknown: 'rgb(251, 191, 36)' };
 
-export default function FaceCameraCapture({ purpose = 'attendance', santriId, consent, onCapture }) {
+export default function FaceCameraCapture({ purpose = 'attendance', mode = 'passive', santriId, consent, onCapture }) {
+  const gestureMode = purpose === 'attendance' && mode === 'gesture';
+  const overlay = useRef(null);
   const video = useRef(null); const stream = useRef(null); const generation = useRef(0);
   const callback = useRef(onCapture); callback.current = onCapture;
   const [state, setState] = useState('idle'); const [message, setMessage] = useState('Kamera hanya aktif setelah Anda menekan Mulai kamera.');
@@ -29,6 +35,7 @@ export default function FaceCameraCapture({ purpose = 'attendance', santriId, co
     generation.current++;
     stream.current?.getTracks().forEach(track => track.stop()); stream.current = null;
     if (video.current) video.current.srcObject = null;
+    overlay.current?.getContext('2d')?.clearRect(0, 0, overlay.current.width, overlay.current.height);
   };
   useEffect(() => {
     const hidden = () => { if (document.hidden) { stop(); setState('idle'); setMessage('Kamera dihentikan saat halaman tidak aktif.'); } };
@@ -52,7 +59,7 @@ export default function FaceCameraCapture({ purpose = 'attendance', santriId, co
       setState('loading'); setMessage('Memuat model pengenalan wajah...');
       const engine = await loadFaceEngine();
       if (ticket !== generation.current) return;
-      if (purpose === 'attendance') { await runPassiveAttendance(engine, ticket); return; }
+      if (purpose === 'attendance') { await (gestureMode ? runGestureAttendance(engine, ticket) : runPassiveAttendance(engine, ticket)); return; }
       let challenge = await faceAttendanceRequest({ action: 'challenge', purpose, santriId, consent });
       let steps = captureSteps(challenge.firstDirection); let step = 0; let poseStart = 0;
       setPoseSteps(steps); setPosesDone(0);
@@ -214,6 +221,102 @@ export default function FaceCameraCapture({ purpose = 'attendance', santriId, co
     }
   }
 
+  // Multi-face kiosk: faces are only tracked locally until their owner raises a thumb; then that one face is recognized.
+  async function runGestureAttendance(engine, ticket) {
+    setState('loading'); setMessage('Memuat model gesture tangan...');
+    const hands = await loadGestureEngine();
+    if (ticket !== generation.current) return;
+    const canvas = document.createElement('canvas');
+    let tracks = []; let nextId = 1; let inFlight = false; let resultUntil = 0;
+    const dropFrames = track => { track.frames.forEach(frame => frame.descriptor.fill(0)); track.frames = []; };
+    const confirm = async track => {
+      inFlight = true; track.status = 'sending';
+      const frames = track.frames.map(frame => ({ ...frame, descriptor: frame.descriptor.slice() })); dropFrames(track);
+      let result;
+      try {
+        const challenge = await faceAttendanceRequest({ action: 'challenge', purpose: 'attendance' });
+        // Evidence times are relative to the first frame; the server checks order, span and the 40 s ceiling.
+        const payload = { challengeId: challenge.id, modelVersion: FACE_MODEL_VERSION, descriptors: frames.map(frame => frame.descriptor),
+          evidence: frames.map(frame => ({ pose: 'center', elapsedMs: frame.at - frames[0].at + 1, faceCount: 1, quality: true })) };
+        result = await callback.current(payload);
+      } catch (error) { result = { success: false, message: error.message }; }
+      finally { frames.forEach(frame => frame.descriptor.fill(0)); inFlight = false; }
+      if (ticket !== generation.current) return;
+      track.status = result?.success ? 'done' : 'unknown'; track.label = result?.name || '';
+      track.retryAt = performance.now() + PASSIVE_RETRY_MS; track.thumbStreak = 0;
+      setState(result?.success ? 'success' : 'unrecognized');
+      setMessage(result?.message || 'Wajah belum dikenali. Silakan gunakan kartu RFID.'); resultUntil = performance.now() + 3000;
+    };
+    const draw = () => {
+      const target = overlay.current; const source = video.current;
+      if (!target || !source?.videoWidth) return;
+      if (target.width !== source.videoWidth) { target.width = source.videoWidth; target.height = source.videoHeight; }
+      const context = target.getContext('2d'); context.clearRect(0, 0, target.width, target.height);
+      const line = Math.max(2, target.width / 400); const font = Math.max(14, Math.round(target.width / 48));
+      context.font = `700 ${font}px Poppins, system-ui, sans-serif`; context.textBaseline = 'bottom';
+      for (const track of tracks) {
+        const ready = track.status === 'watching' && track.frames.length === 5;
+        const color = trackColors[ready ? 'ready' : track.status];
+        const box = mirrorBox(track.box, target.width);
+        context.strokeStyle = color; context.lineWidth = line;
+        context.beginPath(); context.roundRect(box.x, box.y, box.width, box.height, box.width * 0.12); context.stroke();
+        const label = { sending: 'Mengonfirmasi...', done: `✓ ${track.label || 'Hadir'}`, unknown: 'Belum dikenali' }[track.status]
+          || (ready ? `Acungkan 👍 untuk absen${track.thumbStreak ? ` ${'•'.repeat(Math.min(track.thumbStreak, THUMB_CONFIRM_FRAMES))}` : ''}` : 'Hadapkan wajah ke kamera');
+        const width = context.measureText(label).width + font;
+        const top = Math.max(font * 1.5, box.y - line * 2);
+        context.fillStyle = 'rgba(15, 23, 42, 0.72)';
+        context.beginPath(); context.roundRect(box.x, top - font * 1.45, width, font * 1.45, font * 0.4); context.fill();
+        context.fillStyle = color; context.fillText(label, box.x + font / 2, top - font * 0.25);
+      }
+    };
+    try {
+      setState('active'); setMessage(gestureReadyMessage);
+      while (ticket === generation.current && stream.current?.active) {
+        const faces = await engine.detect(video.current);
+        if (ticket !== generation.current) break;
+        const now = performance.now(); const handResults = hands.detect(video.current);
+        const boxes = faces.map(face => face.detection.box);
+        const { matches, unmatched } = matchTracks(tracks, boxes);
+        const seen = new Map(matches.map(match => [match.detection, tracks[match.track]]));
+        for (const index of unmatched) {
+          const track = { id: nextId++, box: boxes[index], frames: [], status: 'watching', thumbStreak: 0, retryAt: 0, label: '', lastSeen: now };
+          tracks.push(track); seen.set(index, track);
+        }
+        const thumbOwners = assignThumbsToFaces(handResults, boxes);
+        for (const [index, track] of seen) {
+          const face = faces[index]; track.box = boxes[index]; track.lastSeen = now;
+          track.frames = track.frames.filter(frame => { const fresh = now - frame.at <= FRAME_MAX_AGE_MS; if (!fresh) frame.descriptor.fill(0); return fresh; });
+          if (frameQuality(video.current, face, canvas, { centered: false, minRatio: MIN_FACE_RATIO }) && facePose(face) === 'center') {
+            const descriptor = Array.from(face.descriptor);
+            if (track.frames.length && descriptorDistance(descriptor, track.frames[0].descriptor) > 0.25) dropFrames(track);
+            track.frames.push({ descriptor, at: now });
+            if (track.frames.length > 5) track.frames.shift().descriptor.fill(0);
+          }
+          track.thumbStreak = thumbOwners.has(index) ? track.thumbStreak + 1 : 0;
+          if (track.status === 'unknown' && now >= track.retryAt) track.status = 'watching';
+          const span = track.frames.length === 5 ? track.frames[4].at - track.frames[0].at : 0;
+          if (!inFlight && track.status === 'watching' && track.thumbStreak >= THUMB_CONFIRM_FRAMES && span >= PASSIVE_MIN_SPAN_MS) confirm(track);
+        }
+        tracks = tracks.filter(track => {
+          const alive = now - track.lastSeen <= TRACK_TTL_MS || track.status === 'sending';
+          if (!alive) dropFrames(track);
+          return alive;
+        });
+        draw();
+        if (now >= resultUntil) {
+          const visible = tracks.filter(track => track.lastSeen === now);
+          if (inFlight) { setState('recognizing'); setMessage('Mengonfirmasi kehadiran...'); }
+          else if (!visible.length) { setState('active'); setMessage(gestureReadyMessage); }
+          else { setState('detected'); setMessage(`${visible.length} wajah terdeteksi. Acungkan jempol 👍 untuk absen.`); }
+        }
+        await pause(60);
+      }
+    } finally {
+      tracks.forEach(dropFrames); tracks = []; canvas.width = 0; canvas.height = 0;
+      overlay.current?.getContext('2d')?.clearRect(0, 0, overlay.current.width, overlay.current.height);
+    }
+  }
+
   const running = !['idle','error'].includes(state);
   const StatusIcon = stateIcons[state] || ScanFace;
   const tracking = poseSteps.length > 0 && running;
@@ -221,7 +324,7 @@ export default function FaceCameraCapture({ purpose = 'attendance', santriId, co
   return <section className={`face-camera face-camera--${state}`} aria-label="Kamera pengenalan wajah">
     <div className="face-camera__viewport">
       <video ref={video} muted playsInline aria-label="Pratinjau kamera langsung seperti cermin, tidak direkam" />
-      <div className="face-camera__guide" aria-hidden="true" />
+      {gestureMode ? <canvas ref={overlay} className="face-camera__overlay" aria-hidden="true" /> : <div className="face-camera__guide" aria-hidden="true" />}
       {state === 'idle' && <div className="face-camera__placeholder" aria-hidden="true"><ScanFace /><span>Kamera belum aktif</span></div>}
       {tracking && <ol className="face-camera__track" aria-label="Urutan gerakan wajah">
         {poseSteps.map((pose, index) => {
@@ -242,7 +345,9 @@ export default function FaceCameraCapture({ purpose = 'attendance', santriId, co
       <Button type="button" className="face-camera__primary" onClick={start} disabled={running}>{state === 'error' ? <RefreshCw /> : <Camera />}{state === 'error' ? 'Mulai lagi' : 'Mulai kamera'}</Button>
       <Button type="button" variant="outline" className="face-camera__secondary" onClick={halt} disabled={!running}><Square /> Hentikan</Button>
     </div>
-    <p className="face-camera__privacy"><ShieldCheck aria-hidden="true" />{purpose === 'attendance'
+    <p className="face-camera__privacy"><ShieldCheck aria-hidden="true" />{gestureMode
+      ? 'Kiosk wajib diawasi petugas. Wajah yang lewat hanya dideteksi di perangkat ini; hanya wajah yang mengacungkan jempol yang dikirim untuk dikenali. Foto/video tidak disimpan.'
+      : purpose === 'attendance'
       ? 'Kiosk wajib diawasi petugas: mode cepat tidak dapat membedakan foto dari wajah asli. Foto/video tidak disimpan. Jika sulit dikenali, gunakan kartu RFID.'
       : 'Pilot terawasi. Foto/video tidak disimpan. Jika sulit dikenali, gunakan kartu RFID.'}</p>
   </section>;
