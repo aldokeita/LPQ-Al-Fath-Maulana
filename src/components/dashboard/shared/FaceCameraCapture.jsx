@@ -3,7 +3,7 @@ import { AlertTriangle, ArrowLeft, ArrowRight, Camera, CheckCircle2, Circle, Loa
 import { Button } from '@/components/ui/button';
 import { loadFaceEngine, frameQuality, facePose, FACE_LOSS_GRACE_MS, mirroredPose } from '@/lib/faceCameraEngine';
 import { faceAttendanceRequest } from '@/lib/faceAttendanceApi';
-import { captureSteps, descriptorDistance, FACE_MODEL_VERSION, getCameraErrorMessage } from '../../../../supabase/functions/_shared/faceCapture.js';
+import { captureSteps, descriptorDistance, FACE_MODEL_VERSION, getCameraErrorMessage, PASSIVE_MIN_SPAN_MS } from '../../../../supabase/functions/_shared/faceCapture.js';
 
 // Keyed by the mirrored (on-screen) direction; capture logic keeps using raw-frame poses.
 const instructions = { center: 'Hadapkan wajah ke tengah', left: 'Putar wajah perlahan ke kiri', right: 'Putar wajah perlahan ke kanan' };
@@ -12,6 +12,12 @@ const poseIcons = { center: Circle, left: ArrowLeft, right: ArrowRight };
 const stateIcons = { idle: Camera, permission: Loader2, loading: Loader2, active: ScanFace, detected: ScanFace, waiting: ScanFace,
   recognizing: Loader2, success: CheckCircle2, unrecognized: AlertTriangle, error: AlertTriangle };
 const spinningStates = ['permission', 'loading', 'recognizing'];
+const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
+// Evidence must stay within 40 s of issue (server expiry is 45 s), so idle kiosks refresh earlier.
+const PASSIVE_CHALLENGE_REFRESH_MS = 30000;
+// An unrecognized santri who stays in front of the camera gets another attempt after this delay.
+const PASSIVE_RETRY_MS = 4000;
+const passiveReadyMessage = 'Kamera aktif. Hadapkan wajah ke kamera, kehadiran tercatat otomatis.';
 
 export default function FaceCameraCapture({ purpose = 'attendance', santriId, consent, onCapture }) {
   const video = useRef(null); const stream = useRef(null); const generation = useRef(0);
@@ -46,6 +52,7 @@ export default function FaceCameraCapture({ purpose = 'attendance', santriId, co
       setState('loading'); setMessage('Memuat model pengenalan wajah...');
       const engine = await loadFaceEngine();
       if (ticket !== generation.current) return;
+      if (purpose === 'attendance') { await runPassiveAttendance(engine, ticket); return; }
       let challenge = await faceAttendanceRequest({ action: 'challenge', purpose, santriId, consent });
       let steps = captureSteps(challenge.firstDirection); let step = 0; let poseStart = 0;
       setPoseSteps(steps); setPosesDone(0);
@@ -139,6 +146,74 @@ export default function FaceCameraCapture({ purpose = 'attendance', santriId, co
     } finally { descriptors.forEach(row => row.fill(0)); descriptors = []; poseSamples.forEach(row => row.fill(0)); poseSamples = []; }
   }
 
+  // Supervised kiosk: recognize any single frontal face without a head-turn challenge.
+  async function runPassiveAttendance(engine, ticket) {
+    const canvas = document.createElement('canvas');
+    let challenge = null; let issuedAt = 0; let frames = [];
+    let lastDescriptor = null; let lastSucceeded = false; let retryAt = 0; let cooldownUntil = 0;
+    const clearFrames = () => { frames.forEach(frame => frame.descriptor.fill(0)); frames = []; };
+    const refreshChallenge = async () => {
+      try {
+        challenge = await faceAttendanceRequest({ action: 'challenge', purpose: 'attendance' }); issuedAt = performance.now();
+      } catch (error) {
+        challenge = null; setState('unrecognized'); setMessage(`${error.message} Mencoba lagi sebentar lagi.`);
+      }
+    };
+    try {
+      await refreshChallenge();
+      if (challenge) { setState('active'); setMessage(passiveReadyMessage); }
+      while (ticket === generation.current && stream.current?.active) {
+        if (!challenge || (!frames.length && performance.now() - issuedAt > PASSIVE_CHALLENGE_REFRESH_MS)) {
+          await refreshChallenge();
+          if (!challenge) { await pause(5000); continue; }
+        }
+        const results = await engine.detect(video.current);
+        if (ticket !== generation.current) break;
+        const now = performance.now();
+        if (now < cooldownUntil) { await pause(160); continue; }
+        if (lastDescriptor) {
+          // One attempt per presence: wait until this santri leaves or a different face steps in.
+          const sameFace = results.length === 1 && descriptorDistance(Array.from(results[0].descriptor), lastDescriptor) <= 0.45;
+          if (results.length && (sameFace || results.length > 1) && (lastSucceeded || now < retryAt)) {
+            setState('waiting'); setMessage(lastSucceeded ? 'Silakan bergeser untuk santri berikutnya.' : 'Hadapkan wajah lurus ke kamera, mencoba lagi sebentar lagi.');
+            await pause(160); continue;
+          }
+          lastDescriptor.fill(0); lastDescriptor = null; setState('active'); setMessage(passiveReadyMessage);
+        }
+        if (results.length !== 1) {
+          clearFrames(); setState('active');
+          setMessage(results.length > 1 ? 'Beberapa wajah terdeteksi. Satu per satu di depan kamera.' : passiveReadyMessage);
+          await pause(160); continue;
+        }
+        const face = results[0];
+        if (!frameQuality(video.current, face, canvas) || facePose(face) !== 'center') {
+          clearFrames(); setState('detected'); setMessage('Hadapkan wajah lurus ke kamera dan mendekat ke lingkaran.');
+          await pause(120); continue;
+        }
+        const descriptor = Array.from(face.descriptor);
+        if (frames.length && descriptorDistance(descriptor, frames[0].descriptor) > 0.25) clearFrames();
+        frames.push({ descriptor, elapsedMs: now - issuedAt });
+        if (frames.length > 5) frames.shift().descriptor.fill(0);
+        setState('detected'); setMessage('Wajah terdeteksi, tahan sebentar...');
+        if (frames.length < 5 || frames[4].elapsedMs - frames[0].elapsedMs < PASSIVE_MIN_SPAN_MS) { await pause(120); continue; }
+        setState('recognizing'); setMessage('Mengenali wajah dan mengonfirmasi pencatatan...');
+        const payload = { challengeId: challenge.id, modelVersion: FACE_MODEL_VERSION, descriptors: frames.map(frame => frame.descriptor),
+          evidence: frames.map(frame => ({ pose: 'center', elapsedMs: frame.elapsedMs, faceCount: 1, quality: true })) };
+        lastDescriptor = descriptor.slice(); challenge = null;
+        let result;
+        try { result = await callback.current(payload); } catch (error) { result = { success: false, message: error.message }; }
+        clearFrames();
+        if (ticket !== generation.current) break;
+        lastSucceeded = Boolean(result?.success);
+        setState(lastSucceeded ? 'success' : 'unrecognized');
+        setMessage(result?.message || 'Wajah belum dikenali. Silakan gunakan kartu RFID.');
+        cooldownUntil = performance.now() + 2000; retryAt = cooldownUntil + PASSIVE_RETRY_MS;
+      }
+    } finally {
+      clearFrames(); lastDescriptor?.fill(0); canvas.width = 0; canvas.height = 0;
+    }
+  }
+
   const running = !['idle','error'].includes(state);
   const StatusIcon = stateIcons[state] || ScanFace;
   const tracking = poseSteps.length > 0 && running;
@@ -167,6 +242,8 @@ export default function FaceCameraCapture({ purpose = 'attendance', santriId, co
       <Button type="button" className="face-camera__primary" onClick={start} disabled={running}>{state === 'error' ? <RefreshCw /> : <Camera />}{state === 'error' ? 'Mulai lagi' : 'Mulai kamera'}</Button>
       <Button type="button" variant="outline" className="face-camera__secondary" onClick={halt} disabled={!running}><Square /> Hentikan</Button>
     </div>
-    <p className="face-camera__privacy"><ShieldCheck aria-hidden="true" />Pilot terawasi. Foto/video tidak disimpan. Jika sulit dikenali, gunakan kartu RFID.</p>
+    <p className="face-camera__privacy"><ShieldCheck aria-hidden="true" />{purpose === 'attendance'
+      ? 'Kiosk wajib diawasi petugas: mode cepat tidak dapat membedakan foto dari wajah asli. Foto/video tidak disimpan. Jika sulit dikenali, gunakan kartu RFID.'
+      : 'Pilot terawasi. Foto/video tidak disimpan. Jika sulit dikenali, gunakan kartu RFID.'}</p>
   </section>;
 }

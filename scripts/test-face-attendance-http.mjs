@@ -43,20 +43,25 @@ if (!skipWithoutLocalBackend('face attendance HTTP integration')) {
     assert.ok(ch?.id,'admin enrollment challenge');
     const capture=challenge=>({challengeId:challenge.id,modelVersion:FACE_MODEL_VERSION,descriptors:samples(),
       evidence:captureSteps(challenge.firstDirection).map((pose,i)=>({pose,faceCount:1,quality:true,elapsedMs:(i+1)*500}))});
+    // Kiosk attendance is passive: five frontal frames, no head-turn order.
+    const passive=challenge=>({challengeId:challenge.id,modelVersion:FACE_MODEL_VERSION,descriptors:samples(),
+      evidence:Array.from({length:5},(_,i)=>({pose:'center',faceCount:1,quality:true,elapsedMs:(i+1)*200}))});
     assert.equal((await call(accounts[0].token,{action:'enroll',santriId:student,consent,...capture(ch)})).body.data?.registered,true);
     assert.equal((await call(accounts[0].token,{action:'enroll',santriId:student,consent,...capture(ch)})).body.error.code,'INVALID_CHALLENGE');
     assert.equal((await call(accounts[0].token,{action:'calibrate',maxDistance:0.4,minMargin:0.1,testReference:'TEST HTTP SYNTHETIC ONLY'})).body.data?.saved,true);
     const challenge=async operator=>(await call(operator.token,{action:'challenge',purpose:'attendance'})).body.data;
-    const unknown=await challenge(accounts[1]);const unknownCapture=capture(unknown);unknownCapture.descriptors.forEach(row=>row.fill(0.9));
-    assert.equal((await call(accounts[1].token,{action:'recognize',...unknownCapture})).body.data?.state,'unknown');
-    const bad=await challenge(accounts[1]);const badCapture=capture(bad);badCapture.evidence[0].faceCount=2;
+    const unknown=await challenge(accounts[1]);const unknownCapture=passive(unknown);unknownCapture.descriptors.forEach(row=>row.fill(0.9));
+    const unknownResult=(await call(accounts[1].token,{action:'recognize',...unknownCapture})).body.data;
+    assert.equal(unknownResult?.state,'unknown');
+    assert.ok(!('bestDistance' in unknownResult) && !('secondDistance' in unknownResult),'distances must stay server-side');
+    const bad=await challenge(accounts[1]);const badCapture=passive(bad);badCapture.evidence[0].faceCount=2;
     assert.equal((await call(accounts[1].token,{action:'recognize',...badCapture})).body.error.code,'INVALID_CAPTURE');
-    const print=await challenge(accounts[1]);const printCapture=capture(print);printCapture.evidence.forEach(frame=>frame.pose='center');
+    const print=await challenge(accounts[1]);const printCapture=passive(print);printCapture.evidence.forEach((frame,i)=>frame.elapsedMs=200+i*10);
     assert.equal((await call(accounts[1].token,{action:'recognize',...printCapture})).body.error.code,'INVALID_CAPTURE');
     const out=await challenge(accounts[2]);
-    assert.equal((await call(accounts[2].token,{action:'recognize',...capture(out)})).body.data?.state,'unknown');
+    assert.equal((await call(accounts[2].token,{action:'recognize',...passive(out)})).body.data?.state,'unknown');
     const valid=await challenge(accounts[1]);const receipt=randomUUID();
-    const race=await Promise.all([call(accounts[1].token,{action:'recognize',...capture(valid)}),
+    const race=await Promise.all([call(accounts[1].token,{action:'recognize',...passive(valid)}),
       call(accounts[1].token,{action:'rfid',rfidTag:'TEST'+student,receiptId:receipt})]);
     assert.ok(race.every(result=>['saved','already_recorded'].includes(result.body.data?.state)),JSON.stringify(race.map(r=>({status:r.status,code:r.body.error?.code,state:r.body.data?.state}))));
     assert.equal(race.filter(r=>r.body.data.state==='saved').length,1);
@@ -66,7 +71,7 @@ if (!skipWithoutLocalBackend('face attendance HTTP integration')) {
     const after=await query(admin.from('santri').select('points').eq('id',student).single());assert.equal(after.points,before.points);
     assert.equal((await call(accounts[0].token,{action:'delete',santriId:student})).body.data?.deleted,true);
     assert.equal((await call(accounts[1].token,{action:'retry',receiptId:valid.id})).body.error.code,'INVALID_CHALLENGE');
-    console.log('Face HTTP integration PASS: auth, admin consent/enrollment, nonce replay, quality/multiple/static-photo protocol, unknown, teacher scope, concurrent RFID-face, retry, deletion.');
+    console.log('Face HTTP integration PASS: auth, admin consent/enrollment, nonce replay, passive kiosk protocol (multiple faces, replayed burst), no distances in responses, unknown, teacher scope, concurrent RFID-face, retry, deletion.');
   } finally {
     // Remove only the calibration row tagged by this isolated fixture run.
     execFileSync('docker',['exec','supabase_db_lpq-al-fath-maulana-local','psql','-U','postgres','-d','postgres','-c',"delete from biometric_private.calibration where test_reference='TEST HTTP SYNTHETIC ONLY'"],{stdio:'ignore'});

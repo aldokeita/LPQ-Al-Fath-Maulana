@@ -2,6 +2,7 @@ import { getUserFromRequest } from '../_shared/auth.ts';
 import { getServiceRoleClient } from '../_shared/supabaseAdmin.ts';
 import { handleOptions } from '../_shared/cors.ts';
 import { ok, fail } from '../_shared/response.ts';
+import { logSafe } from '../_shared/safeLogger.ts';
 import { isUuid as uuid, validateCapture, validateConsent } from '../_shared/faceCapture.js';
 import { getAttendanceSessionTimes } from '../_shared/attendanceConfiguration.js';
 import { getJakartaDateString, normalizeAttendanceSessionName, resolveSantriAttendanceSession } from '../_shared/attendanceRules.js';
@@ -78,7 +79,9 @@ Deno.serve(async (req) => {
         validateConsent(payload.consent, getJakartaDateString());
         return ok(req, await operation('enroll', payload));
       }
-      const match = await operation('match', payload);
+      const { bestDistance, secondDistance, ...match } = await operation('match', payload);
+      // Calibration aid: distances stay in server logs and never reach the browser.
+      logSafe('info', 'face_match', { state: match.state, best_distance: bestDistance ?? null, second_distance: secondDistance ?? null });
       if (match.state !== 'matched') return ok(req, match);
       santriId = match.santriId; receiptId = match.receiptId; source = 'face';
     } else if (payload.action === 'retry') {

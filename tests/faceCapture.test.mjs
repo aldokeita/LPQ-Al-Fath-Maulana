@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { captureSteps, isUuid, validateCapture, validateConsent, FACE_MODEL_VERSION, getCameraErrorMessage } from '../supabase/functions/_shared/faceCapture.js';
+import { captureSteps, isUuid, validateCapture, validateConsent, FACE_MODEL_VERSION, getCameraErrorMessage, PASSIVE_MIN_SPAN_MS } from '../supabase/functions/_shared/faceCapture.js';
 
 const valid = () => ({ modelVersion:FACE_MODEL_VERSION, descriptors:Array.from({length:5},()=>Array(128).fill(0.01)),
   evidence:captureSteps('left').map((pose,i)=>({pose,faceCount:1,quality:true,elapsedMs:(i+1)*500})) });
@@ -48,4 +48,18 @@ test('request ids accept seeded non-v4 UUIDs and reject malformed values',()=>{
   for (const value of ['', 'a1fa7a10-0000-0000-0000-00000000010', 'a1fa7a10000000000000000000000101', 'g1fa7a10-0000-0000-0000-000000000101', null, 42]) {
     assert.equal(isUuid(value),false);
   }
+});
+const passive = () => ({ modelVersion:FACE_MODEL_VERSION, descriptors:Array.from({length:5},()=>Array(128).fill(0.01)),
+  evidence:Array.from({length:5},(_,i)=>({pose:'center',faceCount:1,quality:true,elapsedMs:1000+i*150})) });
+test('kiosk attendance accepts five frontal frames without a head-turn challenge',()=>{
+  assert.doesNotThrow(()=>validateCapture(passive(),{purpose:'attendance',firstDirection:'left'}));
+  for (const change of [p=>p.evidence[2].pose='left',p=>p.evidence[1].faceCount=2,p=>p.evidence[3].quality=false,
+    p=>p.evidence.forEach((e,i)=>e.elapsedMs=1000+i*10),p=>p.evidence[4].elapsedMs=41000,p=>p.evidence[2].elapsedMs=p.evidence[1].elapsedMs,
+    p=>p.descriptors[4].fill(1)]) {
+    const p=passive(); change(p); assert.throws(()=>validateCapture(p,{purpose:'attendance',firstDirection:'left'}));
+  }
+  assert.ok(PASSIVE_MIN_SPAN_MS>0);
+});
+test('enrollment still requires the ordered head-turn challenge',()=>{
+  assert.throws(()=>validateCapture(passive(),{purpose:'enroll',firstDirection:'left'}));
 });

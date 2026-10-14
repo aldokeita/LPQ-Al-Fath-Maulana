@@ -65,7 +65,7 @@ export default function FaceAttendancePage() {
       <div className="face-page__intro">
         <p className="face-page__eyebrow"><ShieldCheck aria-hidden="true" /> Pilot terawasi</p>
         <h1>Absensi Wajah</h1>
-        <p>Satu wajah. Ikuti panduan kamera, lalu tunggu kehadiran dikonfirmasi.</p>
+        <p>Hadapkan wajah ke kamera. Kehadiran dikenali dan dicatat otomatis, satu santri setiap kali.</p>
       </div>
       <div className="face-page__stage">
         {facePilotEnabled ? <FaceCameraCapture onCapture={capture} /> : <section className="face-page__panel face-page__disabled" aria-labelledby="face-disabled-title">
@@ -81,9 +81,9 @@ export default function FaceAttendancePage() {
               <span className="face-page__empty-icon" aria-hidden="true"><ScanFace /></span>
               <p className="face-page__result-hint">Profile Card tampil setelah kehadiran tersimpan.</p>
               <ol className="face-page__steps">
-                <li><span>Tekan <strong>Mulai kamera</strong>.</span></li>
-                <li><span>Ikuti arah pada jalur gerakan di bagian bawah layar kamera.</span></li>
-                <li><span>Tunggu konfirmasi, lalu bergantian dengan santri berikutnya.</span></li>
+                <li><span>Petugas menekan <strong>Mulai kamera</strong> sekali, lalu kamera tetap aktif.</span></li>
+                <li><span>Santri menghadap lurus ke kamera sekitar satu detik.</span></li>
+                <li><span>Setelah Profile Card tampil, santri bergeser untuk santri berikutnya.</span></li>
               </ol>
             </div>}
           </div>
