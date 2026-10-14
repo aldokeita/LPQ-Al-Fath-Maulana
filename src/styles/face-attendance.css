@@ -312,6 +312,9 @@
 .face-enrollment__fields legend svg { width: 16px; height: 16px; color: var(--face-teal); }
 .face-enrollment label { display: grid; gap: 0.45rem; font-size: 0.9rem; font-weight: 550; }
 .face-enrollment__fields .face-enrollment__agreement { grid-column: 1 / -1; display: flex; align-items: flex-start; gap: 0.65rem; }
+.face-enrollment__fields--single { grid-template-columns: 1fr; }
+.face-enrollment__consent-note { font-size: 0.82rem; color: var(--face-text-soft); }
+.face-enrollment__calibration code { font-size: 0.8em; padding: 0.05rem 0.3rem; border-radius: 0.3rem; background: var(--face-chip-bg); }
 .face-enrollment__agreement input { margin-top: 0.2rem; width: 18px; height: 18px; flex-shrink: 0; accent-color: #0891b2; }
 .face-enrollment .face-camera { box-shadow: inset 1px 1px 0 var(--face-glass-highlight); }
 

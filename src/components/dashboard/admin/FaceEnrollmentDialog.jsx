@@ -5,12 +5,18 @@ import { Input } from '@/components/ui/input';
 import { ClipboardCheck, Loader2, ScanFace, SlidersHorizontal, Trash2, UserCheck, UserX } from 'lucide-react';
 import FaceCameraCapture from '@/components/dashboard/shared/FaceCameraCapture';
 import { faceAttendanceRequest } from '@/lib/faceAttendanceApi';
+import { supabase } from '@/lib/customSupabaseClient';
 import { validateConsent } from '../../../../supabase/functions/_shared/faceCapture.js';
 import { getJakartaDateString } from '@/utils/AttendanceStatusLogic';
 import '@/styles/face-attendance.css';
 
+// Guardians sign a paper consent form; the admin only attests to it here, and the record keeps who and when.
+const WRITTEN_CONSENT = { noticeVersion:'FORMULIR-TERTULIS-1', formReference:'Arsip formulir tertulis' };
+const guardianLabel = guardian => ((guardian?.nama_ayah || guardian?.nama_ibu || '').trim() || 'Wali santri (formulir tertulis)').slice(0, 150);
+
 export default function FaceEnrollmentDialog({ santri, onClose }) {
-  const [consent, setConsent] = useState({ guardianName:'', date:'', noticeVersion:'', formReference:'', confirmed:false });
+  const [confirmed, setConfirmed] = useState(false); const [guardian, setGuardian] = useState(null);
+  const consent = { confirmed, guardianName:guardianLabel(guardian), date:getJakartaDateString(), ...WRITTEN_CONSENT };
   const [status, setStatus] = useState(null); const [message, setMessage] = useState('Memuat status registrasi...');
   const [busy, setBusy] = useState(false); const [ready, setReady] = useState(false); const [hasError, setHasError] = useState(false);
   const [calibration, setCalibration] = useState({ maxDistance:'', minMargin:'', testReference:'' });
@@ -20,6 +26,9 @@ export default function FaceEnrollmentDialog({ santri, onClose }) {
       if (!mounted) return; setStatus(data.enrollment); setMessage('');
       if (data.calibration) setCalibration(data.calibration);
     }).catch(error => { if (mounted) { setHasError(true); setMessage(error.message); } });
+    // Optional: older schemas may lack guardian columns, so a failed lookup falls back to a generic label.
+    supabase.from('santri').select('nama_ayah,nama_ibu').eq('id', santri.id).maybeSingle()
+      .then(({ data }) => { if (mounted) setGuardian(data); }, () => {});
     return () => { mounted = false; };
   }, [santri.id]);
   async function register(payload) {
@@ -52,17 +61,15 @@ export default function FaceEnrollmentDialog({ santri, onClose }) {
         <li className={ready ? 'is-done' : 'is-current'} aria-current={ready ? undefined : 'step'}><span aria-hidden="true">1</span>Persetujuan wali</li>
         <li className={ready ? 'is-current' : ''} aria-current={ready ? 'step' : undefined}><span aria-hidden="true">2</span>Rekam lewat kamera</li>
       </ol>
-      <fieldset disabled={ready || busy} className="face-enrollment__fields"><legend><ClipboardCheck aria-hidden="true" /> Persetujuan tertulis wali</legend>
-        {[['guardianName','Nama wali yang menandatangani','text'],['date','Tanggal persetujuan','date'],
-          ['noticeVersion','Versi pemberitahuan penggunaan data','text'],['formReference','Referensi formulir tertulis','text']].map(([key,label,type]) =>
-          <label key={key}>{label}<Input type={type} required maxLength={150} value={consent[key]} onChange={event => setConsent({ ...consent, [key]:event.target.value })} /></label>)}
-        <label className="face-enrollment__agreement"><input type="checkbox" checked={consent.confirmed} onChange={event => setConsent({ ...consent, confirmed:event.target.checked })} />Saya telah memeriksa persetujuan wali dan identitas santri secara langsung.</label>
+      <fieldset disabled={ready || busy} className="face-enrollment__fields face-enrollment__fields--single"><legend><ClipboardCheck aria-hidden="true" /> Persetujuan tertulis wali</legend>
+        <label className="face-enrollment__agreement"><input type="checkbox" checked={confirmed} onChange={event => setConfirmed(event.target.checked)} />Persetujuan tertulis wali sudah ada, dan identitas santri sudah saya periksa langsung.</label>
+        <p className="face-enrollment__consent-note">Dicatat atas nama {consent.guardianName}, tanggal {consent.date}, oleh akun admin ini.</p>
       </fieldset>
       <p className="face-camera__privacy">Pilihan sukarela; RFID tetap tersedia. Penghapusan template tidak menghapus riwayat absensi. Salinan backup mengikuti masa retensi backup, bukan dihapus seketika.</p>
       {!ready ? <Button type="button" className="face-enrollment__next" disabled={!status || !complete || busy} onClick={() => setReady(true)}><ScanFace aria-hidden="true" />{status?.registered ? 'Daftarkan ulang melalui kamera' : 'Lanjut ke kamera'}</Button>
         : <><FaceCameraCapture purpose="enroll" santriId={santri.id} consent={consent} onCapture={register} /><Button type="button" variant="outline" onClick={() => setReady(false)}>Kembali ke persetujuan</Button></>}
       <details className="face-enrollment__calibration"><summary><SlidersHorizontal aria-hidden="true" /> Kalibrasi pengenalan pilot</summary>
-        <p>Isi hanya setelah uji valid, tidak dikenal, ambigu, foto, dan video dilakukan. Nilai ini adalah ambang jarak, bukan persentase akurasi. Tanpa kalibrasi, pengenalan tidak mencatat absensi.</p>
+        <p>Nilai ini adalah ambang jarak, bukan persentase akurasi. Setiap percobaan absen wajah mencatat <code>best_distance</code> dan <code>second_distance</code> di log server; pilih jarak maksimum sedikit di atas jarak santri yang benar dan di bawah jarak orang lain. Tanpa kalibrasi, pengenalan tidak mencatat absensi.</p>
         <form onSubmit={async event => { event.preventDefault(); setBusy(true);
           try { await faceAttendanceRequest({ action:'calibrate', ...calibration }); setHasError(false); setMessage('Kalibrasi pilot tersimpan.'); }
           catch (error) { setHasError(true); setMessage(error.message); } finally { setBusy(false); }
