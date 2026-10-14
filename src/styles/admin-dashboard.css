@@ -3088,6 +3088,11 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
   background: linear-gradient(135deg, #0369a1, #06b6d4 52%, #2563eb);
 }
 
+.attendance-header__action-btn--face {
+  --attendance-action-shadow: rgba(13, 148, 136, 0.32);
+  background: linear-gradient(135deg, #0f766e, #0d9488 48%, #2563eb);
+}
+
 .attendance-header__action-btn--random {
   --attendance-action-shadow: rgba(234, 88, 12, 0.3);
   background: linear-gradient(135deg, #ea580c, #f59e0b 52%, #eab308);

@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import {
   Fingerprint,
+  Camera,
   Search,
   CheckCircle,
   XCircle,
@@ -58,6 +59,7 @@ import AttendanceProfileCard from '@/components/dashboard/shared/AttendanceProfi
 import { useAttendanceSessionConfiguration } from '@/hooks/useAttendanceSessionConfiguration';
 import { resolveSantriLevel } from '@/lib/santriLevel';
 import { computeAttendancePointAward } from '@/lib/attendancePointRules';
+import { facePilotEnabled, faceAttendanceRequest } from '@/lib/faceAttendanceApi';
 import '@/styles/admin-dashboard.css';
 
 // --- Data (unchanged) ---
@@ -105,146 +107,7 @@ const adultQuotes = [
     "Membaca Al-Qur'an dengan terbata-bata pun mendapat dua pahala."
 ];
 
-const getCurrentMonthDateRange = () => {
-    const now = new Date();
-    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
-    const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-    return {
-        start: firstDay.toLocaleDateString('en-CA'),
-        end: nextMonth.toLocaleDateString('en-CA'),
-    };
-};
-
-const getSantriMonthlyAttendanceStats = async (santriId) => {
-    if (!santriId) return { present: 0, late: 0, absent: 0 };
-
-    const { start, end } = getCurrentMonthDateRange();
-    const now = new Date();
-    const selectedYear = now.getFullYear();
-    const selectedMonth = now.getMonth();
-    const today = new Date(selectedYear, selectedMonth, now.getDate());
-    const lastDay = new Date(selectedYear, selectedMonth + 1, 0).getDate();
-    const endInclusive = new Date(selectedYear, selectedMonth, lastDay).toLocaleDateString('en-CA');
-
-    const [attendanceResult, holidayResult] = await Promise.all([
-      supabase
-        .from('attendance')
-        .select('attendance_date, status')
-        .eq('user_id', santriId)
-        .gte('attendance_date', start)
-        .lt('attendance_date', end),
-      supabase
-        .from('academic_calendar')
-        .select('date')
-        .eq('is_holiday', true)
-        .gte('date', start)
-        .lte('date', endInclusive),
-    ]);
-
-    if (attendanceResult.error || holidayResult.error) {
-        return { present: 0, late: 0, absent: 0 };
-    }
-
-    const holidaySet = new Set((holidayResult.data || []).map(item => item.date));
-    const activeDaysUntilToday = [];
-
-    for (let day = 1; day <= lastDay; day++) {
-        const date = new Date(selectedYear, selectedMonth, day);
-        const dateStr = date.toLocaleDateString('en-CA');
-        const dayOfWeek = new Date(Date.UTC(selectedYear, selectedMonth, day)).getUTCDay();
-        const isWeekday = dayOfWeek >= 1 && dayOfWeek <= 5;
-        const isPastOrToday = date <= today;
-
-        if (isWeekday && isPastOrToday && !holidaySet.has(dateStr)) {
-            activeDaysUntilToday.push(dateStr);
-        }
-    }
-
-    const activeDaySet = new Set(activeDaysUntilToday);
-    const presentDateSet = new Set();
-    const lateDateSet = new Set();
-
-    (attendanceResult.data || []).forEach(row => {
-        const date = String(row.attendance_date || '').split('T')[0];
-        if (!date || !activeDaySet.has(date)) return;
-
-        if (row.status === 'Terlambat') {
-            lateDateSet.add(date);
-            presentDateSet.delete(date);
-            return;
-        }
-
-        if (!lateDateSet.has(date) && ['Hadir', 'Tepat Waktu'].includes(row.status)) {
-            presentDateSet.add(date);
-        }
-    });
-
-    const present = presentDateSet.size;
-    const late = lateDateSet.size;
-    const attended = new Set([...presentDateSet, ...lateDateSet]).size;
-    const absent = Math.max(activeDaysUntilToday.length - attended, 0);
-
-    return { present, late, absent };
-};
-
-const getSantriLearningHighlights = async (santriId) => {
-    if (!santriId) {
-        return { hafalanCount: 0, characterStrength: null, strongestHafalanCategory: null };
-    }
-
-    const [progressResult, strengthResult] = await Promise.all([
-        supabase
-            .from('hafalan_progress')
-            .select('category,status,score,nilai')
-            .eq('santri_id', santriId),
-        supabase
-            .from('santri_character_strengths')
-            .select('strength_key')
-            .eq('santri_id', santriId)
-            .order('selected_at', { ascending: false })
-            .limit(1)
-            .maybeSingle(),
-    ]);
-
-    const rows = progressResult.error ? [] : (progressResult.data || []);
-    const scoredRows = rows.map((row) => {
-        const rawScore = Number(row.score ?? row.nilai);
-        const score = Number.isFinite(rawScore) && rawScore >= 1 && rawScore <= 4
-            ? rawScore
-            : row.status === 'lulus' ? 4 : null;
-        return { ...row, score };
-    });
-    const hafalanCount = scoredRows.filter((row) => row.status === 'lulus' || row.score === 4).length;
-    const categoryStats = new Map();
-
-    scoredRows.forEach((row) => {
-        const category = String(row.category || '').trim();
-        if (!category || row.score === null) return;
-        const current = categoryStats.get(category) || { category, total: 0, assessed: 0, completed: 0 };
-        current.total += row.score;
-        current.assessed += 1;
-        if (row.status === 'lulus' || row.score === 4) current.completed += 1;
-        categoryStats.set(category, current);
-    });
-
-    const strongest = [...categoryStats.values()]
-        .map((item) => ({ ...item, average: item.total / item.assessed }))
-        .sort((left, right) => (
-            right.average - left.average
-            || right.completed - left.completed
-            || right.assessed - left.assessed
-            || left.category.localeCompare(right.category, 'id')
-        ))[0];
-    const averageLabel = strongest
-        ? strongest.average.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
-        : null;
-
-    return {
-        hafalanCount,
-        characterStrength: strengthResult.error ? null : (strengthResult.data?.strength_key || null),
-        strongestHafalanCategory: strongest ? `${strongest.category} · ${averageLabel}` : null,
-    };
-};
+import { getSantriMonthlyAttendanceStats, getSantriLearningHighlights } from '@/lib/attendanceProfileData';
 
 // --- Business logic (unchanged) ---
 const canCheckIn = (sesi, userRole, isPentashih = false, timestamp = new Date(), sessionTimes = DEFAULT_SESSION_TIMES) => {
@@ -645,6 +508,29 @@ const DigitalAttendancePage = () => {
               const quote = guruQuotes[Math.floor(Math.random() * guruQuotes.length)];
               setLastScan({ type: 'guru_info', rfid: tag, role: 'guru', name: user.nama, photo: user.foto_url, quote, classesData: guruClasses, roles: user.roles || [], jabatan: user.jabatan, gender: user.jenis_kelamin || 'Laki-laki', no_hp: user.no_hp, stats: { sessions: scheduledSessionsCount, hours: hoursTaught, streak: streak, nextSession }});
               return;
+        }
+
+        if (userRole === 'santri' && facePilotEnabled) {
+          try {
+            const result = await faceAttendanceRequest({ action: 'rfid', rfidTag: tag, receiptId: crypto.randomUUID() });
+            if (!['saved', 'already_recorded'].includes(result.state)) {
+              setLastScan({ type: 'warning', message: result.message || 'Absensi belum dapat dicatat.' });
+              return;
+            }
+            const [monthlyStats, learningHighlights] = await Promise.all([
+              getSantriMonthlyAttendanceStats(user.id), getSantriLearningHighlights(user.id),
+            ]);
+            const adult = kategori === 'Dewasa';
+            setLastScan({ type: 'success', role: 'santri', kategori,
+              name: user.nama_lengkap, photo: user.foto_url, points: result.points, pointsAward: result.pointsAward,
+              jilid: user.jilid, sesi: result.attendance.sesi, rfid: tag, gender: user.jenis_kelamin,
+              time: result.attendance.check_in_time, status: result.attendance.status,
+              levelInfo: adult ? null : getLevelInfo(result.points, user.jenis_kelamin), monthlyStats, ...learningHighlights,
+              message: result.created ? getSantriAttendanceSuccessMessage({ assignedSession: result.attendance.sesi,
+                attendedSession: result.attendance.attended_session }) : 'Absensi sudah tercatat.',
+            });
+          } catch (error) { setLastScan({ type: 'error', message: error.message }); }
+          return;
         }
 
         let existingAttendance = null;
@@ -1124,6 +1010,11 @@ const DigitalAttendancePage = () => {
             </button>
           </div>
           <div className="attendance-header__right">
+            {facePilotEnabled && (
+              <button type="button" className="attendance-header__action-btn attendance-header__action-btn--face" onClick={() => navigate('/absensi-wajah')}>
+                <Camera className="w-4 h-4" aria-hidden="true" /><span>Absensi Wajah</span>
+              </button>
+            )}
             {enableGameFeatures && (
               <>
                 <button

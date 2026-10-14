@@ -32,6 +32,7 @@ const EduMediaPage = lazy(() => import('@/pages/EduMediaPage'));
 const SystemPage = lazy(() => import('@/pages/SystemPage'));
 const WaliDiscussionPage = lazy(() => import('@/pages/WaliDiscussionPage'));
 const DigitalAttendancePage = lazy(() => import('@/pages/DigitalAttendancePage'));
+const FaceAttendancePage = lazy(() => import('@/pages/FaceAttendancePage'));
 const TvDisplayPage = lazy(() => import('@/pages/TvDisplayPage'));
 const QuizHafalanPage = lazy(() => import('@/pages/QuizHafalanPage'));
 const GatchaGamePage = lazy(() => import('@/pages/GatchaGamePage'));
@@ -219,6 +220,7 @@ function App() {
               <Suspense fallback={<RouteFallback />}>
               <Routes>
                 <Route path="/absensi-digital" element={<ProtectedRoute allowedRoles={operationalDisplayRoles}><DigitalAttendancePage /></ProtectedRoute>} />
+                <Route path="/absensi-wajah" element={<ProtectedRoute allowedRoles={operationalDisplayRoles}><FaceAttendancePage /></ProtectedRoute>} />
                 <Route path="/tv-display-mode" element={<ProtectedRoute allowedRoles={operationalDisplayRoles}><TvDisplayPage /></ProtectedRoute>} />
                 {enableGameFeatures ? (
                   <>
