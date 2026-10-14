@@ -1,10 +1,10 @@
 -- Read-only checks after applying the face attendance pilot migrations
 -- (20261007000100_face_attendance_pilot.sql, 20261014000100_face_attendance_passive_kiosk.sql,
--- 20261015000100_face_attendance_guru.sql).
+-- 20261015000100_face_attendance_guru.sql, 20261015000200_face_attendance_guru_admin.sql).
 -- Run as postgres (SQL Editor or psql). Every column must be true.
 select
   (select count(*) from supabase_migrations.schema_migrations
-    where version in ('20261007000100', '20261014000100', '20261015000100')) = 3 as migrations_recorded,
+    where version in ('20261007000100', '20261014000100', '20261015000100', '20261015000200')) = 4 as migrations_recorded,
   to_regnamespace('biometric_private') is not null as schema_exists,
   (select count(*) from pg_class c join pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'biometric_private' and c.relkind = 'r' and c.relrowsecurity) = 7 as rls_on_all_tables,
@@ -22,6 +22,8 @@ select
   pg_get_functiondef('public.pilot_face_operation(uuid,text,jsonb)'::regprocedure) like '%>=40%' as passive_kiosk_version,
   -- The guru migration adds self-enrolment and guru matching to the same RPC.
   pg_get_functiondef('public.pilot_face_operation(uuid,text,jsonb)'::regprocedure) like '%guru_matched%' as guru_face_version,
+  -- The admin migration lets admins register a guru's face from Manajemen Guru.
+  pg_get_functiondef('public.pilot_face_operation(uuid,text,jsonb)'::regprocedure) like '%guru_enroll%' as guru_admin_version,
   (select pg_get_constraintdef(oid) from pg_constraint
     where conname = 'attendance_source_check' and conrelid = 'public.attendance'::regclass)
     ~ '''face''' as source_allows_face,

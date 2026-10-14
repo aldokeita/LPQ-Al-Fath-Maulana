@@ -3,7 +3,7 @@
 --
 -- Use only if the pilot must be taken out of a database that already ran
 -- 20261007000100_face_attendance_pilot.sql, 20261014000100_face_attendance_passive_kiosk.sql
--- and 20261015000100_face_attendance_guru.sql:
+-- 20261015000100_face_attendance_guru.sql and 20261015000200_face_attendance_guru_admin.sql:
 --   1. Take a backup first.
 --   2. Copy this file to supabase/migrations/<new timestamp>_remove_face_attendance_pilot.sql,
 --      commit it, and apply it with `supabase db push` so migration history stays truthful.

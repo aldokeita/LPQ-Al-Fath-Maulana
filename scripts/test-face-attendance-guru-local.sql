@@ -84,6 +84,27 @@ begin
   r:=public.pilot_face_operation(g,'match',jsonb_build_object('challengeId',ch->>'id','modelVersion',model,'descriptors',santri_capture));
   if r->>'state'<>'matched' or r->>'santriId'<>s::text then raise exception 'TEST FAIL: santri match after guru delete %',r->>'state'; end if;
 
+  -- Admins can register another guru's face from Manajemen Guru; nobody else can.
+  if public.pilot_face_operation(g,'self_status','{}')->'enrollment'->>'consentSource'<>'self' then raise exception 'TEST FAIL: self consent source'; end if;
+  begin perform public.pilot_face_operation(g,'challenge',jsonb_build_object('purpose','guru_enroll','guruId',g2)); raise exception 'TEST FAIL: guru enrolled another guru';
+  exception when insufficient_privilege then null; end;
+  begin perform public.pilot_face_operation(g,'guru_status',jsonb_build_object('guruId',g2)); raise exception 'TEST FAIL: guru read another guru status';
+  exception when insufficient_privilege then null; end;
+  begin perform public.pilot_face_operation(a,'challenge',jsonb_build_object('purpose','guru_enroll','guruId',s)); raise exception 'TEST FAIL: admin enrolled a santri as guru';
+  exception when raise_exception then if sqlerrm<>'ACTIVE_GURU_REQUIRED' then raise; end if; end;
+  select jsonb_agg(0.05) into v from generate_series(1,128); select jsonb_agg(v) into near_capture from generate_series(1,5);
+  ch:=public.pilot_face_operation(a,'challenge',jsonb_build_object('purpose','guru_enroll','guruId',g2));
+  begin perform public.pilot_face_operation(a,'guru_enroll',jsonb_build_object('challengeId',ch->>'id','guruId',g,'modelVersion',model,'descriptors',near_capture,'consent',consent));
+    raise exception 'TEST FAIL: challenge reused for another guru';
+  exception when raise_exception then if sqlerrm<>'CONSENT_REQUIRED' then raise; end if; end;
+  ch:=public.pilot_face_operation(a,'challenge',jsonb_build_object('purpose','guru_enroll','guruId',g2));
+  r:=public.pilot_face_operation(a,'guru_enroll',jsonb_build_object('challengeId',ch->>'id','guruId',g2,'modelVersion',model,'descriptors',near_capture,'consent',consent));
+  if r->>'registered'<>'true' or (select enrolled_by from biometric_private.guru_enrollments where guru_id=g2)<>a then raise exception 'TEST FAIL: admin guru enrolment'; end if;
+  r:=public.pilot_face_operation(a,'guru_status',jsonb_build_object('guruId',g2));
+  if r->'enrollment'->>'registered'<>'true' or r->'enrollment'->>'consentSource'<>'admin' then raise exception 'TEST FAIL: admin guru status %',r; end if;
+  perform public.pilot_face_operation(a,'guru_delete',jsonb_build_object('guruId',g2));
+  if exists(select 1 from biometric_private.guru_enrollments where guru_id=g2) then raise exception 'TEST FAIL: admin guru delete'; end if;
+
   -- Inactive or deleted guru rows stop matching.
   update public.guru set status='inactive' where id=g;
   ch:=public.pilot_face_operation(g2,'challenge','{"purpose":"attendance"}');
@@ -92,7 +113,7 @@ begin
   update public.guru set status='active' where id=g;
   update public.classes set id_guru=g2 where id=cls; delete from public.guru where id=g;
   if exists(select 1 from biometric_private.guru_enrollments where guru_id=g) then raise exception 'TEST FAIL: guru deletion cascade'; end if;
-  raise notice 'Face guru SQL integration: self-enrol scope, consent, challenge binding, guru match, resume, receipt isolation, santri/guru ambiguity, self delete, inactive, cascade PASS';
+  raise notice 'Face guru SQL integration: self-enrol scope, consent, challenge binding, guru match, resume, receipt isolation, santri/guru ambiguity, self delete, admin enrolment, inactive, cascade PASS';
 end $$;
 set local role authenticated;
 do $$ begin
