@@ -18,9 +18,28 @@ const MODEL_BASE = '/face-models/1.7.15/';
 export const FACE_MODEL_URLS = ['tiny_face_detector_model', 'face_landmark_68_model', 'face_recognition_model']
   .flatMap(name => [`${MODEL_BASE}${name}-weights_manifest.json`, `${MODEL_BASE}${name}.bin`]);
 
+// Compute backend per device: 'webgl' (GPU), 'wasm' (CPU with SIMD and, when the page is cross-origin
+// isolated, threads) or 'auto', which avoids WebGL when the browser only offers a software renderer.
+export const FACE_BACKENDS = ['auto', 'webgl', 'wasm'];
+const BACKEND_STORAGE_KEY = 'lpq-face-backend';
+export const readBackendPreference = () => {
+  try { const value = localStorage.getItem(BACKEND_STORAGE_KEY); return FACE_BACKENDS.includes(value) ? value : 'auto'; } catch { return 'auto'; }
+};
+export const saveBackendPreference = value => {
+  if (!FACE_BACKENDS.includes(value)) return;
+  try { if (value === 'auto') localStorage.removeItem(BACKEND_STORAGE_KEY); else localStorage.setItem(BACKEND_STORAGE_KEY, value); } catch { /* preference only */ }
+};
+export const isSoftwareRenderer = renderer => /swiftshader|llvmpipe|softpipe|software|basic render/i.test(renderer || '');
+export const chooseBackend = (preference, renderer) => (preference === 'webgl' || preference === 'wasm' ? preference
+  : !renderer || isSoftwareRenderer(renderer) ? 'wasm' : 'webgl');
+
+const WASM_BASE = '/tfjs-wasm/4.22.0/';
+const WASM_VERSION = 'tfjs-backend-wasm-4.22.0';
+const WASM_FILES = ['tfjs-backend-wasm.wasm', 'tfjs-backend-wasm-simd.wasm', 'tfjs-backend-wasm-threaded-simd.wasm'];
+
 let loadPromise;
 export const loadFaceEngine = () => {
-  if (!loadPromise) loadPromise = initialize().catch(error => { loadPromise = null; throw error; });
+  if (!loadPromise) loadPromise = initialize(readBackendPreference()).catch(error => { loadPromise = null; throw error; });
   return loadPromise;
 };
 
@@ -30,10 +49,53 @@ async function fetchBytes(url) {
   return response.arrayBuffer();
 }
 
-async function initialize() {
-  const api = await import('@vladmandic/face-api/dist/face-api.esm.js');
-  await api.tf.setBackend('webgl');
+const sha256 = async bytes => Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)))
+  .map(v => v.toString(16).padStart(2, '0')).join('');
+
+function webglRenderer() {
+  try {
+    const canvas = document.createElement('canvas');
+    const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
+    if (!gl) return null;
+    const info = gl.getExtension('WEBGL_debug_renderer_info');
+    const renderer = String(gl.getParameter(info ? info.UNMASKED_RENDERER_WEBGL : gl.RENDERER));
+    gl.getExtension('WEBGL_lose_context')?.loseContext();
+    return renderer;
+  } catch { return null; }
+}
+
+// Fetches the one binary this browser will run, checks its hash, and hands tfjs a blob URL for it.
+async function prepareWasm(api) {
+  const [simd, threads] = await Promise.all([api.tf.env().getAsync('WASM_HAS_SIMD_SUPPORT'), api.tf.env().getAsync('WASM_HAS_MULTITHREAD_SUPPORT')]);
+  const file = simd && threads ? WASM_FILES[2] : simd ? WASM_FILES[1] : WASM_FILES[0];
+  const integrityResponse = await fetch(WASM_BASE + 'integrity.json', { signal:AbortSignal.timeout(15000) });
+  if (!integrityResponse.ok) throw new Error('MODEL_UNAVAILABLE');
+  const integrity = await integrityResponse.json();
+  if (integrity.version !== WASM_VERSION) throw new Error('MODEL_VERSION_MISMATCH');
+  const bytes = await fetchBytes(WASM_BASE + file);
+  if (await sha256(bytes) !== integrity.files[file]?.sha256) throw new Error('MODEL_INTEGRITY_FAILED');
+  const url = URL.createObjectURL(new Blob([bytes], { type: 'application/wasm' }));
+  // tfjs requires an entry for every binary; only the one matching this browser is ever loaded.
+  api.tf.setWasmPaths(Object.fromEntries(WASM_FILES.map(name => [name, url])));
+  return { file, simd, threads };
+}
+
+async function selectBackend(api, preference) {
+  const renderer = webglRenderer();
+  const wanted = chooseBackend(preference, renderer);
+  if (wanted === 'webgl' && await api.tf.setBackend('webgl').catch(() => false)) {
+    await api.tf.ready();
+    return { backend: 'webgl', renderer, preference };
+  }
+  const wasm = await prepareWasm(api);
+  if (!await api.tf.setBackend('wasm')) throw new Error('MODEL_UNAVAILABLE');
   await api.tf.ready();
+  return { backend: 'wasm', renderer, preference, ...wasm };
+}
+
+async function initialize(preference) {
+  const api = await import('@vladmandic/face-api/dist/face-api.esm.js');
+  const backend = await selectBackend(api, preference);
   const integrityResponse = await fetch(MODEL_BASE + 'integrity.json', { signal:AbortSignal.timeout(15000) });
   if (!integrityResponse.ok) throw new Error('MODEL_UNAVAILABLE');
   const integrity = await integrityResponse.json();
@@ -44,9 +106,7 @@ async function initialize() {
     const files = await Promise.all(FACE_MODEL_URLS.map(fetchBytes));
     for (const [index, bytes] of files.entries()) {
       const filename = FACE_MODEL_URLS[index].slice(MODEL_BASE.length);
-      const hash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)))
-        .map(v => v.toString(16).padStart(2, '0')).join('');
-      if (hash !== integrity.files[filename]?.sha256) throw new Error('MODEL_INTEGRITY_FAILED');
+      if (await sha256(bytes) !== integrity.files[filename]?.sha256) throw new Error('MODEL_INTEGRITY_FAILED');
     }
     for (const [i, net] of nets.entries()) {
       const manifest = JSON.parse(new TextDecoder().decode(files[i * 2]));
@@ -65,6 +125,7 @@ async function initialize() {
     finally { faces.forEach(face => { face.width = 0; face.height = 0; }); }
   };
   return {
+    backend,
     // Full pipeline for enrollment: detector, landmarks and a descriptor for every face.
     async detect(video) {
       return api.detectAllFaces(video, options(ENROLL_DETECTOR_SIZE)).withFaceLandmarks().withFaceDescriptors();
