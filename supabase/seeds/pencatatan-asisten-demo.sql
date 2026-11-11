@@ -132,10 +132,10 @@ on conflict do nothing;
 insert into public.attendance_confirmations (santri_id, class_id, tanggal, sesi, status, keterangan, dikonfirmasi_oleh)
 select s.id, s.current_class_id, ds.tanggal, 'Sore',
   case
+    when a.status = 'Terlambat' then 'terlambat'
     when a.id is not null then 'hadir'
-    when abs(hashtext('ket' || s.id::text || ds.tanggal::text)) % 3 = 0 then 'izin'
-    when abs(hashtext('ket' || s.id::text || ds.tanggal::text)) % 3 = 1 then 'hadir'
-    else 'alpa'
+    when abs(hashtext('ket' || s.id::text || ds.tanggal::text)) % 2 = 0 then 'hadir'
+    else 'tidak_hadir'
   end,
   null,
   c.id_guru
@@ -151,7 +151,7 @@ on conflict (santri_id, tanggal, sesi) do nothing;
 
 -- Satu koreksi status sebagai riwayat dan satu tindak lanjut wali.
 insert into public.attendance_confirmation_changes (confirmation_id, status, keterangan, diubah_oleh)
-select c.id, 'sakit', 'Demo: surat sakit menyusul', c.dikonfirmasi_oleh
+select c.id, 'hadir', 'Demo: kartu tertinggal, hadir di kelas', c.dikonfirmasi_oleh
 from public.attendance_confirmations c
 join public.santri s on s.id = c.santri_id
 where s.nomor_induk_qiroati = 'DEMOPA-03' and c.status <> 'hadir'

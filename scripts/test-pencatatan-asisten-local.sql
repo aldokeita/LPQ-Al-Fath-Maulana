@@ -44,7 +44,7 @@ grant select on pa_attendance_before to authenticated;
 select set_config('request.jwt.claims', '{"sub":"7e570000-0000-0000-0000-00000000000a","role":"authenticated"}', true);
 set local role authenticated;
 select public.save_attendance_confirmations('7e570000-0000-0000-0000-0000000c1b00', current_date - 1, 'Sore',
-  '[{"santri_id":"7e570000-0000-0000-0000-000000000201","status":"alpa"}]');
+  '[{"santri_id":"7e570000-0000-0000-0000-000000000201","status":"tidak_hadir"}]');
 insert into public.assistant_alerts (santri_id, class_id, jenis, tingkat, alasan)
   values ('7e570000-0000-0000-0000-000000000201', '7e570000-0000-0000-0000-0000000c1b00', 'alpa_beruntun', 'sedang', 'TEST alpa 2 sesi');
 insert into public.assistant_alerts (santri_id, class_id, jenis, tingkat, alasan)
@@ -71,17 +71,17 @@ begin
 
   -- Simpan, lalu ubah: perubahan masuk riwayat, baris pertama tetap.
   r := public.save_attendance_confirmations('7e570000-0000-0000-0000-0000000c1a00', current_date - 1, 'Sore',
-    '[{"santri_id":"7e570000-0000-0000-0000-000000000101","status":"hadir"},{"santri_id":"7e570000-0000-0000-0000-000000000102","status":"alpa"}]');
+    '[{"santri_id":"7e570000-0000-0000-0000-000000000101","status":"hadir"},{"santri_id":"7e570000-0000-0000-0000-000000000102","status":"tidak_hadir"}]');
   if (r->>'baru')::int <> 2 then raise exception 'TEST FAIL: first save %', r; end if;
   r := public.save_attendance_confirmations('7e570000-0000-0000-0000-0000000c1a00', current_date - 1, 'Sore',
-    '[{"santri_id":"7e570000-0000-0000-0000-000000000101","status":"hadir"},{"santri_id":"7e570000-0000-0000-0000-000000000102","status":"sakit","keterangan":"demam"}]');
+    '[{"santri_id":"7e570000-0000-0000-0000-000000000101","status":"hadir"},{"santri_id":"7e570000-0000-0000-0000-000000000102","status":"terlambat","keterangan":"ban bocor"}]');
   if (r->>'diubah')::int <> 1 or (r->>'tetap')::int <> 1 then raise exception 'TEST FAIL: second save %', r; end if;
   select status into s from public.attendance_confirmations_current
     where santri_id = '7e570000-0000-0000-0000-000000000102' and tanggal = current_date - 1 and sesi = 'Sore';
-  if s <> 'sakit' then raise exception 'TEST FAIL: current status %', s; end if;
+  if s <> 'terlambat' then raise exception 'TEST FAIL: current status %', s; end if;
   select status into s from public.attendance_confirmations
     where santri_id = '7e570000-0000-0000-0000-000000000102' and tanggal = current_date - 1 and sesi = 'Sore';
-  if s <> 'alpa' then raise exception 'TEST FAIL: original row overwritten (%)', s; end if;
+  if s <> 'tidak_hadir' then raise exception 'TEST FAIL: original row overwritten (%)', s; end if;
 
   -- Kelas lain dan santri kelas lain ditolak.
   begin perform public.save_attendance_confirmations('7e570000-0000-0000-0000-0000000c1b00', current_date - 1, 'Sore',
@@ -98,6 +98,10 @@ begin
   exception when invalid_parameter_value then null; end;
   begin perform public.save_attendance_confirmations('7e570000-0000-0000-0000-0000000c1a00', current_date - 1, 'Sore',
       '[{"santri_id":"7e570000-0000-0000-0000-000000000101","status":"bolos"}]');
+    raise exception 'TEST FAIL: invalid status accepted';
+  exception when invalid_parameter_value then null; end;
+  begin perform public.save_attendance_confirmations('7e570000-0000-0000-0000-0000000c1a00', current_date - 1, 'Sore',
+      '[{"santri_id":"7e570000-0000-0000-0000-000000000101","status":"izin"}]');
     raise exception 'TEST FAIL: invalid status accepted';
   exception when invalid_parameter_value then null; end;
   begin
@@ -218,7 +222,7 @@ begin
   select string_agg(kode_santri || kode_kelas, ',' order by kode_santri) into k1 from public.export_rekap_penelitian_berkode(current_date - 7, current_date);
   select string_agg(kode_santri || kode_kelas, ',' order by kode_santri) into k2 from public.export_rekap_penelitian_berkode(current_date - 7, current_date);
   if k1 is null or k1 !~ '^K-[0-9]{3}Kelas-[0-9]{2}' or k1 <> k2 then raise exception 'TEST FAIL: unstable or malformed code % %', k1, k2; end if;
-  select count(*) into n from public.export_rekap_penelitian_berkode(current_date - 7, current_date) where sakit = 1 and sesi_berubah_status = 1;
+  select count(*) into n from public.export_rekap_penelitian_berkode(current_date - 7, current_date) where terlambat = 1 and sesi_berubah_status = 1;
   if n <> 1 then raise exception 'TEST FAIL: change not reflected in rekap'; end if;
   select count(*) into n from public.export_tindak_lanjut_berkode(current_date - 7, current_date) where selisih_hari = 1 and kode_guru ~ '^G-[0-9]{2}$';
   if n <> 1 then raise exception 'TEST FAIL: followup export'; end if;

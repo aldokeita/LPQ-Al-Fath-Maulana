@@ -2,9 +2,8 @@
 
 export const CONFIRMATION_STATUSES = Object.freeze([
   { value: 'hadir', label: 'Hadir' },
-  { value: 'izin', label: 'Izin' },
-  { value: 'sakit', label: 'Sakit' },
-  { value: 'alpa', label: 'Alpa' },
+  { value: 'terlambat', label: 'Terlambat' },
+  { value: 'tidak_hadir', label: 'Tidak Hadir' },
 ]);
 
 const STATUS_VALUES = new Set(CONFIRMATION_STATUSES.map((item) => item.value));
@@ -39,10 +38,13 @@ export const formatTapTime = (time) => {
 };
 
 // Saran awal dari tap RFID/wajah. Tap hanya saran; status akhir tetap ditetapkan guru.
+// Tap berstatus Terlambat disarankan terlambat; tap Izin/Sakit (input manual lama) disarankan tidak hadir.
 export const getTapSuggestion = (row, sesi) => {
   if (!row?.tap_status && !row?.tap_waktu) return null;
   const tapStatus = String(row.tap_status || '').toLowerCase();
-  const status = tapStatus === 'izin' || tapStatus === 'sakit' ? tapStatus : 'hadir';
+  const status = tapStatus === 'terlambat' ? 'terlambat'
+    : ['izin', 'sakit', 'alpa', 'tidak hadir'].includes(tapStatus) ? 'tidak_hadir'
+      : 'hadir';
   const time = formatTapTime(row.tap_waktu);
   const otherSession = row.tap_sesi && sesi && row.tap_sesi !== sesi ? ` (sesi ${row.tap_sesi})` : '';
   const label = time ? `tercatat tap ${time}${otherSession}` : `tercatat ${tapStatus || 'tap'}${otherSession}`;
@@ -59,7 +61,7 @@ export const buildInitialDraft = (rows = [], sesi) => Object.fromEntries(rows.ma
 }));
 
 export const validateConfirmationEntry = (entry) => {
-  if (!entry || !STATUS_VALUES.has(entry.status)) return 'Status harus hadir, izin, sakit, atau alpa.';
+  if (!entry || !STATUS_VALUES.has(entry.status)) return 'Status harus Hadir, Terlambat, atau Tidak Hadir.';
   if ((entry.keterangan || '').trim().length > KETERANGAN_MAX) return `Keterangan maksimal ${KETERANGAN_MAX} karakter.`;
   return null;
 };
@@ -75,7 +77,7 @@ export const buildChangedEntries = (rows = [], draft = {}) => rows.flatMap((row)
 });
 
 export const countDraftStatuses = (rows = [], draft = {}) => {
-  const counts = { hadir: 0, izin: 0, sakit: 0, alpa: 0, kosong: 0 };
+  const counts = { hadir: 0, terlambat: 0, tidak_hadir: 0, kosong: 0 };
   rows.forEach((row) => {
     const status = draft[row.santri_id]?.status;
     if (STATUS_VALUES.has(status)) counts[status] += 1;
@@ -122,7 +124,7 @@ export const buildCsv = (rows = [], columns) => {
 };
 
 export const REKAP_COLUMNS = Object.freeze([
-  'kode_santri', 'kode_kelas', 'sesi_dikonfirmasi', 'hadir', 'izin', 'sakit', 'alpa',
+  'kode_santri', 'kode_kelas', 'sesi_dikonfirmasi', 'hadir', 'terlambat', 'tidak_hadir',
   'sesi_berubah_status', 'sesi_pada_hari_libur', 'sesi_dengan_tap', 'peringatan', 'tindak_lanjut',
   'tindak_lanjut_terhubung', 'rerata_hari_peringatan_ke_kontak',
 ]);

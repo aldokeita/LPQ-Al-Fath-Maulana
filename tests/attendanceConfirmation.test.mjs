@@ -11,7 +11,7 @@ const {
 const rows = [
   { santri_id: 'a', nama: 'TEST A', tap_waktu: '15:52:00', tap_status: 'Hadir', tap_sesi: 'Sore' },
   { santri_id: 'b', nama: 'TEST B' },
-  { santri_id: 'c', nama: 'TEST C', status: 'alpa', keterangan: null },
+  { santri_id: 'c', nama: 'TEST C', status: 'tidak_hadir', keterangan: null },
   { santri_id: 'd', nama: 'TEST D', tap_waktu: '07:05:00', tap_status: 'Terlambat', tap_sesi: 'Pagi' },
 ];
 
@@ -20,30 +20,32 @@ test('tap RFID/wajah menjadi saran hadir dengan label jam', () => {
   assert.deepEqual(getTapSuggestion(rows[0], 'Sore'), { status: 'hadir', label: 'tercatat tap 15.52' });
   assert.equal(getTapSuggestion(rows[3], 'Sore').label, 'tercatat tap 07.05 (sesi Pagi)');
   assert.equal(getTapSuggestion(rows[1], 'Sore'), null);
-  assert.equal(getTapSuggestion({ tap_status: 'Izin' }, 'Sore').status, 'izin');
+  assert.equal(getTapSuggestion({ tap_status: 'Izin' }, 'Sore').status, 'tidak_hadir');
+  assert.equal(getTapSuggestion(rows[3], 'Sore').status, 'terlambat');
 });
 
 test('draf awal: status tersimpan menang, tanpa tap dibiarkan kosong', () => {
   const draft = buildInitialDraft(rows, 'Sore');
   assert.equal(draft.a.status, 'hadir');
   assert.equal(draft.b.status, '');
-  assert.equal(draft.c.status, 'alpa');
-  assert.deepEqual(countDraftStatuses(rows, draft), { hadir: 2, izin: 0, sakit: 0, alpa: 1, kosong: 1 });
+  assert.equal(draft.c.status, 'tidak_hadir');
+  assert.deepEqual(countDraftStatuses(rows, draft), { hadir: 1, terlambat: 1, tidak_hadir: 1, kosong: 1 });
 });
 
 test('hanya entri baru atau berubah yang dikirim (partial update)', () => {
   const draft = buildInitialDraft(rows, 'Sore');
   assert.deepEqual(buildChangedEntries(rows, draft).map((e) => e.santri_id), ['a', 'd']);
-  draft.c = { status: 'alpa', keterangan: '  ' };
+  draft.c = { status: 'tidak_hadir', keterangan: '  ' };
   assert.equal(buildChangedEntries(rows, draft).some((e) => e.santri_id === 'c'), false);
-  draft.c = { status: 'sakit', keterangan: ' demam ' };
-  assert.deepEqual(buildChangedEntries(rows, draft).find((e) => e.santri_id === 'c'), { santri_id: 'c', status: 'sakit', keterangan: 'demam' });
+  draft.c = { status: 'terlambat', keterangan: ' ban bocor ' };
+  assert.deepEqual(buildChangedEntries(rows, draft).find((e) => e.santri_id === 'c'), { santri_id: 'c', status: 'terlambat', keterangan: 'ban bocor' });
 });
 
 test('validasi status dan tindak lanjut', () => {
   assert.equal(validateConfirmationEntry({ status: 'hadir' }), null);
   assert.match(validateConfirmationEntry({ status: 'bolos' }), /Status/);
-  assert.match(validateConfirmationEntry({ status: 'izin', keterangan: 'x'.repeat(301) }), /maksimal/);
+  assert.match(validateConfirmationEntry({ status: 'izin' }), /Status/);
+  assert.match(validateConfirmationEntry({ status: 'terlambat', keterangan: 'x'.repeat(301) }), /maksimal/);
   const form = { saluran: 'whatsapp', hasil: 'terhubung', tanggal_kontak: '2026-11-10', tanggal_peringatan: '', catatan: '' };
   assert.equal(validateFollowup(form, '2026-11-11'), null);
   assert.match(validateFollowup({ ...form, tanggal_kontak: '2026-11-12' }, '2026-11-11'), /masa depan/);

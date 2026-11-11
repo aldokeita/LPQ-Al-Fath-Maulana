@@ -39,7 +39,7 @@ create table public.attendance_confirmations (
   keterangan text,
   dikonfirmasi_oleh uuid not null default auth.uid() references auth.users(id),
   created_at timestamptz not null default now(),
-  constraint attendance_confirmations_status_check check (status in ('hadir', 'izin', 'sakit', 'alpa')),
+  constraint attendance_confirmations_status_check check (status in ('hadir', 'terlambat', 'tidak_hadir')),
   constraint attendance_confirmations_sesi_check check (length(btrim(sesi)) between 1 and 40),
   constraint attendance_confirmations_keterangan_check check (keterangan is null or length(keterangan) <= 300),
   constraint attendance_confirmations_unique unique (santri_id, tanggal, sesi)
@@ -56,7 +56,7 @@ create table public.attendance_confirmation_changes (
   keterangan text,
   diubah_oleh uuid not null default auth.uid() references auth.users(id),
   created_at timestamptz not null default now(),
-  constraint attendance_confirmation_changes_status_check check (status in ('hadir', 'izin', 'sakit', 'alpa')),
+  constraint attendance_confirmation_changes_status_check check (status in ('hadir', 'terlambat', 'tidak_hadir')),
   constraint attendance_confirmation_changes_keterangan_check check (keterangan is null or length(keterangan) <= 300)
 );
 
@@ -270,7 +270,7 @@ begin
     v_status := lower(btrim(coalesce(v_entry->>'status', '')));
     v_keterangan := nullif(btrim(coalesce(v_entry->>'keterangan', '')), '');
 
-    if v_santri is null or v_status not in ('hadir', 'izin', 'sakit', 'alpa') then
+    if v_santri is null or v_status not in ('hadir', 'terlambat', 'tidak_hadir') then
       raise exception 'INVALID_ROLL_CALL_ENTRIES' using errcode = 'invalid_parameter_value';
     end if;
     if v_keterangan is not null and length(v_keterangan) > 300 then

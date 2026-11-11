@@ -88,9 +88,8 @@ returns table (
   kode_kelas text,
   sesi_dikonfirmasi integer,
   hadir integer,
-  izin integer,
-  sakit integer,
-  alpa integer,
+  terlambat integer,
+  tidak_hadir integer,
   sesi_berubah_status integer,
   sesi_pada_hari_libur integer,
   sesi_dengan_tap integer,
@@ -136,9 +135,8 @@ begin
     select santri_id, class_id,
       count(*) filter (where not libur)::integer as total,
       count(*) filter (where not libur and status = 'hadir')::integer as hadir,
-      count(*) filter (where not libur and status = 'izin')::integer as izin,
-      count(*) filter (where not libur and status = 'sakit')::integer as sakit,
-      count(*) filter (where not libur and status = 'alpa')::integer as alpa,
+      count(*) filter (where not libur and status = 'terlambat')::integer as terlambat,
+      count(*) filter (where not libur and status = 'tidak_hadir')::integer as tidak_hadir,
       count(*) filter (where not libur and jumlah_perubahan > 0)::integer as berubah,
       count(*) filter (where libur)::integer as libur,
       count(*) filter (where not libur and ada_tap)::integer as tap
@@ -163,8 +161,8 @@ begin
   select
     public.research_code('santri', s.santri_id),
     public.research_code('kelas', s.class_id),
-    coalesce(ca.total, 0), coalesce(ca.hadir, 0), coalesce(ca.izin, 0), coalesce(ca.sakit, 0),
-    coalesce(ca.alpa, 0), coalesce(ca.berubah, 0), coalesce(ca.libur, 0), coalesce(ca.tap, 0),
+    coalesce(ca.total, 0), coalesce(ca.hadir, 0), coalesce(ca.terlambat, 0), coalesce(ca.tidak_hadir, 0),
+    coalesce(ca.berubah, 0), coalesce(ca.libur, 0), coalesce(ca.tap, 0),
     coalesce(aa.n, 0), coalesce(fa.n, 0), coalesce(fa.terhubung, 0), fa.rerata
   from subjects s
   left join conf_agg ca on ca.santri_id = s.santri_id and ca.class_id = s.class_id

@@ -34,9 +34,8 @@ const SESSION_OPTIONS = Object.keys(DEFAULT_SESSION_TIMES);
 
 const STATUS_STYLES = {
   hadir: 'data-[on=true]:bg-emerald-600 data-[on=true]:text-white data-[on=true]:border-emerald-600',
-  izin: 'data-[on=true]:bg-sky-600 data-[on=true]:text-white data-[on=true]:border-sky-600',
-  sakit: 'data-[on=true]:bg-amber-500 data-[on=true]:text-white data-[on=true]:border-amber-500',
-  alpa: 'data-[on=true]:bg-rose-600 data-[on=true]:text-white data-[on=true]:border-rose-600',
+  terlambat: 'data-[on=true]:bg-amber-500 data-[on=true]:text-white data-[on=true]:border-amber-500',
+  tidak_hadir: 'data-[on=true]:bg-rose-600 data-[on=true]:text-white data-[on=true]:border-rose-600',
 };
 
 const channelLabel = (value) => FOLLOWUP_CHANNELS.find((item) => item.value === value)?.label || value;
@@ -238,7 +237,7 @@ const AttendanceRollCallDialog = ({ open, onOpenChange, kelas }) => {
         {rows.length > 0 && (
           <>
             <p className="text-xs text-muted-foreground" aria-live="polite">
-              Hadir {counts.hadir} · Izin {counts.izin} · Sakit {counts.sakit} · Alpa {counts.alpa}
+              Hadir {counts.hadir} · Terlambat {counts.terlambat} · Tidak Hadir {counts.tidak_hadir}
               {counts.kosong > 0 && <> · <strong className="text-foreground">{counts.kosong} belum ditetapkan</strong></>}
             </p>
             <ol className="grid gap-2">
@@ -272,7 +271,7 @@ const AttendanceRollCallDialog = ({ open, onOpenChange, kelas }) => {
                               aria-checked={isOn}
                               data-on={isOn}
                               onClick={() => setEntry(row.santri_id, { status: item.value })}
-                              className={cn('min-h-[40px] min-w-[56px] rounded-lg border border-border bg-background px-2 text-sm font-medium text-foreground transition active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2', STATUS_STYLES[item.value])}
+                              className={cn('min-h-[40px] min-w-[64px] rounded-lg border border-border bg-background px-2 text-sm font-medium text-foreground transition active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2', STATUS_STYLES[item.value])}
                             >
                               {item.label}
                             </button>
@@ -298,7 +297,7 @@ const AttendanceRollCallDialog = ({ open, onOpenChange, kelas }) => {
                         santri={row}
                         classId={kelas.id}
                         today={today}
-                        defaultWarningDate={row.status === 'alpa' || entry.status === 'alpa' ? tanggal : ''}
+                        defaultWarningDate={row.status === 'tidak_hadir' || entry.status === 'tidak_hadir' ? tanggal : ''}
                         onCancel={() => setOpenFollowup(null)}
                         onSaved={(saved) => { setFollowups((prev) => [saved, ...prev]); setOpenFollowup(null); }}
                       />
