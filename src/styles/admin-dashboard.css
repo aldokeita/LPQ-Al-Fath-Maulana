@@ -2794,7 +2794,7 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
 
 /* Category panel wrapper (e.g. "Santri Paling Disiplin") */
 .dark .lpq-admin-surface .bg-slate-50\/50,
-.dark .lpq-admin-surface [class*="bg-slate-50"] {
+.dark .lpq-admin-surface [class*="bg-slate-50"]:not([class*="bg-slate-500"]) {
   background-color: hsl(var(--admin-surface-raised)) !important;
   border-color: hsl(var(--admin-border)) !important;
 }
