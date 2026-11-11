@@ -209,8 +209,10 @@ begin
 end;
 $$;
 
+-- Satu kontak wali menutup satu atau beberapa perkara milik santri yang sama. Kontak dicatat sekali
+-- (dikaitkan ke perkara pertama) agar indikator tindak lanjut tidak terhitung ganda.
 create or replace function public.record_alert_wali_followup(
-  p_alert_id uuid, p_tanggal_kontak date, p_saluran text, p_hasil text, p_catatan text default null
+  p_alert_ids uuid[], p_tanggal_kontak date, p_saluran text, p_hasil text, p_catatan text default null
 )
 returns uuid
 language plpgsql
@@ -218,16 +220,31 @@ security definer
 set search_path = public
 as $$
 declare
+  v_alerts public.assistant_alerts[];
+  v_first public.assistant_alerts;
   v_alert public.assistant_alerts;
   v_id uuid;
   v_catatan text := nullif(btrim(coalesce(p_catatan, '')), '');
 begin
-  select * into v_alert from public.assistant_alerts where id = p_alert_id;
-  if v_alert.id is null or not public.assistant_alert_visible(v_alert.class_id, v_alert.senyap) then
+  if p_alert_ids is null or cardinality(p_alert_ids) = 0 or cardinality(p_alert_ids) > 20 then
     raise exception 'ALERT_NOT_FOUND' using errcode = 'insufficient_privilege';
   end if;
+  select array_agg(a order by array_position(p_alert_ids, a.id)) into v_alerts
+  from public.assistant_alerts a where a.id = any(p_alert_ids);
+  if coalesce(cardinality(v_alerts), 0) <> cardinality(p_alert_ids) then
+    raise exception 'ALERT_NOT_FOUND' using errcode = 'insufficient_privilege';
+  end if;
+  v_first := v_alerts[1];
+  foreach v_alert in array v_alerts loop
+    if not public.assistant_alert_visible(v_alert.class_id, v_alert.senyap) then
+      raise exception 'ALERT_NOT_FOUND' using errcode = 'insufficient_privilege';
+    end if;
+    if v_alert.santri_id <> v_first.santri_id then
+      raise exception 'ALERTS_DIFFERENT_SANTRI' using errcode = 'invalid_parameter_value';
+    end if;
+  end loop;
   if p_tanggal_kontak is null or p_tanggal_kontak > public.jakarta_today()
-     or p_tanggal_kontak < (v_alert.created_at at time zone 'Asia/Jakarta')::date - 14 then
+     or p_tanggal_kontak < (v_first.created_at at time zone 'Asia/Jakarta')::date - 14 then
     raise exception 'INVALID_CONTACT_DATE' using errcode = 'invalid_parameter_value';
   end if;
   if p_saluran not in ('whatsapp', 'telepon', 'tatap_muka', 'lainnya')
@@ -239,18 +256,18 @@ begin
   end if;
 
   insert into public.wali_followups (santri_id, class_id, guru_id, alert_id, tanggal_kontak, saluran, hasil, catatan)
-  values (v_alert.santri_id, v_alert.class_id, auth.uid(), v_alert.id, p_tanggal_kontak, p_saluran, p_hasil, v_catatan)
+  values (v_first.santri_id, v_first.class_id, auth.uid(), v_first.id, p_tanggal_kontak, p_saluran, p_hasil, v_catatan)
   returning id into v_id;
 
   insert into public.assistant_alert_decisions (alert_id, keputusan, catatan, diputuskan_oleh)
-  values (v_alert.id, 'wali_dihubungi', null, auth.uid());
+  select a.id, 'wali_dihubungi', null, auth.uid() from unnest(v_alerts) a;
   return v_id;
 end;
 $$;
 
 revoke all on function public.record_presence_corrections(uuid, date[], text) from public, anon;
 revoke all on function public.decide_assistant_alert(uuid, text, text) from public, anon;
-revoke all on function public.record_alert_wali_followup(uuid, date, text, text, text) from public, anon;
+revoke all on function public.record_alert_wali_followup(uuid[], date, text, text, text) from public, anon;
 grant execute on function public.record_presence_corrections(uuid, date[], text) to authenticated;
 grant execute on function public.decide_assistant_alert(uuid, text, text) to authenticated;
-grant execute on function public.record_alert_wali_followup(uuid, date, text, text, text) to authenticated;
+grant execute on function public.record_alert_wali_followup(uuid[], date, text, text, text) to authenticated;

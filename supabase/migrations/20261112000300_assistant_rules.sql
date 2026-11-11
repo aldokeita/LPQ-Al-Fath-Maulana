@@ -21,6 +21,21 @@ language sql
 immutable
 as $$ select substring(coalesce(p_jilid, '') from '^Jilid\s*([1-6])[A-C]?$'); $$;
 
+-- Bidang aturan, dipakai untuk menaikkan tingkat bila santri bermasalah di dua bidang berbeda.
+-- Muroja'ah belum ditinjau adalah urusan guru, bukan kondisi santri, jadi tidak ikut.
+create or replace function public.assistant_rule_area(p_rule text)
+returns text
+language sql
+immutable
+as $$
+  select case
+    when p_rule in ('absen_beruntun', 'kehadiran_bulanan') then 'kehadiran'
+    when p_rule = 'jilid_lama' then 'jilid'
+    when p_rule in ('hafalan_macet', 'hafalan_wajib_belum_lulus') then 'hafalan'
+    else 'lainnya'
+  end;
+$$;
+
 create or replace function public.assistant_is_present(p_santri uuid, p_date date)
 returns boolean
 language sql
@@ -198,7 +213,14 @@ begin
           where hp.santri_id = r.santri_id and hp.item_id = hi.id and hp.status = 'lulus'
         );
 
-      if v_count > 0 then
+      -- Hanya bila guru sudah mulai mencatat hafalan jilid ini untuk santri tersebut; tanpa catatan,
+      -- yang kosong adalah datanya, bukan hafalan santrinya.
+      if v_count > 0 and exists (
+        select 1 from public.hafalan_progress hp
+        join public.hafalan_items hi on hi.id = hp.item_id
+        where hp.santri_id = r.santri_id and hi.program_scope = 'TPQ'
+          and btrim(hi.jilid) = public.assistant_hafalan_jilid_key(r.jilid)
+      ) then
         v_inserted := v_inserted + public.assistant_insert_alert(
           r.santri_id, r.class_id, 'hafalan_wajib_belum_lulus', 'sedang',
           format('%s item hafalan wajib %s belum lulus, sudah %s dari %s hari batas jilid.', v_count, r.jilid, v_jilid_days, v_threshold),
@@ -228,7 +250,7 @@ end;
 $$;
 
 -- Menyimpan satu peringatan bila belum ada (dedupe). Peringatan menjadi 'tinggi' bila santri yang
--- sama sedang punya peringatan terbuka dari aturan lain dalam 7 hari terakhir.
+-- sama sedang punya peringatan terbuka di bidang lain (kehadiran/jilid/hafalan) dalam 7 hari terakhir.
 create or replace function public.assistant_insert_alert(
   p_santri uuid, p_class uuid, p_rule text, p_tingkat text, p_alasan text, p_detail jsonb,
   p_dedupe text, p_episode text, p_silent boolean, p_ref date, p_settings_id bigint
@@ -240,11 +262,21 @@ set search_path = public
 as $$
 declare
   v_tingkat text := p_tingkat;
+  v_area text := public.assistant_rule_area(p_rule);
   v_rows integer;
 begin
-  if exists (
+  -- 'rendah' berarti pengingat ulang; peringatan pertama dalam satu episode minimal 'sedang'.
+  if v_tingkat = 'rendah' and p_rule <> 'murojaah_belum_ditinjau' and not exists (
     select 1 from public.assistant_alerts a
-    where a.santri_id = p_santri and a.rule <> p_rule and a.senyap = p_silent
+    where a.santri_id = p_santri and a.rule = p_rule and a.episode_key = p_episode and a.senyap = p_silent
+  ) then
+    v_tingkat := 'sedang';
+  end if;
+
+  if v_area <> 'lainnya' and exists (
+    select 1 from public.assistant_alerts a
+    where a.santri_id = p_santri and a.senyap = p_silent
+      and public.assistant_rule_area(a.rule) not in (v_area, 'lainnya')
       and a.created_at > now() - interval '7 days'
       and not exists (select 1 from public.assistant_alert_decisions d
                       join public.assistant_alerts a2 on a2.id = d.alert_id

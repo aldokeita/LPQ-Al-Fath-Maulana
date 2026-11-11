@@ -10,7 +10,7 @@ insert into auth.users (id, email) values
   ('7e571000-0000-0000-0000-0000000000a1', 'TEST-t1-guru-a@local.invalid'),
   ('7e571000-0000-0000-0000-0000000000b1', 'TEST-t1-guru-b@local.invalid');
 insert into auth.users (id, email)
-select ('7e571000-0000-0000-0000-00000000010' || n)::uuid, 'TEST-t1-santri-' || n || '@local.invalid' from generate_series(1, 5) n;
+select ('7e571000-0000-0000-0000-00000000010' || n)::uuid, 'TEST-t1-santri-' || n || '@local.invalid' from generate_series(1, 6) n;
 insert into public.user_profiles (id, role, status, email) values
   ('7e571000-0000-0000-0000-00000000000a', 'admin', 'active', 'admin@lpqalfathmaulana.id'),
   ('7e571000-0000-0000-0000-0000000000a1', 'guru', 'active', null),
@@ -27,7 +27,8 @@ insert into public.santri (id, nomor_induk_qiroati, nama_lengkap, kategori, curr
   ('7e571000-0000-0000-0000-000000000102', 'TESTT1-2', 'TEST T1 Dua', 'Anak', '7e571000-0000-0000-0000-0000000c1a00', 'Jilid 2A'),
   ('7e571000-0000-0000-0000-000000000103', 'TESTT1-3', 'TEST T1 Tiga', 'Anak', '7e571000-0000-0000-0000-0000000c1a00', 'Jilid 1A'),
   ('7e571000-0000-0000-0000-000000000104', 'TESTT1-4', 'TEST T1 Empat', 'Anak', '7e571000-0000-0000-0000-0000000c1b00', null),
-  ('7e571000-0000-0000-0000-000000000105', 'TESTT1-5', 'TEST T1 Lima', 'PTPT', '7e571000-0000-0000-0000-0000000c1a00', null);
+  ('7e571000-0000-0000-0000-000000000105', 'TESTT1-5', 'TEST T1 Lima', 'PTPT', '7e571000-0000-0000-0000-0000000c1a00', null),
+  ('7e571000-0000-0000-0000-000000000106', 'TESTT1-6', 'TEST T1 Enam', 'Anak', '7e571000-0000-0000-0000-0000000c1a00', 'Jilid 3A');
 insert into public.class_memberships (santri_id, class_id, start_date, status)
 select s.id, s.current_class_id, date '2026-09-01', 'active' from public.santri s where s.nomor_induk_qiroati like 'TESTT1-%';
 
@@ -41,6 +42,7 @@ insert into public.academic_calendar (date, title, is_holiday) values (date '202
 --   S3: 14 Okt s.d. 30 Okt (12 sesi)                          -> absen_beruntun tinggi, kehadiran_bulanan
 --   S4: 27, 28, 30 Okt (kelas B)                              -> hanya terlihat oleh guru B
 --   S5: 20 s.d. 30 Okt (PTPT)                                 -> tidak diperiksa
+--   S6: hadir rutin, Jilid 3A sejak 15-09 tanpa catatan hafalan -> jilid lama saja
 insert into public.attendance (user_id, role, attendance_date, check_in_time, class_id, sesi, status, source)
 select s.id, 'santri', d::date, '15:50', s.current_class_id, 'Sore', 'Hadir', 'rfid'
 from public.santri s
@@ -55,7 +57,8 @@ where s.nomor_induk_qiroati like 'TESTT1-%'
 -- S2 di Jilid 2A sejak 15-09 (45 hari - 1 libur = 44 > 30); S3 di Jilid 1A sejak 20-10.
 insert into public.jilid_history (santri_id, from_jilid, to_jilid, changed_at) values
   ('7e571000-0000-0000-0000-000000000102', 'Jilid 1C', 'Jilid 2A', timestamptz '2026-09-15 10:00+07'),
-  ('7e571000-0000-0000-0000-000000000103', 'Pra TK C', 'Jilid 1A', timestamptz '2026-10-20 10:00+07');
+  ('7e571000-0000-0000-0000-000000000103', 'Pra TK C', 'Jilid 1A', timestamptz '2026-10-20 10:00+07'),
+  ('7e571000-0000-0000-0000-000000000106', 'Jilid 2B', 'Jilid 3A', timestamptz '2026-09-15 10:00+07');
 
 -- S2: satu item hafalan macet sejak 01-09. S1: satu setoran muroja'ah belum ditinjau sejak 01-10.
 insert into public.hafalan_progress (santri_id, item_id, category, item_name, status, created_at, updated_at)
@@ -100,7 +103,7 @@ declare r jsonb;
 begin
   if (public.get_assistant_settings()->>'silent_mode')::boolean is not true then raise exception 'TEST FAIL: silent default'; end if;
   r := public.run_assistant_rules(date '2026-10-30', true);
-  if (r->>'peringatan_baru')::int < 7 or (r->>'senyap')::boolean is not true then raise exception 'TEST FAIL: silent run %', r; end if;
+  if (r->>'peringatan_baru')::int < 8 or (r->>'senyap')::boolean is not true then raise exception 'TEST FAIL: silent run %', r; end if;
   r := public.get_assistant_attention(null);
   if jsonb_array_length(r->'items') <> 0 or (r->>'senyap_tersimpan')::int < 7 then raise exception 'TEST FAIL: admin silent view %', r; end if;
 
@@ -134,7 +137,7 @@ begin
   r := public.save_assistant_settings('{"silent_mode": false}');
   if (r->>'silent_mode')::boolean or (r#>>'{attendance,consecutive_sessions}')::int <> 3 then raise exception 'TEST FAIL: save merge %', r; end if;
   r := public.run_assistant_rules(date '2026-10-30', true);
-  if (r->>'peringatan_baru')::int < 7 then raise exception 'TEST FAIL: visible run %', r; end if;
+  if (r->>'peringatan_baru')::int < 8 then raise exception 'TEST FAIL: visible run %', r; end if;
   r := public.run_assistant_rules(date '2026-10-30', true);
   if (r->>'peringatan_baru')::int <> 0 then raise exception 'TEST FAIL: dedupe %', r; end if;
 end $$;
@@ -168,6 +171,16 @@ begin
     raise exception 'TEST FAIL: S2 hafalan wajib'; end if;
   if not exists (select 1 from t1_items where item->>'nama' = 'TEST T1 Satu' and item->>'rule' = 'murojaah_belum_ditinjau') then
     raise exception 'TEST FAIL: S1 murojaah'; end if;
+  -- Tingkat: peringatan pertama minimal sedang; naik ke tinggi hanya lintas bidang (jilid + hafalan).
+  if (select item->>'tingkat' from t1_items where item->>'nama' = 'TEST T1 Dua' and item->>'rule' = 'jilid_lama') <> 'sedang' then
+    raise exception 'TEST FAIL: S2 jilid tingkat'; end if;
+  if (select item->>'tingkat' from t1_items where item->>'nama' = 'TEST T1 Dua' and item->>'rule' = 'hafalan_macet') <> 'tinggi' then
+    raise exception 'TEST FAIL: S2 hafalan escalation'; end if;
+  -- S6: jilid lama tetapi belum ada catatan hafalan -> tidak ada peringatan hafalan wajib.
+  if not exists (select 1 from t1_items where item->>'nama' = 'TEST T1 Enam' and item->>'rule' = 'jilid_lama') then
+    raise exception 'TEST FAIL: S6 jilid'; end if;
+  if exists (select 1 from t1_items where item->>'nama' = 'TEST T1 Enam' and item->>'rule' = 'hafalan_wajib_belum_lulus') then
+    raise exception 'TEST FAIL: S6 hafalan wajib without records'; end if;
   -- S3 jilid baru 10 hari: tidak ada peringatan jilid. S4 kelas lain dan S5 PTPT tidak terlihat.
   if exists (select 1 from t1_items where item->>'nama' = 'TEST T1 Tiga' and item->>'rule' = 'jilid_lama') then
     raise exception 'TEST FAIL: S3 jilid'; end if;
@@ -220,10 +233,27 @@ begin
 
   -- Wali S3 dihubungi untuk kehadiran bulanan.
   select item into v from t1_items where item->>'nama' = 'TEST T1 Tiga' and item->>'rule' = 'kehadiran_bulanan';
-  begin perform public.record_alert_wali_followup((v->>'alert_id')::uuid, public.jakarta_today() + 1, 'whatsapp', 'terhubung', null);
+  begin perform public.record_alert_wali_followup(array[(v->>'alert_id')::uuid], public.jakarta_today() + 1, 'whatsapp', 'terhubung', null);
     raise exception 'TEST FAIL: future contact date';
   exception when invalid_parameter_value then null; end;
-  perform public.record_alert_wali_followup((v->>'alert_id')::uuid, public.jakarta_today(), 'whatsapp', 'janji_hadir', null);
+  -- Perkara dari dua santri berbeda dalam satu kontak ditolak.
+  begin perform public.record_alert_wali_followup(array[(v->>'alert_id')::uuid,
+      (select (item->>'alert_id')::uuid from t1_items where item->>'nama' = 'TEST T1 Dua' and item->>'rule' = 'hafalan_macet')],
+      public.jakarta_today(), 'whatsapp', 'terhubung', null);
+    raise exception 'TEST FAIL: mixed santri followup';
+  exception when invalid_parameter_value then null; end;
+  perform public.record_alert_wali_followup(array[(v->>'alert_id')::uuid], public.jakarta_today(), 'whatsapp', 'janji_hadir', null);
+  -- Satu kontak menutup dua perkara S2 sekaligus, tetapi hanya satu baris tindak lanjut.
+  perform public.record_alert_wali_followup(array(
+      select (item->>'alert_id')::uuid from t1_items where item->>'nama' = 'TEST T1 Dua' and item->>'rule' in ('hafalan_macet', 'hafalan_wajib_belum_lulus')),
+    public.jakarta_today(), 'telepon', 'terhubung', null);
+  if (select count(*) from public.wali_followups where santri_id = '7e571000-0000-0000-0000-000000000102') <> 1 then
+    raise exception 'TEST FAIL: one contact should be one followup row';
+  end if;
+  if exists (select 1 from jsonb_array_elements(public.get_assistant_attention(null)->'items') x
+             where x->>'nama' = 'TEST T1 Dua' and x->>'rule' in ('hafalan_macet', 'hafalan_wajib_belum_lulus')) then
+    raise exception 'TEST FAIL: grouped followup did not close both';
+  end if;
 
   r := public.get_assistant_attention(null);
   if exists (select 1 from jsonb_array_elements(r->'items') x
