@@ -50,6 +50,7 @@ import { facePilotEnabled } from '@/lib/faceAttendanceApi';
 const ProfileConstellationScene = lazy(() => import('@/components/dashboard/santri/SantriLevelScene'));
 // The face camera and its models load only when a guru opens their face registration.
 const GuruFaceEnrollmentDialog = lazy(() => import('@/components/dashboard/guru/GuruFaceEnrollmentDialog'));
+const AttentionPanel = lazy(() => import('@/components/dashboard/assistant/AttentionPanel'));
 
 const jilidOptions = QIROATI_JILID_OPTIONS;
 
@@ -507,6 +508,7 @@ const GuruDashboard = () => {
             </div>
           </section>
         )}
+        <Suspense fallback={null}><AttentionPanel variant="guru" /></Suspense>
         <div className="space-y-8">
             {myClasses.map(cls => (
                 <Card key={cls.id} className="shadow-lg hover:shadow-xl transition-shadow duration-300 border-border/50">
