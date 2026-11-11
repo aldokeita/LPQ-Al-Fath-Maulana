@@ -50,6 +50,7 @@ import { facePilotEnabled } from '@/lib/faceAttendanceApi';
 const ProfileConstellationScene = lazy(() => import('@/components/dashboard/santri/SantriLevelScene'));
 // The face camera and its models load only when a guru opens their face registration.
 const GuruFaceEnrollmentDialog = lazy(() => import('@/components/dashboard/guru/GuruFaceEnrollmentDialog'));
+const AttendanceRollCallDialog = lazy(() => import('@/components/dashboard/guru/AttendanceRollCallDialog'));
 
 const jilidOptions = QIROATI_JILID_OPTIONS;
 
@@ -171,6 +172,7 @@ const GuruDashboard = () => {
   const [isFaceOpen, setIsFaceOpen] = useState(false);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [isRecapOpen, setIsRecapOpen] = useState(false);
+  const [rollCallClass, setRollCallClass] = useState(null);
   const [myClasses, setMyClasses] = useState([]);
   const [dailyAttendance, setDailyAttendance] = useState([]);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
@@ -514,7 +516,10 @@ const GuruDashboard = () => {
                         <CardTitle className={cn("flex items-center gap-3 text-lg md:text-xl font-bold", headerText)}>
                             <Users className="w-6 h-6" /> Kelas: {cls.nama_kelas}
                         </CardTitle>
-                        <CardDescription className="text-sm font-medium">Sesi: {cls.sesi} | Santri Aktif: {cls.santri.length}</CardDescription>
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                            <CardDescription className="text-sm font-medium">Sesi: {cls.sesi} | Santri Aktif: {cls.santri.length}</CardDescription>
+                            <Button type="button" size="sm" variant="outline" onClick={() => setRollCallClass(cls)} className="bg-background/80"><CalendarCheck className="mr-2 h-4 w-4" aria-hidden="true" /> Absen Panggil</Button>
+                        </div>
                     </CardHeader>
                     <CardContent className="p-0">
                         <div className="overflow-x-auto">
@@ -785,6 +790,7 @@ const GuruDashboard = () => {
       </Dialog>
 
       <MmqSection open={isMmqOpen} onOpenChange={setIsMmqOpen} guru={guruData} />
+      {rollCallClass && <Suspense fallback={null}><AttendanceRollCallDialog open={Boolean(rollCallClass)} onOpenChange={(isOpen) => { if (!isOpen) setRollCallClass(null); }} kelas={rollCallClass} /></Suspense>}
       {isFaceOpen && <Suspense fallback={null}><GuruFaceEnrollmentDialog guruName={guruData?.nama} onClose={() => setIsFaceOpen(false)} /></Suspense>}
       {guruData && <EditGuruProfileModal isOpen={isEditProfileOpen} onOpenChange={setIsEditProfileOpen} guruData={guruData} onProfileUpdate={fetchGuruData} themeColor={themeGradient} />}
       <Dialog open={isRecapOpen} onOpenChange={setIsRecapOpen}><DialogContent className="max-w-6xl max-h-[95vh] overflow-y-auto"><DialogHeader><DialogTitle>Rekap Absensi Guru</DialogTitle></DialogHeader><div className="mt-4"><GuruAttendanceRecap isReadOnly={true} /></div></DialogContent></Dialog>
