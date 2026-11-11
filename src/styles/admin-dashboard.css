@@ -78,9 +78,13 @@
 }
 
 .dark body.lpq-admin-context .bg-background,
-.dark body.lpq-admin-context .bg-background,
 .dark body.lpq-admin-context > #root > div {
   background-color: transparent !important;
+}
+
+/* Switch thumb uses bg-background; keep it opaque so the knob stays visible */
+.dark body.lpq-admin-context [role="switch"] > .bg-background {
+  background-color: hsl(var(--admin-text-primary)) !important;
 }
 
 /* ============================================================
