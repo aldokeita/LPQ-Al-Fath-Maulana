@@ -326,6 +326,36 @@ begin
 end $$;
 reset role;
 
+-- ===== Ringkasan santri untuk infografik: lingkup kelas dan mode senyap =====
+set local role authenticated;
+do $$
+declare r jsonb; v jsonb;
+begin
+  perform set_config('request.jwt.claims', '{"sub":"7e571000-0000-0000-0000-0000000000a1","role":"authenticated"}', true);
+  r := public.get_assistant_santri_snapshot(array['7e571000-0000-0000-0000-000000000102', '7e571000-0000-0000-0000-000000000104']::uuid[]);
+  if jsonb_array_length(r) <> 1 or r->0->>'santri_id' <> '7e571000-0000-0000-0000-000000000102' then
+    raise exception 'TEST FAIL: snapshot scope guru A %', r; end if;
+  v := r->0;
+  if (v->>'jilid_hari')::int is null or (v->>'jilid_batas')::int is null or jsonb_array_length(v->'sesi_terakhir') = 0
+     or v->'hafalan'->>'total' is null then
+    raise exception 'TEST FAIL: snapshot fields %', v; end if;
+
+  perform set_config('request.jwt.claims', '{"sub":"7e571000-0000-0000-0000-0000000000b1","role":"authenticated"}', true);
+  if jsonb_array_length(public.get_assistant_santri_snapshot(array['7e571000-0000-0000-0000-000000000102']::uuid[])) <> 0 then
+    raise exception 'TEST FAIL: guru B sees class A snapshot'; end if;
+
+  perform set_config('request.jwt.claims', '{"sub":"7e571000-0000-0000-0000-00000000000a","role":"authenticated"}', true);
+  perform public.save_assistant_settings('{"silent_mode": true}');
+  perform set_config('request.jwt.claims', '{"sub":"7e571000-0000-0000-0000-0000000000a1","role":"authenticated"}', true);
+  if jsonb_array_length(public.get_assistant_santri_snapshot(array['7e571000-0000-0000-0000-000000000102']::uuid[])) <> 0 then
+    raise exception 'TEST FAIL: snapshot visible in silent mode'; end if;
+  perform set_config('request.jwt.claims', '{"sub":"7e571000-0000-0000-0000-00000000000a","role":"authenticated"}', true);
+  if jsonb_array_length(public.get_assistant_santri_snapshot(array['7e571000-0000-0000-0000-000000000102']::uuid[])) <> 1 then
+    raise exception 'TEST FAIL: admin snapshot in silent mode'; end if;
+  perform public.save_assistant_settings('{"silent_mode": false}');
+end $$;
+reset role;
+
 -- ===== Pemilik/service role: tetap hanya-tambah; tap asli utuh; tutup otomatis saat kembali hadir =====
 do $$
 declare v_n int; v_h text; r jsonb;
@@ -343,6 +373,14 @@ begin
   end if;
 
   if not exists (select 1 from cron.job where jobname = 'assistant-rules-daily') then raise exception 'TEST FAIL: cron job'; end if;
+
+  -- S2 naik jilid -> perkara hafalan wajib jilid lama ikut tertutup.
+  update public.santri set jilid = 'Jilid 2B' where id = '7e571000-0000-0000-0000-000000000102';
+  perform set_config('request.jwt.claims', '{"sub":"7e571000-0000-0000-0000-0000000000a1","role":"authenticated"}', true);
+  r := public.get_assistant_attention(null);
+  if exists (select 1 from jsonb_array_elements(r->'items') x where x->>'nama' = 'TEST T1 Dua' and x->>'rule' in ('hafalan_wajib_belum_lulus', 'jilid_lama')) then
+    raise exception 'TEST FAIL: S2 jilid-bound alerts not closed after promotion';
+  end if;
 
   -- S3 kembali hadir 02-11 -> kartu absen S3 tertutup otomatis.
   insert into public.attendance (user_id, role, attendance_date, check_in_time, class_id, sesi, status, source)
