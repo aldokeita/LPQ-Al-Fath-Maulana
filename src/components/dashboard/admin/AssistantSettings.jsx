@@ -15,7 +15,7 @@ import {
 import AttentionPanel from '@/components/dashboard/assistant/AttentionPanel';
 
 const NumberField = ({ id, label, hint, value, onChange, min, max, suffix }) => (
-  <div className="grid gap-1.5">
+  <div className="grid content-start gap-1.5">
     <Label htmlFor={id}>{label}</Label>
     <div className="flex items-center gap-2">
       <Input id={id} type="number" inputMode="numeric" min={min} max={max} className="w-24"
@@ -132,7 +132,7 @@ const AssistantSettings = () => {
                     Matikan saat asisten mulai dipakai.
                   </p>
                 </div>
-                <Switch id="assistant-silent" checked={draft.silent_mode} onCheckedChange={(v) => set('silent_mode', v)} />
+                <Switch id="assistant-silent" className="data-[state=unchecked]:bg-slate-300 dark:data-[state=unchecked]:bg-slate-600" checked={draft.silent_mode} onCheckedChange={(v) => set('silent_mode', v)} />
               </div>
 
               <fieldset className="rounded-xl border border-border/70 p-4">
