@@ -23,7 +23,12 @@ const TINGKAT_STYLES = {
   rendah: 'bg-slate-100 text-slate-700 ring-slate-300 dark:bg-slate-400/15 dark:text-slate-200 dark:ring-slate-400/30',
 };
 
-const ACCENT = { tinggi: 'border-l-rose-500', sedang: 'border-l-amber-500', rendah: 'border-l-slate-400' };
+// Tingkat dibaca dari label; hanya kartu prioritas tinggi diberi rona lembut agar tetap menonjol.
+const CARD_TONE = {
+  tinggi: 'border-rose-300/70 bg-rose-50/60 dark:border-rose-400/30 dark:bg-rose-500/[0.06]',
+  sedang: 'border-border/70 bg-card',
+  rendah: 'border-border/70 bg-card',
+};
 
 const CorrectionForm = ({ item, onDone, onCancel }) => {
   const dates = getAbsentDates(item);
@@ -238,7 +243,7 @@ const SantriCard = ({ group, onChanged }) => {
   };
 
   return (
-    <li className={cn('rounded-xl border border-l-4 border-border/70 bg-card p-3 shadow-sm', ACCENT[group.tingkat])}>
+    <li className={cn('rounded-xl border p-3 shadow-sm', CARD_TONE[group.tingkat])}>
       <div className="mb-2 flex items-start justify-between gap-2">
         <p className="font-semibold text-foreground">{group.nama}</p>
         <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ring-1', TINGKAT_STYLES[group.tingkat])}>
