@@ -101,6 +101,18 @@ export const SETTINGS_LIMITS = Object.freeze({
   'hafalan.murojaah_review_max_days': [1, 60],
 });
 
+export const SETTINGS_LABELS = Object.freeze({
+  'attendance.consecutive_sessions': 'Peringatan setelah (sesi beruntun)',
+  'attendance.repeat_every_sessions': 'Ingatkan ulang kehadiran (sesi)',
+  'attendance.high_consecutive_sessions': 'Tingkat tinggi mulai (sesi beruntun)',
+  'attendance.monthly_min_percent': 'Kehadiran minimal 4 pekan (%)',
+  'jilid.default_days': 'Batas di satu jilid (hari)',
+  'jilid.repeat_every_days': 'Ingatkan ulang jilid (hari)',
+  'hafalan.proses_max_days': 'Item proses/ulang terlalu lama (hari)',
+  'hafalan.required_items_after_percent': 'Cek hafalan wajib setelah (% batas jilid)',
+  'hafalan.murojaah_review_max_days': 'Setoran belum ditinjau (hari)',
+});
+
 const getPath = (obj, path) => path.split('.').reduce((acc, key) => acc?.[key], obj);
 
 const setPath = (obj, path, value) => {
@@ -119,7 +131,7 @@ export const validateSettings = (settings) => {
   if (!Array.isArray(settings.school_days) || settings.school_days.length === 0) return 'Pilih minimal satu hari sekolah.';
   for (const [path, [min, max]] of Object.entries(SETTINGS_LIMITS)) {
     const value = Number(getPath(settings, path));
-    if (!Number.isInteger(value) || value < min || value > max) return `Nilai ${path} harus bilangan bulat ${min}–${max}.`;
+    if (!Number.isInteger(value) || value < min || value > max) return `${SETTINGS_LABELS[path]} harus bilangan bulat ${min}–${max}.`;
   }
   if (settings.attendance.high_consecutive_sessions < settings.attendance.consecutive_sessions) {
     return 'Ambang tingkat tinggi tidak boleh lebih kecil dari ambang peringatan.';

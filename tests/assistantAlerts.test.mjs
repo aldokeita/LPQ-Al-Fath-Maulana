@@ -34,7 +34,7 @@ test('kelompok per kelas dan hitungan tingkat', () => {
 
 test('pengaturan: validasi batas dan partial update', () => {
   assert.equal(validateSettings(defaults), null);
-  assert.match(validateSettings(updateSetting(defaults, 'attendance.consecutive_sessions', 1)), /attendance\.consecutive_sessions/);
+  assert.match(validateSettings(updateSetting(defaults, 'attendance.consecutive_sessions', 1)), /^Peringatan setelah \(sesi beruntun\) harus bilangan bulat 2–20/);
   assert.match(validateSettings(updateSetting(defaults, 'attendance.high_consecutive_sessions', 2)), /tingkat tinggi/);
   assert.match(validateSettings({ ...defaults, school_days: [] }), /hari/);
   assert.match(validateSettings(updateSetting(defaults, 'jilid.per_jilid', { 'Jilid 2A': 3 })), /Jilid 2A/);
