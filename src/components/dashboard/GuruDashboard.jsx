@@ -355,6 +355,17 @@ const GuruDashboard = () => {
 
   const pendingSubmissionsCount = useMemo(() => murojaahSubmissions.filter(sub => sub.status === 'menunggu').length, [murojaahSubmissions]);
   const allMySantri = useMemo(() => myClasses.flatMap(c => c.santri), [myClasses]);
+  const findMySantri = (santriId) => allMySantri.find((s) => s.id === santriId);
+  // Aksi dari panel "Perlu Perhatian" memakai modal yang sudah ada di dasbor ini.
+  const attentionActions = {
+    onOpenDetail: (santriId) => { const santri = findMySantri(santriId); if (santri) openDetailModal(santri); },
+    onOpenHafalan: (santriId, category) => { const santri = findMySantri(santriId); if (santri) openHafalanModal(santri, category); },
+    onOpenMurojaah: () => setIsMurojaahOpen(true),
+    onJilidChanged: (santriId, toJilid) => setMyClasses((prev) => prev.map((cls) => ({
+      ...cls,
+      santri: cls.santri.map((s) => (s.id === santriId ? { ...s, jilid: toJilid } : s)),
+    }))),
+  };
   const birthdayStudentsThisMonth = useMemo(() => getBirthdaysThisMonth(allMySantri), [allMySantri]);
   const categories = [...new Set(hafalanItems.map(i => i.category))];
   const filteredManualItems = hafalanItems.filter(i => i.category === manualMurojaahForm.category).map(i => i.item_name);
@@ -508,7 +519,7 @@ const GuruDashboard = () => {
             </div>
           </section>
         )}
-        <Suspense fallback={null}><AttentionPanel variant="guru" /></Suspense>
+        <Suspense fallback={null}><AttentionPanel variant="guru" actions={attentionActions} guruName={guruData?.nama} /></Suspense>
         <div className="space-y-8">
             {myClasses.map(cls => (
                 <Card key={cls.id} className="shadow-lg hover:shadow-xl transition-shadow duration-300 border-border/50">

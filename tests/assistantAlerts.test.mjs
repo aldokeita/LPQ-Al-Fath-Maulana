@@ -66,3 +66,50 @@ test('satu kartu per santri, tingkat tertinggi di depan', async () => {
     ['Citra', 'sedang', ['absen_beruntun']],
   ]);
 });
+
+const infographic = await import('../src/lib/assistantAlerts.js');
+
+test('meteran jilid membagi bagian dalam batas dan yang terlewat', () => {
+  const over = infographic.getJilidMeter({ jilid_hari: 45, jilid_batas: 30 });
+  assert.equal(over.over, 15);
+  assert.equal(Math.round(over.markerPct), 67);
+  assert.equal(Math.round(over.withinPct + over.overPct), 100);
+  const within = infographic.getJilidMeter({ jilid_hari: 12, jilid_batas: 30 });
+  assert.equal(within.over, 0);
+  assert.equal(within.markerPct, 100);
+  assert.equal(within.withinPct, 40);
+  assert.equal(infographic.getJilidMeter({ jilid_hari: null, jilid_batas: 30 }), null);
+});
+
+test('ringkasan kehadiran dan cincin hafalan', () => {
+  const pulse = [{ t: '2026-11-02', s: 'hadir' }, { t: '2026-11-03', s: 'absen' }, { t: '2026-11-04', s: 'koreksi' }, { t: '2026-11-05', s: 'terlambat' }];
+  assert.deepEqual(infographic.summarizePulse(pulse), { total: 4, hadir: 3, absen: 1 });
+  assert.equal(infographic.percentOf(11, 19), 58);
+  assert.equal(infographic.percentOf(1, 0), null);
+  assert.equal(infographic.getHafalanRing({ total: 20, lulus: 5, proses: 2, dicatat: 7 }).pct, 25);
+  assert.equal(infographic.getHafalanRing({ total: 0 }), null);
+});
+
+test('jumlah santri per bidang tidak menghitung ganda', () => {
+  const counts = infographic.countSantriByArea([
+    { santri_id: 'a', rule: 'absen_beruntun' }, { santri_id: 'a', rule: 'kehadiran_bulanan' },
+    { santri_id: 'b', rule: 'jilid_lama' }, { santri_id: 'b', rule: 'hafalan_macet' }, { santri_id: 'b', rule: 'hafalan_wajib_belum_lulus' },
+  ]);
+  assert.deepEqual(counts, { kehadiran: 1, jilid: 1, hafalan: 1, murojaah: 0 });
+});
+
+test('draf pesan wali memakai nama panggilan dan alasan yang relevan', () => {
+  const text = infographic.buildWaliMessage({
+    nama: 'Citra Ayu', namaPanggilan: 'Citra',
+    items: [
+      { rule: 'absen_beruntun', detail: { streak: 4, absent_dates: ['2026-11-05', '2026-11-02'] } },
+      { rule: 'hafalan_macet', detail: {} }, { rule: 'hafalan_wajib_belum_lulus', detail: {} },
+      { rule: 'murojaah_belum_ditinjau', detail: {} },
+    ],
+  }, { guruName: 'Ustadzah A' });
+  assert.match(text, /ananda Citra/);
+  assert.match(text, /belum hadir mengaji 4 kali berturut-turut sejak Sen, 2 Nov/);
+  assert.equal((text.match(/ada hafalan/g) || []).length, 1);
+  assert.doesNotMatch(text, /muroja/i);
+  assert.match(text, /Ustadzah A$/);
+});

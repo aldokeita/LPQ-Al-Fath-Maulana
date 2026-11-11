@@ -61,7 +61,7 @@ export const groupAttentionBySantri = (items = []) => {
   const groups = new Map();
   items.forEach((item) => {
     if (!groups.has(item.santri_id)) {
-      groups.set(item.santri_id, { santriId: item.santri_id, nama: item.nama, classId: item.class_id, namaKelas: item.nama_kelas, items: [] });
+      groups.set(item.santri_id, { santriId: item.santri_id, nama: item.nama, namaPanggilan: item.nama_panggilan, classId: item.class_id, namaKelas: item.nama_kelas, items: [] });
     }
     groups.get(item.santri_id).items.push(item);
   });
@@ -161,4 +161,89 @@ export const buildSettingsPatch = (saved, draft) => {
     patch.jilid = { ...(patch.jilid || {}), per_jilid: draft.jilid.per_jilid };
   }
   return patch;
+};
+
+// ===== Infografik kartu santri =====
+
+export const RULE_AREAS = Object.freeze({
+  absen_beruntun: 'kehadiran',
+  kehadiran_bulanan: 'kehadiran',
+  jilid_lama: 'jilid',
+  hafalan_macet: 'hafalan',
+  hafalan_wajib_belum_lulus: 'hafalan',
+  murojaah_belum_ditinjau: 'murojaah',
+});
+
+export const AREA_LABELS = Object.freeze({
+  kehadiran: 'Kehadiran', jilid: 'Jilid', hafalan: 'Hafalan', murojaah: "Muroja'ah",
+});
+
+// Jumlah santri (bukan perkara) per bidang, untuk ringkasan di kepala panel.
+export const countSantriByArea = (items = []) => {
+  const sets = { kehadiran: new Set(), jilid: new Set(), hafalan: new Set(), murojaah: new Set() };
+  items.forEach((item) => { const area = RULE_AREAS[item.rule]; if (area) sets[area].add(item.santri_id); });
+  return Object.fromEntries(Object.entries(sets).map(([area, set]) => [area, set.size]));
+};
+
+export const summarizePulse = (sessions = []) => {
+  const list = Array.isArray(sessions) ? sessions : [];
+  const hadir = list.filter((s) => s.s !== 'absen').length;
+  return { total: list.length, hadir, absen: list.length - hadir };
+};
+
+export const percentOf = (part, total) => (total > 0 ? Math.round((part * 100) / total) : null);
+
+// Batang lama di jilid: bagian dalam batas dan bagian yang melewati batas, dalam persen lebar.
+export const getJilidMeter = (snapshot) => {
+  const days = Number(snapshot?.jilid_hari);
+  const limit = Number(snapshot?.jilid_batas);
+  if (!Number.isFinite(days) || !Number.isFinite(limit) || limit <= 0 || snapshot?.jilid_hari == null) return null;
+  const scale = Math.max(days, limit);
+  const within = Math.min(days, limit);
+  return {
+    days,
+    limit,
+    over: Math.max(days - limit, 0),
+    withinPct: (within * 100) / scale,
+    overPct: (Math.max(days - limit, 0) * 100) / scale,
+    markerPct: (limit * 100) / scale,
+  };
+};
+
+export const getHafalanRing = (hafalan) => {
+  if (!hafalan || !hafalan.total) return null;
+  return {
+    total: hafalan.total,
+    lulus: hafalan.lulus || 0,
+    proses: hafalan.proses || 0,
+    dicatat: hafalan.dicatat || 0,
+    pct: percentOf(hafalan.lulus || 0, hafalan.total),
+  };
+};
+
+const firstName = (group) => (group?.namaPanggilan || String(group?.nama || '').split(' ')[0] || 'ananda');
+
+// Draf pesan untuk wali. Guru meninjau dan mengirimnya sendiri dari WhatsApp pribadinya.
+export const buildWaliMessage = (group, { guruName } = {}) => {
+  const lines = [];
+  (group?.items || []).forEach((item) => {
+    if (item.rule === 'absen_beruntun') {
+      const dates = getAbsentDates(item);
+      lines.push(`belum hadir mengaji ${item.detail?.streak || dates.length} kali berturut-turut${dates[0] ? ` sejak ${formatSchoolDate(dates[0])}` : ''}`);
+    } else if (item.rule === 'kehadiran_bulanan') {
+      lines.push(`kehadirannya 4 pekan terakhir ${item.detail?.percent ?? ''}%`);
+    } else if (item.rule === 'jilid_lama') {
+      lines.push(`sudah ${item.detail?.days} hari di ${item.detail?.jilid}; kami ingin mengajak Ayah/Bunda mendampingi latihan di rumah`);
+    } else if (item.rule === 'hafalan_macet' || item.rule === 'hafalan_wajib_belum_lulus') {
+      if (!lines.some((l) => l.startsWith('ada hafalan'))) lines.push('ada hafalan yang perlu dilatih lagi di rumah');
+    }
+  });
+  const unique = [...new Set(lines)];
+  const reason = unique.length ? unique.join(', dan ') : 'kami ingin berbincang tentang perkembangan mengajinya';
+  return [
+    "Assalamu'alaikum warahmatullahi wabarakatuh.",
+    `Ayah/Bunda wali ananda ${firstName(group)}, kami dari LPQ Al-Fath Maulana ingin menyampaikan bahwa ananda ${reason}.`,
+    'Apakah ada kendala yang bisa kami bantu? Terima kasih atas perhatiannya.',
+    guruName ? `\n${guruName}` : '',
+  ].filter(Boolean).join('\n');
 };
