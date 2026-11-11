@@ -52,3 +52,9 @@ export const saveAssistantSettings = (patch) => rpc('save_assistant_settings', {
 
 // Manual oleh admin: memeriksa sampai kemarin, termasuk aturan pekanan (dedupe per pekan mencegah ganda).
 export const runAssistantRulesNow = () => rpc('run_assistant_rules', { p_ref: null, p_weekly: true });
+
+export const fetchSantriSnapshots = async (santriIds = []) => {
+  if (!santriIds.length) return [];
+  const data = await rpc('get_assistant_santri_snapshot', { p_santri_ids: santriIds });
+  return Array.isArray(data) ? data : [];
+};
