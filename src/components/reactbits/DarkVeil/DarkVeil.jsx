@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { Renderer, Program, Mesh, Triangle, Vec2 } from 'ogl';
 import './DarkVeil.css';
 
@@ -87,14 +87,26 @@ export default function DarkVeil({
   resolutionScale = 1
 }) {
   const ref = useRef(null);
+  const [webGLSupported, setWebGLSupported] = useState(true);
   useEffect(() => {
     const canvas = ref.current;
+    if (!canvas) return undefined;
     const parent = canvas.parentElement;
 
-    const renderer = new Renderer({
-      dpr: Math.min(window.devicePixelRatio, 2),
-      canvas
-    });
+    // ogl throws a TypeError instead of returning null when the context fails.
+    let renderer;
+    try {
+      renderer = new Renderer({
+        dpr: Math.min(window.devicePixelRatio, 2),
+        canvas
+      });
+    } catch {
+      renderer = null;
+    }
+    if (!renderer?.gl) {
+      setWebGLSupported(false);
+      return undefined;
+    }
 
     const gl = renderer.gl;
     const geometry = new Triangle(gl);
@@ -148,5 +160,10 @@ export default function DarkVeil({
       window.removeEventListener('resize', resize);
     };
   }, [hueShift, noiseIntensity, scanlineIntensity, speed, scanlineFrequency, warpAmount, invert, resolutionScale]);
+
+  if (!webGLSupported) {
+    return <div className={`darkveil-fallback${invert >= 0.5 ? ' darkveil-fallback--light' : ''}`} aria-hidden="true" />;
+  }
+
   return <canvas ref={ref} className="darkveil-canvas" />;
 }

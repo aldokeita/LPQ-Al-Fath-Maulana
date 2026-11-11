@@ -120,8 +120,43 @@ const useMotionState = () => {
   return state;
 };
 
+const detectWebGL = () => {
+  if (typeof document === 'undefined') return false;
+  try {
+    const canvas = document.createElement('canvas');
+    const gl = canvas.getContext('webgl2') || canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+    if (!gl) return false;
+    gl.getExtension('WEBGL_lose_context')?.loseContext();
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+// Canvas can still fail after detection (context limit, GPU blocklist, lost
+// context). Swallow it so the dashboard keeps rendering with the static backdrop.
+class SceneErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { failed: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  componentDidCatch(error) {
+    console.warn('SantriLevelScene: WebGL scene disabled.', error);
+  }
+
+  render() {
+    return this.state.failed ? null : this.props.children;
+  }
+}
+
 const SantriLevelScene = ({ accentColor = '#0ea5e9', points = 0 }) => {
   const { reduced, visible } = useMotionState();
+  const [webGLSupported] = useState(detectWebGL);
   const active = visible && !reduced;
 
   return (
@@ -132,14 +167,18 @@ const SantriLevelScene = ({ accentColor = '#0ea5e9', points = 0 }) => {
           background: `radial-gradient(circle at 72% 42%, ${accentColor}42, transparent 44%), radial-gradient(circle at 18% 80%, ${accentColor}22, transparent 35%)`,
         }}
       />
-      <Canvas
-        camera={{ position: [0, 0, 7.2], fov: 43 }}
-        dpr={[1, 1.45]}
-        frameloop={active ? 'always' : 'demand'}
-        gl={{ alpha: true, antialias: true, powerPreference: 'low-power' }}
-      >
-        <Constellation accentColor={accentColor} active={active} points={points} />
-      </Canvas>
+      {webGLSupported && (
+        <SceneErrorBoundary>
+          <Canvas
+            camera={{ position: [0, 0, 7.2], fov: 43 }}
+            dpr={[1, 1.45]}
+            frameloop={active ? 'always' : 'demand'}
+            gl={{ alpha: true, antialias: true, powerPreference: 'low-power' }}
+          >
+            <Constellation accentColor={accentColor} active={active} points={points} />
+          </Canvas>
+        </SceneErrorBoundary>
+      )}
     </div>
   );
 };
