@@ -143,7 +143,9 @@ begin
     raise exception 'INVALID_SETTINGS' using errcode = 'invalid_parameter_value';
   end if;
 
-  v := public.jsonb_deep_merge(public.assistant_default_settings(), p_settings);
+  -- Gabungkan dengan pengaturan TERSIMPAN terakhir (bukan default), agar perubahan sebagian tidak
+  -- mengembalikan kunci lain ke nilai default.
+  v := public.jsonb_deep_merge(public.get_assistant_settings(), p_settings);
 
   if jsonb_typeof(v->'silent_mode') <> 'boolean' then
     raise exception 'INVALID_SETTINGS: silent_mode' using errcode = 'invalid_parameter_value';

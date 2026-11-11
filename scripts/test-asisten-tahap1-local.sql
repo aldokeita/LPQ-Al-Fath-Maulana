@@ -136,6 +136,16 @@ declare r jsonb;
 begin
   r := public.save_assistant_settings('{"silent_mode": false}');
   if (r->>'silent_mode')::boolean or (r#>>'{attendance,consecutive_sessions}')::int <> 3 then raise exception 'TEST FAIL: save merge %', r; end if;
+  -- Perubahan sebagian berikutnya tidak boleh mengembalikan kunci lain ke default.
+  r := public.save_assistant_settings('{"jilid": {"per_jilid": {"Jilid 3A": 90}}}');
+  if (r->>'silent_mode')::boolean is not false or (r#>>'{jilid,per_jilid,Jilid 3A}')::int <> 90 then
+    raise exception 'TEST FAIL: partial save reset other keys %', r; end if;
+  r := public.save_assistant_settings('{"attendance": {"monthly_min_percent": 80}}');
+  if (r->>'silent_mode')::boolean is not false or (r#>>'{jilid,per_jilid,Jilid 3A}')::int <> 90
+     or (r#>>'{attendance,monthly_min_percent}')::int <> 80 or (r#>>'{attendance,consecutive_sessions}')::int <> 3 then
+    raise exception 'TEST FAIL: second partial save %', r; end if;
+  r := public.save_assistant_settings('{"jilid": {"per_jilid": {}}, "attendance": {"monthly_min_percent": 75}}');
+  if r#>'{jilid,per_jilid}' <> '{}'::jsonb then raise exception 'TEST FAIL: per_jilid not cleared %', r; end if;
   r := public.run_assistant_rules(date '2026-10-30', true);
   if (r->>'peringatan_baru')::int < 8 then raise exception 'TEST FAIL: visible run %', r; end if;
   r := public.run_assistant_rules(date '2026-10-30', true);
