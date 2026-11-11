@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
-import { Users, DollarSign, BookOpen, TrendingDown, BookUser, Fingerprint, LogIn, FileText, CalendarCheck, Tv, Gamepad2, PieChart, Settings, GraduationCap, Briefcase, Calendar, Calculator, Shuffle, Database, Library, FileSpreadsheet, CreditCard } from 'lucide-react';
+import { Users, DollarSign, BookOpen, TrendingDown, BookUser, Fingerprint, LogIn, FileText, CalendarCheck, Tv, Gamepad2, PieChart, Settings, GraduationCap, Briefcase, Calendar, Calculator, Shuffle, Database, Library, FileSpreadsheet, CreditCard, ShieldCheck } from 'lucide-react';
 import SantriManagement from './admin/SantriManagement';
 import SantriDewasaManagement from './admin/SantriDewasaManagement';
 import GuruManagement from './admin/GuruManagement';
@@ -20,6 +20,7 @@ import GameConfiguration from './admin/GameConfiguration';
 import CalendarManagement from './admin/CalendarManagement';
 import SalaryCalculation from './admin/SalaryCalculation';
 import BackupRestoreManagement from './admin/BackupRestoreManagement';
+import ResearchExport from './admin/ResearchExport';
 import MMQManagement from './admin/MMQManagement';
 import { supabase } from '@/lib/customSupabaseClient';
 import { enableBackupRestore, enableGameFeatures } from '@/lib/featureFlags';
@@ -171,6 +172,7 @@ const AdminDashboard = () => {
     { value: 'tv-settings', label: 'Pengaturan TV', icon: Tv, group: 'konten' },
     { value: 'game-config', label: 'Konfigurasi', icon: Settings, group: 'konten' },
     { value: 'backup', label: 'Backup & Restore', icon: Database, group: 'sistem' },
+    { value: 'ekspor-penelitian', label: 'Ekspor Penelitian', icon: ShieldCheck, group: 'sistem' },
     { value: 'logs', label: 'Log Login', icon: LogIn, group: 'sistem' },
   ].filter(tab => {
     if (tab.value === 'backup') return enableBackupRestore;
@@ -344,6 +346,7 @@ const AdminDashboard = () => {
             <TabsContent value="tv-settings"><TvDisplaySettings /></TabsContent>
             <TabsContent value="game-config"><GameConfiguration /></TabsContent>
             <TabsContent value="backup"><BackupRestoreManagement /></TabsContent>
+            <TabsContent value="ekspor-penelitian"><ResearchExport /></TabsContent>
             <TabsContent value="history"><PaymentHistory /></TabsContent>
             <TabsContent value="recap"><PaymentRecap /></TabsContent>
             <TabsContent value="content"><ContentManagement /></TabsContent>
