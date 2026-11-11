@@ -298,6 +298,34 @@ begin
 end $$;
 reset role;
 
+-- ===== Mode senyap dinyalakan kembali: peringatan lama yang sudah tampil ikut tersembunyi dari guru =====
+set local role authenticated;
+do $$
+declare v_alert uuid; n int; r jsonb;
+begin
+  perform set_config('request.jwt.claims', '{"sub":"7e571000-0000-0000-0000-00000000000a","role":"authenticated"}', true);
+  perform public.save_assistant_settings('{"silent_mode": true}');
+  select a.id into v_alert from public.assistant_alerts a
+  where not a.senyap and a.class_id = '7e571000-0000-0000-0000-0000000c1a00' limit 1;
+  if v_alert is null then raise exception 'TEST FAIL: no visible alert to hide'; end if;
+
+  perform set_config('request.jwt.claims', '{"sub":"7e571000-0000-0000-0000-0000000000a1","role":"authenticated"}', true);
+  r := public.get_assistant_attention(null);
+  if jsonb_array_length(r->'items') <> 0 or (r->>'mode_senyap')::boolean is not true then
+    raise exception 'TEST FAIL: guru sees alerts after silent re-enabled %', r; end if;
+  select count(*) into n from public.assistant_alerts;
+  if n <> 0 then raise exception 'TEST FAIL: guru selects alerts after silent re-enabled'; end if;
+  begin perform public.decide_assistant_alert(v_alert, 'ditangani', null); raise exception 'TEST FAIL: guru decides in silent mode';
+  exception when insufficient_privilege then null; end;
+
+  perform set_config('request.jwt.claims', '{"sub":"7e571000-0000-0000-0000-00000000000a","role":"authenticated"}', true);
+  perform public.save_assistant_settings('{"silent_mode": false}');
+  perform set_config('request.jwt.claims', '{"sub":"7e571000-0000-0000-0000-0000000000a1","role":"authenticated"}', true);
+  if jsonb_array_length(public.get_assistant_attention(null)->'items') = 0 then
+    raise exception 'TEST FAIL: alerts not back after silent off'; end if;
+end $$;
+reset role;
+
 -- ===== Pemilik/service role: tetap hanya-tambah; tap asli utuh; tutup otomatis saat kembali hadir =====
 do $$
 declare v_n int; v_h text; r jsonb;

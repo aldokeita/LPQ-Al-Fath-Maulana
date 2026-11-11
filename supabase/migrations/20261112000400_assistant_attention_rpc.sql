@@ -10,7 +10,10 @@ language sql
 stable
 security definer
 set search_path = public
-as $$ select public.is_admin() or (not p_senyap and public.guru_has_class_access(p_class)); $$;
+as $$
+  select public.is_admin()
+    or (not p_senyap and not public.assistant_silent_mode() and public.guru_has_class_access(p_class));
+$$;
 
 revoke all on function public.assistant_alert_visible(uuid, boolean) from public, anon;
 grant execute on function public.assistant_alert_visible(uuid, boolean) to authenticated;
@@ -24,6 +27,7 @@ set search_path = public
 as $$
 declare
   v_admin boolean := public.is_admin();
+  v_silent_mode boolean := public.assistant_silent_mode();
   v_items jsonb;
   v_silent_count integer := 0;
 begin
@@ -35,6 +39,9 @@ begin
   end if;
   if not v_admin and not public.is_guru() and not public.is_pentashih() then
     raise exception 'CLASS_ACCESS_DENIED' using errcode = 'insufficient_privilege';
+  end if;
+  if v_silent_mode and not v_admin then
+    return jsonb_build_object('items', '[]'::jsonb, 'senyap_tersimpan', 0, 'mode_senyap', true);
   end if;
 
   with latest as (
@@ -106,7 +113,7 @@ begin
   return jsonb_build_object(
     'items', v_items,
     'senyap_tersimpan', v_silent_count,
-    'mode_senyap', (public.get_assistant_settings()->>'silent_mode')::boolean
+    'mode_senyap', v_silent_mode
   );
 end;
 $$;

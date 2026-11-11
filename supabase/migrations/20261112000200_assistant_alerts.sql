@@ -103,7 +103,7 @@ grant select on public.assistant_alerts, public.assistant_alert_decisions,
 -- senyap; admin melihat semuanya.
 create policy assistant_alerts_select_scope on public.assistant_alerts
   for select to authenticated
-  using (public.is_admin() or (not senyap and public.guru_has_class_access(class_id)));
+  using (public.is_admin() or (not senyap and not public.assistant_silent_mode() and public.guru_has_class_access(class_id)));
 
 create policy assistant_alert_decisions_select_scope on public.assistant_alert_decisions
   for select to authenticated

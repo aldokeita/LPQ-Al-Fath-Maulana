@@ -123,6 +123,19 @@ $$;
 revoke all on function public.get_assistant_settings() from public, anon;
 grant execute on function public.get_assistant_settings() to authenticated;
 
+-- Selama mode senyap, guru tidak melihat peringatan apa pun, termasuk yang dibuat sebelum mode
+-- senyap dinyalakan kembali.
+create or replace function public.assistant_silent_mode()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$ select coalesce((public.get_assistant_settings()->>'silent_mode')::boolean, true); $$;
+
+revoke all on function public.assistant_silent_mode() from public, anon;
+grant execute on function public.assistant_silent_mode() to authenticated;
+
 -- Validasi dan simpan pengaturan baru (khusus admin). Nilai di luar batas ditolak, bukan dipotong.
 create or replace function public.save_assistant_settings(p_settings jsonb)
 returns jsonb
