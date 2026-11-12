@@ -247,3 +247,22 @@ export const buildWaliMessage = (group, { guruName } = {}) => {
     guruName ? `\n${guruName}` : '',
   ].filter(Boolean).join('\n');
 };
+
+export const labelOf = (options, value) => options.find((o) => o.value === value)?.label || value || '';
+
+// Kalimat perkara hafalan dalam istilah skor (1-3 belum hafal, 4 hafal/aman).
+export const describeHafalanAlerts = (items = []) => items.map((item) => {
+  const d = item.detail || {};
+  if (item.rule === 'hafalan_macet') {
+    return `${d.count ?? ''} item masih skor 1–3 dan belum dinilai ulang lebih dari ${d.max_days ?? 30} hari.`;
+  }
+  if (item.rule === 'hafalan_wajib_belum_lulus') {
+    return `${d.count ?? ''} item hafalan wajib ${d.jilid || 'jilid ini'} belum mencapai skor 4.`;
+  }
+  return item.alasan;
+});
+
+export const latestWaliContact = (items = []) => items
+  .map((item) => item.wali_kontak)
+  .filter(Boolean)
+  .sort((a, b) => String(b.tanggal).localeCompare(String(a.tanggal)))[0] || null;

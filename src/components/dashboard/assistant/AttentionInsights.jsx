@@ -33,17 +33,17 @@ export const AttendancePulse = ({ snapshot }) => {
     <Tile icon={CalendarCheck2} label="Kehadiran" tone="text-rose-700 dark:text-rose-300">
       {total === 0 ? <EmptyNote>Belum ada sesi terjadwal.</EmptyNote> : (
         <>
-          <ol className="flex items-center gap-1" aria-label={`${hadir} hadir dari ${total} sesi terakhir`}>
+          <ol className="grid max-w-[11rem] grid-cols-10 gap-[3px]" aria-label={`${hadir} hadir dari ${total} sesi terakhir`}>
             {sessions.map((s) => (
               <li key={s.t} title={`${formatSchoolDate(s.t)}: ${PULSE_LABEL[s.s] || s.s}`}
-                className={cn('h-3 w-3 shrink-0 rounded-full sm:h-3.5 sm:w-3.5', PULSE_DOT[s.s] || PULSE_DOT.hadir)}>
+                className={cn('aspect-square w-full rounded-full', PULSE_DOT[s.s] || PULSE_DOT.hadir)}>
                 <span className="sr-only">{formatSchoolDate(s.t)}: {PULSE_LABEL[s.s] || s.s}</span>
               </li>
             ))}
           </ol>
           <p className="mt-2 text-xs text-muted-foreground">
-            <span className="font-semibold tabular-nums text-foreground">{hadir}/{total}</span> sesi terakhir
-            {pct !== null && <> · <span className={cn('font-semibold tabular-nums', pct < 75 ? 'text-rose-700 dark:text-rose-300' : 'text-foreground')}>{pct}%</span> 4 pekan</>}
+            Hadir <span className="font-semibold tabular-nums text-foreground">{hadir} dari {total}</span>
+            {pct !== null && <span className="block">4 pekan: <span className={cn('font-semibold tabular-nums', pct < 75 ? 'text-rose-700 dark:text-rose-300' : 'text-foreground')}>{pct}%</span></span>}
           </p>
         </>
       )}
@@ -85,15 +85,15 @@ export const HafalanRing = ({ snapshot }) => {
     <Tile icon={Sparkles} label="Hafalan jilid" tone="text-violet-700 dark:text-violet-300">
       {!ring ? <EmptyNote>Tidak ada daftar hafalan untuk jilid ini.</EmptyNote> : (
         <div className="flex items-center gap-3">
-          <svg viewBox="0 0 40 40" className="h-11 w-11 shrink-0 -rotate-90" role="img" aria-label={`${ring.lulus} dari ${ring.total} hafalan lulus`}>
+          <svg viewBox="0 0 40 40" className="h-11 w-11 shrink-0 -rotate-90" role="img" aria-label={`${ring.lulus} dari ${ring.total} hafalan skor 4`}>
             <circle cx="20" cy="20" r={RING_R} fill="none" strokeWidth="5" className="stroke-muted" />
             <circle cx="20" cy="20" r={RING_R} fill="none" strokeWidth="5" strokeLinecap="round"
               className="stroke-violet-500 transition-[stroke-dashoffset] duration-700 motion-reduce:transition-none dark:stroke-violet-400"
               strokeDasharray={RING_C} strokeDashoffset={RING_C * (1 - (ring.pct || 0) / 100)} />
           </svg>
           <p className="min-w-0 text-xs text-muted-foreground">
-            <span className="block text-sm font-semibold tabular-nums text-foreground">{ring.lulus}/{ring.total} lulus</span>
-            {recorded ? (ring.proses > 0 ? `${ring.proses} sedang diproses` : 'Belum ada yang tertunda') : 'Belum mulai dicatat'}
+            <span className="block text-sm font-semibold tabular-nums text-foreground">{ring.lulus}/{ring.total} skor 4</span>
+            {recorded ? (ring.proses > 0 ? `${ring.proses} item masih skor 1–3` : 'Semua yang dinilai sudah aman') : 'Belum mulai dinilai'}
           </p>
         </div>
       )}

@@ -202,6 +202,9 @@ const GuruDashboard = () => {
   const [manualMurojaahForm, setManualMurojaahForm] = useState({ santri_id: '', category: 'Surat', item_name: '', feedback: '' });
   const [isSubmittingManual, setIsSubmittingManual] = useState(false);
   const [isSavingJilid, setIsSavingJilid] = useState(false);
+  // Dinaikkan setiap ada perubahan data santri agar panel Perlu Perhatian langsung dimuat ulang.
+  const [attentionRefreshKey, setAttentionRefreshKey] = useState(0);
+  const refreshAttention = () => setAttentionRefreshKey((k) => k + 1);
 
   const fetchGuruData = useCallback(async () => {
     if (user?.id) {
@@ -308,6 +311,7 @@ const GuruDashboard = () => {
 
     try {
         await upsertHafalanProgress({ santriId: selectedSantri.id, item: { ...item, category, item_name: itemName }, score, userId: user.id });
+        refreshAttention();
 
         toast({
             title: score === 4 ? "Hafalan Tercapai" : "Skor Hafalan Tersimpan",
@@ -324,6 +328,7 @@ const GuruDashboard = () => {
     if (!currentSubmission) return;
     try {
       await updateMurojaahReview({ id: currentSubmission.id, status: 'diterima', feedback, userId: user.id });
+      refreshAttention();
       toast({ title: 'Berhasil', description: 'Umpan balik telah disimpan.' });
       setIsMurojaahOpen(false);
       setCurrentSubmission(null);
@@ -394,6 +399,7 @@ const GuruDashboard = () => {
           nextJilid,
         });
         toast({ title: 'Berhasil!', description: `Jilid santri diubah ke ${savedChange.to_jilid}.` });
+        refreshAttention();
         setMyClasses(prev => prev.map(cls => ({
           ...cls,
           santri: cls.santri.map(s => s.id === santri.id ? { ...s, jilid: savedChange.to_jilid } : s),
@@ -519,7 +525,7 @@ const GuruDashboard = () => {
             </div>
           </section>
         )}
-        <Suspense fallback={null}><AttentionPanel variant="guru" actions={attentionActions} guruName={guruData?.nama} /></Suspense>
+        <Suspense fallback={null}><AttentionPanel variant="guru" refreshKey={attentionRefreshKey} actions={attentionActions} guruName={guruData?.nama} /></Suspense>
         <div className="space-y-8">
             {myClasses.map(cls => (
                 <Card key={cls.id} className="shadow-lg hover:shadow-xl transition-shadow duration-300 border-border/50">

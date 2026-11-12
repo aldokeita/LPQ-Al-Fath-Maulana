@@ -15,7 +15,7 @@ import { getAdjacentQiroatiJilid } from '@/lib/qiroatiJilid';
 import { changeSantriJilid, getJilidChangeErrorMessage } from '@/lib/jilidChangeAdapters';
 import { generateWhatsAppLink } from '@/utils/whatsappMessages';
 import {
-  AREA_LABELS, buildWaliMessage, countSantriByArea, FOLLOWUP_CHANNELS, FOLLOWUP_RESULTS, formatSchoolDate, getAbsentDates,
+  AREA_LABELS, buildWaliMessage, describeHafalanAlerts, labelOf, latestWaliContact, countSantriByArea, FOLLOWUP_CHANNELS, FOLLOWUP_RESULTS, formatSchoolDate, getAbsentDates,
   groupAttentionByClass, groupAttentionBySantri, isAttendanceAlert, RULE_AREAS, RULE_LABELS, TINGKAT_LABELS, validateFollowup,
 } from '@/lib/assistantAlerts';
 import {
@@ -46,8 +46,13 @@ const AREA_STYLE = {
 };
 
 const OPEN_KEY = (variant) => `lpq.attention.open.${variant}`;
+// Panel guru tertutup secara default; admin terbuka. Pilihan pengguna diingat per perangkat.
 const readOpen = (variant) => {
-  try { return window.localStorage.getItem(OPEN_KEY(variant)) !== '0'; } catch { return true; }
+  const fallback = variant === 'admin';
+  try {
+    const stored = window.localStorage.getItem(OPEN_KEY(variant));
+    return stored === null ? fallback : stored === '1';
+  } catch { return fallback; }
 };
 const writeOpen = (variant, open) => {
   try { window.localStorage.setItem(OPEN_KEY(variant), open ? '1' : '0'); } catch { /* penyimpanan lokal tidak tersedia */ }
@@ -174,7 +179,7 @@ const FollowupForm = ({ group, onDone, onCancel }) => {
   );
 };
 
-const IgnoreForm = ({ item, onDone, onCancel }) => {
+const IgnoreForm = ({ item, alertIds, onDone, onCancel }) => {
   const [alasan, setAlasan] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -185,7 +190,9 @@ const IgnoreForm = ({ item, onDone, onCancel }) => {
     setIsSaving(true);
     setError(null);
     try {
-      await decideAlert({ alertId: item.alert_id, keputusan: 'diabaikan', catatan: alasan });
+      for (const alertId of alertIds || [item.alert_id]) {
+        await decideAlert({ alertId, keputusan: 'diabaikan', catatan: alasan });
+      }
       toast({ title: 'Peringatan diabaikan', description: 'Alasan Anda tercatat.' });
       onDone();
     } catch (err) {
@@ -210,13 +217,12 @@ const IgnoreForm = ({ item, onDone, onCancel }) => {
   );
 };
 
-const IssueRow = ({ item, snapshot, actions, showHafalanAction, onPromote, onChanged }) => {
+const IssueRow = ({ item, snapshot, actions, onPromote, onChanged }) => {
   const [mode, setMode] = useState(null);
   const done = () => { setMode(null); onChanged(); };
   const area = RULE_AREAS[item.rule] || 'kehadiran';
   const { icon: AreaIcon, tone } = AREA_STYLE[area];
   const nextJilid = item.rule === 'jilid_lama' ? getAdjacentQiroatiJilid(snapshot?.jilid || item.detail?.jilid, 'up') : null;
-  const hafalanCategory = snapshot?.hafalan?.kategori_proses || 'Doa';
 
   return (
     <li className="flex gap-3 py-2.5 first:pt-0 last:pb-0">
@@ -239,11 +245,6 @@ const IssueRow = ({ item, snapshot, actions, showHafalanAction, onPromote, onCha
               {isAttendanceAlert(item) && (
                 <Button type="button" size="sm" variant="outline" className="h-8 px-2.5 text-xs" onClick={() => setMode('koreksi')}>
                   <UserCheck className="mr-1 h-3.5 w-3.5" aria-hidden="true" /> Sebenarnya hadir
-                </Button>
-              )}
-              {area === 'hafalan' && showHafalanAction && actions?.onOpenHafalan && (
-                <Button type="button" size="sm" variant="outline" className="h-8 px-2.5 text-xs" onClick={() => actions.onOpenHafalan(item.santri_id, hafalanCategory)}>
-                  <Sparkles className="mr-1 h-3.5 w-3.5" aria-hidden="true" /> Buka hafalan {hafalanCategory}
                 </Button>
               )}
               {area === 'murojaah' && actions?.onOpenMurojaah && (
@@ -269,6 +270,68 @@ const IssueRow = ({ item, snapshot, actions, showHafalanAction, onPromote, onCha
   );
 };
 
+const HAFALAN_CATEGORIES = [
+  { value: 'Doa', label: 'Doa' },
+  { value: 'Sholat', label: 'Sholat' },
+  { value: 'Surat', label: 'Surat' },
+];
+
+// Hafalan macet dan hafalan wajib belum lulus ditampilkan sebagai satu perkara "Hafalan".
+const HafalanRow = ({ items, actions, onChanged }) => {
+  const [mode, setMode] = useState(null);
+  const done = () => { setMode(null); onChanged(); };
+  const { icon: AreaIcon, tone } = AREA_STYLE.hafalan;
+  const santriId = items[0].santri_id;
+  const isHigh = items.some((i) => i.tingkat === 'tinggi');
+
+  return (
+    <li className="flex gap-3 py-2.5 first:pt-0 last:pb-0">
+      <span className={cn('mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg', tone)} aria-hidden="true">
+        <AreaIcon className="h-4 w-4" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
+          <p className="text-sm font-semibold text-foreground">
+            Hafalan belum aman{isHigh && <span className="sr-only"> (tingkat tinggi)</span>}
+          </p>
+          {mode === null && (
+            <Button type="button" size="sm" variant="ghost" className="h-8 px-2 text-xs text-muted-foreground" onClick={() => setMode('abaikan')}
+              aria-label="Abaikan perkara hafalan">
+              <X className="mr-1 h-3.5 w-3.5" aria-hidden="true" /> Abaikan
+            </Button>
+          )}
+        </div>
+        <ul className="space-y-0.5 text-sm text-muted-foreground">
+          {describeHafalanAlerts(items).map((line) => <li key={line}>{line}</li>)}
+        </ul>
+        {mode === null && actions?.onOpenHafalan && (
+          <div className="mt-2 flex flex-wrap items-center gap-1.5" role="group" aria-label="Buka penilaian hafalan">
+            <span className="text-xs text-muted-foreground">Nilai ulang:</span>
+            {HAFALAN_CATEGORIES.map((cat) => (
+              <Button key={cat.value} type="button" size="sm" variant="outline"
+                className="h-8 border-violet-300 px-3 text-xs text-violet-800 hover:bg-violet-50 dark:border-violet-400/30 dark:text-violet-200 dark:hover:bg-violet-500/10"
+                onClick={() => actions.onOpenHafalan(santriId, cat.value)}>
+                {cat.label}
+              </Button>
+            ))}
+          </div>
+        )}
+        {mode === 'abaikan' && <IgnoreForm item={items[0]} alertIds={items.map((i) => i.alert_id)} onDone={done} onCancel={() => setMode(null)} />}
+      </div>
+    </li>
+  );
+};
+
+const WaliContactNote = ({ contact }) => {
+  if (!contact) return null;
+  return (
+    <p className="mt-3 flex items-start gap-2 rounded-xl bg-emerald-50/80 px-3 py-2 text-xs text-emerald-900 dark:bg-emerald-500/10 dark:text-emerald-100" role="status">
+      <PhoneCall className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+      <span>Wali sudah dihubungi {formatSchoolDate(contact.tanggal)} lewat {labelOf(FOLLOWUP_CHANNELS, contact.saluran).toLowerCase()} · {labelOf(FOLLOWUP_RESULTS, contact.hasil).toLowerCase()}. Kartu tetap tampil sampai masalahnya selesai atau ditandai sudah ditangani.</span>
+    </p>
+  );
+};
+
 const initials = (name) => String(name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
 
 const SantriCard = ({ group, snapshot, actions, guruName, showClass, onChanged }) => {
@@ -279,8 +342,10 @@ const SantriCard = ({ group, snapshot, actions, guruName, showClass, onChanged }
   const phone = snapshot?.no_hp_wali;
   const waLink = useMemo(() => (phone ? generateWhatsAppLink(phone, buildWaliMessage(group, { guruName })) : null), [phone, group, guruName]);
   const titleId = `attention-santri-${group.santriId}`;
-  // Satu tombol hafalan per santri walau ada beberapa perkara hafalan.
-  const firstHafalanId = group.items.find((i) => RULE_AREAS[i.rule] === 'hafalan')?.alert_id;
+  const hafalanItems = group.items.filter((i) => RULE_AREAS[i.rule] === 'hafalan');
+  const otherItems = group.items.filter((i) => RULE_AREAS[i.rule] !== 'hafalan');
+  const perkaraCount = otherItems.length + (hafalanItems.length ? 1 : 0);
+  const waliContact = latestWaliContact(group.items);
 
   const markHandled = async () => {
     setIsMarking(true);
@@ -329,7 +394,7 @@ const SantriCard = ({ group, snapshot, actions, guruName, showClass, onChanged }
         <div className="min-w-0 flex-1">
           <h4 id={titleId} className="truncate text-base font-semibold leading-tight text-foreground">{group.nama}</h4>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            {showClass && <>{group.namaKelas} · </>}{group.items.length} perkara{snapshot?.jilid && <> · {snapshot.jilid}</>}
+            {showClass && <>{group.namaKelas} · </>}{perkaraCount} perkara{snapshot?.jilid && <> · {snapshot.jilid}</>}
           </p>
         </div>
         <span className={cn('shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1', TINGKAT_STYLES[group.tingkat])}>
@@ -340,11 +405,13 @@ const SantriCard = ({ group, snapshot, actions, guruName, showClass, onChanged }
       <AttentionInsights snapshot={snapshot} />
 
       <ul className="mt-3 divide-y divide-border/60">
-        {group.items.map((item) => (
-          <IssueRow key={item.alert_id} item={item} snapshot={snapshot} actions={actions} onPromote={startPromote} onChanged={onChanged}
-            showHafalanAction={item.alert_id === firstHafalanId} />
+        {otherItems.map((item) => (
+          <IssueRow key={item.alert_id} item={item} snapshot={snapshot} actions={actions} onPromote={startPromote} onChanged={onChanged} />
         ))}
+        {hafalanItems.length > 0 && <HafalanRow items={hafalanItems} actions={actions} onChanged={onChanged} />}
       </ul>
+
+      <WaliContactNote contact={waliContact} />
 
       {mode === null && (
         <footer className="mt-3 flex flex-wrap gap-2 border-t border-border/60 pt-3">
@@ -356,7 +423,7 @@ const SantriCard = ({ group, snapshot, actions, guruName, showClass, onChanged }
             </Button>
           )}
           <Button type="button" size="sm" variant="outline" onClick={() => setMode('wali')}>
-            <PhoneCall className="mr-2 h-4 w-4" aria-hidden="true" /> Catat kontak wali
+            <PhoneCall className="mr-2 h-4 w-4" aria-hidden="true" /> {waliContact ? 'Catat kontak lagi' : 'Catat kontak wali'}
           </Button>
           {actions?.onOpenDetail && (
             <Button type="button" size="sm" variant="ghost" onClick={() => actions.onOpenDetail(group.santriId)}>

@@ -113,3 +113,21 @@ test('draf pesan wali memakai nama panggilan dan alasan yang relevan', () => {
   assert.doesNotMatch(text, /muroja/i);
   assert.match(text, /Ustadzah A$/);
 });
+
+test('perkara hafalan memakai istilah skor dan kontak wali terbaru dipilih', () => {
+  const lines = infographic.describeHafalanAlerts([
+    { rule: 'hafalan_macet', detail: { count: 2, max_days: 30 } },
+    { rule: 'hafalan_wajib_belum_lulus', detail: { count: 5, jilid: 'Jilid 2A' } },
+  ]);
+  assert.deepEqual(lines, [
+    '2 item masih skor 1–3 dan belum dinilai ulang lebih dari 30 hari.',
+    '5 item hafalan wajib Jilid 2A belum mencapai skor 4.',
+  ]);
+  const latest = infographic.latestWaliContact([
+    { wali_kontak: { tanggal: '2026-11-03', hasil: 'terhubung' } }, { wali_kontak: null },
+    { wali_kontak: { tanggal: '2026-11-10', hasil: 'janji_hadir' } },
+  ]);
+  assert.equal(latest.hasil, 'janji_hadir');
+  assert.equal(infographic.latestWaliContact([{}]), null);
+  assert.equal(infographic.labelOf(infographic.FOLLOWUP_RESULTS, 'janji_hadir'), 'Berjanji hadir');
+});
