@@ -253,16 +253,23 @@ begin
     raise exception 'TEST FAIL: mixed santri followup';
   exception when invalid_parameter_value then null; end;
   perform public.record_alert_wali_followup(array[(v->>'alert_id')::uuid], public.jakarta_today(), 'whatsapp', 'janji_hadir', null);
-  -- Satu kontak menutup dua perkara S2 sekaligus, tetapi hanya satu baris tindak lanjut.
+  -- Kontak wali tidak menutup kartu; "Sudah ditangani" yang menutupnya.
+  if not exists (select 1 from jsonb_array_elements(public.get_assistant_attention(null)->'items') x
+                 where x->>'alert_id' = v->>'alert_id' and x->'wali_kontak'->>'hasil' = 'janji_hadir') then
+    raise exception 'TEST FAIL: followup should keep card open with contact info';
+  end if;
+  perform public.decide_assistant_alert((v->>'alert_id')::uuid, 'ditangani', null);
+  -- Satu kontak untuk dua perkara S2 hanya membuat satu baris tindak lanjut.
   perform public.record_alert_wali_followup(array(
       select (item->>'alert_id')::uuid from t1_items where item->>'nama' = 'TEST T1 Dua' and item->>'rule' in ('hafalan_macet', 'hafalan_wajib_belum_lulus')),
     public.jakarta_today(), 'telepon', 'terhubung', null);
   if (select count(*) from public.wali_followups where santri_id = '7e571000-0000-0000-0000-000000000102') <> 1 then
     raise exception 'TEST FAIL: one contact should be one followup row';
   end if;
-  if exists (select 1 from jsonb_array_elements(public.get_assistant_attention(null)->'items') x
-             where x->>'nama' = 'TEST T1 Dua' and x->>'rule' in ('hafalan_macet', 'hafalan_wajib_belum_lulus')) then
-    raise exception 'TEST FAIL: grouped followup did not close both';
+  if (select count(*) from jsonb_array_elements(public.get_assistant_attention(null)->'items') x
+      where x->>'nama' = 'TEST T1 Dua' and x->>'rule' in ('hafalan_macet', 'hafalan_wajib_belum_lulus')
+        and x->'wali_kontak'->>'saluran' = 'telepon') <> 2 then
+    raise exception 'TEST FAIL: grouped followup should show contact on both';
   end if;
 
   r := public.get_assistant_attention(null);
@@ -380,6 +387,13 @@ begin
   r := public.get_assistant_attention(null);
   if exists (select 1 from jsonb_array_elements(r->'items') x where x->>'nama' = 'TEST T1 Dua' and x->>'rule' in ('hafalan_wajib_belum_lulus', 'jilid_lama')) then
     raise exception 'TEST FAIL: S2 jilid-bound alerts not closed after promotion';
+  end if;
+
+  -- Item hafalan S2 dinilai skor 4 -> hafalan macet tertutup otomatis.
+  update public.hafalan_progress set score = 4, updated_at = now() where santri_id = '7e571000-0000-0000-0000-000000000102';
+  r := public.get_assistant_attention(null);
+  if exists (select 1 from jsonb_array_elements(r->'items') x where x->>'nama' = 'TEST T1 Dua' and x->>'rule' = 'hafalan_macet') then
+    raise exception 'TEST FAIL: hafalan macet not closed after score 4';
   end if;
 
   -- S3 kembali hadir 02-11 -> kartu absen S3 tertutup otomatis.
