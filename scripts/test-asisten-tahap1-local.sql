@@ -363,6 +363,98 @@ begin
 end $$;
 reset role;
 
+-- ===== Telegram: sambungan akun dan penyusunan pesan =====
+create temp table t1_tg (who text primary key, token text);
+grant all on t1_tg to authenticated;
+set local role authenticated;
+do $$
+declare v jsonb;
+begin
+  perform set_config('request.jwt.claims', '{"sub":"7e571000-0000-0000-0000-00000000000a","role":"authenticated"}', true);
+  begin perform public.save_assistant_settings('{"notifications": {"bot_username": "bad name!"}}'); raise exception 'TEST FAIL: invalid bot username';
+  exception when invalid_parameter_value then null; end;
+  v := public.save_assistant_settings('{"notifications": {"telegram_enabled": true, "bot_username": "LpqDemoBot", "summary_hour": 19}}');
+  if (v->>'silent_mode')::boolean or (v#>>'{attendance,consecutive_sessions}')::int <> 3 then raise exception 'TEST FAIL: notif save merge %', v; end if;
+  insert into t1_tg values ('admin', public.create_telegram_link_token());
+
+  perform set_config('request.jwt.claims', '{"sub":"7e571000-0000-0000-0000-0000000000a1","role":"authenticated"}', true);
+  v := public.get_my_telegram_link();
+  if (v->>'linked')::boolean or v->>'bot_username' <> 'LpqDemoBot' or not (v->>'enabled')::boolean then raise exception 'TEST FAIL: link status %', v; end if;
+  insert into t1_tg values ('guru_a', public.create_telegram_link_token());
+  begin perform public.assistant_telegram_enqueue(); raise exception 'TEST FAIL: guru ran enqueue';
+  exception when insufficient_privilege then null; end;
+  begin perform 1 from public.telegram_link_tokens; raise exception 'TEST FAIL: guru reads tokens';
+  exception when insufficient_privilege then null; end;
+end $$;
+reset role;
+
+do $$
+declare v jsonb; n int; v_msg text;
+begin
+  perform set_config('request.jwt.claims', '', true);
+  v := public.telegram_consume_link_token((select token from t1_tg where who = 'guru_a'), 1001);
+  if not (v->>'ok')::boolean then raise exception 'TEST FAIL: consume %', v; end if;
+  if (public.telegram_consume_link_token((select token from t1_tg where who = 'guru_a'), 1001)->>'ok')::boolean then
+    raise exception 'TEST FAIL: token reused'; end if;
+  if (public.telegram_consume_link_token('salah', 1003)->>'ok')::boolean then raise exception 'TEST FAIL: bad token'; end if;
+  perform public.telegram_consume_link_token((select token from t1_tg where who = 'admin'), 1002);
+
+  -- Pukul 07.00 WIB: hanya prioritas tinggi; 19.30 WIB: ringkasan guru juga.
+  n := public.assistant_telegram_enqueue((public.jakarta_today() + time '07:00') at time zone 'Asia/Jakarta');
+  if n = 0 or exists (select 1 from public.assistant_telegram_outbox where jenis = 'ringkasan') then
+    raise exception 'TEST FAIL: morning enqueue %', n; end if;
+  n := public.assistant_telegram_enqueue((public.jakarta_today() + time '19:30') at time zone 'Asia/Jakarta');
+  if (select count(*) from public.assistant_telegram_outbox where jenis = 'ringkasan' and user_id = '7e571000-0000-0000-0000-0000000000a1') <> 1 then
+    raise exception 'TEST FAIL: guru summary'; end if;
+  if exists (select 1 from public.assistant_telegram_outbox where jenis = 'ringkasan' and user_id = '7e571000-0000-0000-0000-00000000000a') then
+    raise exception 'TEST FAIL: admin got summary'; end if;
+  if not exists (select 1 from public.assistant_telegram_outbox where jenis = 'segera' and user_id = '7e571000-0000-0000-0000-00000000000a') then
+    raise exception 'TEST FAIL: admin missing high priority'; end if;
+  if public.assistant_telegram_enqueue((public.jakarta_today() + time '19:40') at time zone 'Asia/Jakarta') <> 0 then
+    raise exception 'TEST FAIL: dedupe'; end if;
+
+  select pesan into v_msg from public.assistant_telegram_outbox where jenis = 'ringkasan';
+  if v_msg ~ 'TEST T1 (Satu|Dua|Tiga|Enam)' or v_msg like '%080%' or v_msg not like '%TEST (%' or v_msg like '%Empat%' then
+    raise exception 'TEST FAIL: summary content [%]', replace(v_msg, E'\n', ' | '); end if;
+
+  -- Ambil di jam tenang: kosong; di jam kerja: terambil dan dihitung percobaannya.
+  if exists (select 1 from public.assistant_telegram_claim(30, (public.jakarta_today() + time '22:00') at time zone 'Asia/Jakarta')) then
+    raise exception 'TEST FAIL: claim in quiet hours'; end if;
+  select count(*) into n from public.assistant_telegram_claim(30, (public.jakarta_today() + time '08:00') at time zone 'Asia/Jakarta');
+  if n = 0 or exists (select 1 from public.assistant_telegram_outbox where percobaan = 0) then raise exception 'TEST FAIL: claim %', n; end if;
+  perform public.assistant_telegram_mark((select id from public.assistant_telegram_outbox where jenis = 'ringkasan'), true);
+  perform public.assistant_telegram_mark((select id from public.assistant_telegram_outbox where user_id = '7e571000-0000-0000-0000-00000000000a' limit 1), false, 'Forbidden: bot was blocked by the user', true);
+  if (select active from public.telegram_links where user_id = '7e571000-0000-0000-0000-00000000000a') then
+    raise exception 'TEST FAIL: blocked bot keeps link'; end if;
+  perform public.telegram_stop(1001);
+  if (select active from public.telegram_links where user_id = '7e571000-0000-0000-0000-0000000000a1') then
+    raise exception 'TEST FAIL: /stop'; end if;
+end $$;
+
+-- Mode senyap: tidak ada pesan baru.
+set local role authenticated;
+do $$
+begin
+  perform set_config('request.jwt.claims', '{"sub":"7e571000-0000-0000-0000-00000000000a","role":"authenticated"}', true);
+  perform public.save_assistant_settings('{"silent_mode": true}');
+end $$;
+reset role;
+do $$
+begin
+  perform set_config('request.jwt.claims', '', true);
+  update public.telegram_links set active = true;
+  delete from public.assistant_telegram_outbox;
+  if public.assistant_telegram_enqueue((public.jakarta_today() + time '19:30') at time zone 'Asia/Jakarta') <> 0 then
+    raise exception 'TEST FAIL: telegram in silent mode'; end if;
+end $$;
+set local role authenticated;
+do $$
+begin
+  perform set_config('request.jwt.claims', '{"sub":"7e571000-0000-0000-0000-00000000000a","role":"authenticated"}', true);
+  perform public.save_assistant_settings('{"silent_mode": false}');
+end $$;
+reset role;
+
 -- ===== Pemilik/service role: tetap hanya-tambah; tap asli utuh; tutup otomatis saat kembali hadir =====
 do $$
 declare v_n int; v_h text; r jsonb;
@@ -412,5 +504,5 @@ begin
   end if;
 end $$;
 
-select 'PASS: asisten tahap 1 (aturan, senyap, panel, koreksi, keputusan, RLS, hanya-tambah)' as result;
+select 'PASS: asisten tahap 1-2 (aturan, senyap, panel, koreksi, keputusan, RLS, hanya-tambah, telegram)' as result;
 rollback;
