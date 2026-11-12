@@ -16,11 +16,22 @@ export const safeEqual = (a: string | null, b: string | undefined): boolean => {
 
 export type SendResult = { ok: boolean; blocked: boolean; error?: string };
 
-export const sendTelegramMessage = async (chatId: number | string, text: string): Promise<SendResult> => {
+type SendOptions = { html?: boolean; buttonUrl?: string | null; buttonText?: string };
+
+export const sendTelegramMessage = async (
+  chatId: number | string,
+  text: string,
+  { html = false, buttonUrl = null, buttonText = "Buka dasbor" }: SendOptions = {},
+): Promise<SendResult> => {
+  const body: Record<string, unknown> = { chat_id: chatId, text, disable_web_page_preview: true };
+  if (html) body.parse_mode = "HTML";
+  if (buttonUrl && /^https:\/\//.test(buttonUrl)) {
+    body.reply_markup = { inline_keyboard: [[{ text: buttonText, url: buttonUrl }]] };
+  }
   const res = await fetch(`https://api.telegram.org/bot${getBotToken()}/sendMessage`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ chat_id: chatId, text, disable_web_page_preview: true }),
+    body: JSON.stringify(body),
   });
   if (res.ok) return { ok: true, blocked: false };
   const body = await res.json().catch(() => ({}));

@@ -20,7 +20,7 @@ Deno.serve(async (req) => {
   for (const row of rows || []) {
     let result;
     try {
-      result = await sendTelegramMessage(row.chat_id, row.pesan);
+      result = await sendTelegramMessage(row.chat_id, row.pesan, { html: true, buttonUrl: row.tautan });
     } catch (err) {
       result = { ok: false, blocked: false, error: String((err as Error)?.message || err).slice(0, 300) };
     }
