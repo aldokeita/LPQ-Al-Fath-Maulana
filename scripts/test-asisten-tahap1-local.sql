@@ -412,9 +412,13 @@ begin
     raise exception 'TEST FAIL: admin missing high priority'; end if;
   if public.assistant_telegram_enqueue((public.jakarta_today() + time '19:40') at time zone 'Asia/Jakarta') <> 0 then
     raise exception 'TEST FAIL: dedupe'; end if;
+  if (select count(*) from public.assistant_telegram_outbox where jenis = 'segera' and user_id = '7e571000-0000-0000-0000-00000000000a') <> 1 then
+    raise exception 'TEST FAIL: high priority should be one batched message'; end if;
+  if (select tautan from public.assistant_telegram_outbox where jenis = 'ringkasan') not like 'https://%' then
+    raise exception 'TEST FAIL: dashboard button url'; end if;
 
   select pesan into v_msg from public.assistant_telegram_outbox where jenis = 'ringkasan';
-  if v_msg ~ 'TEST T1 (Satu|Dua|Tiga|Enam)' or v_msg like '%080%' or v_msg not like '%TEST (%' or v_msg like '%Empat%' then
+  if v_msg ~ 'TEST T1 (Satu|Dua|Tiga|Enam)' or v_msg like '%080%' or v_msg not like '%<b>TEST</b> — %' or v_msg not like '%📅 absen%' or v_msg like '%Empat%' then
     raise exception 'TEST FAIL: summary content [%]', replace(v_msg, E'\n', ' | '); end if;
 
   -- Ambil di jam tenang: kosong; di jam kerja: terambil dan dihitung percobaannya.
