@@ -34,8 +34,8 @@ export const sendTelegramMessage = async (
     body: JSON.stringify(body),
   });
   if (res.ok) return { ok: true, blocked: false };
-  const body = await res.json().catch(() => ({}));
-  const description = String(body?.description || `HTTP ${res.status}`);
+  const reply = await res.json().catch(() => ({}));
+  const description = String(reply?.description || `HTTP ${res.status}`);
   // 403: pengguna memblokir bot atau chat tidak ada lagi.
   return { ok: false, blocked: res.status === 403, error: description.slice(0, 300) };
 };
