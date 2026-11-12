@@ -23,6 +23,7 @@ import {
 } from '@/lib/assistantAlertAdapters';
 import JilidChangeModal from '@/components/dashboard/admin/JilidChangeModal';
 import AttentionInsights from '@/components/dashboard/assistant/AttentionInsights';
+import TelegramConnect from '@/components/dashboard/assistant/TelegramConnect';
 import '@/styles/attention-panel.css';
 
 const TINGKAT_STYLES = {
@@ -536,6 +537,7 @@ const AttentionPanel = ({ variant = 'guru', refreshKey = 0, actions = null, guru
       <div id={contentId} className="attention-collapse relative" data-open={open} {...(!open && { inert: '' })}>
         <div className="min-h-0 overflow-hidden">
           <div className="space-y-5 px-4 pb-5 sm:px-5">
+            {!isAdmin && <TelegramConnect />}
             {isAdmin && data?.mode_senyap && (
               <div className="flex items-start gap-2 rounded-xl border border-sky-300 bg-sky-50 p-3 text-sm text-sky-900 dark:border-sky-400/30 dark:bg-sky-400/10 dark:text-sky-100" role="status">
                 <EyeOff className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />

@@ -99,6 +99,7 @@ export const SETTINGS_LIMITS = Object.freeze({
   'hafalan.proses_max_days': [3, 365],
   'hafalan.required_items_after_percent': [10, 100],
   'hafalan.murojaah_review_max_days': [1, 60],
+  'notifications.summary_hour': [6, 20],
 });
 
 export const SETTINGS_LABELS = Object.freeze({
@@ -111,6 +112,7 @@ export const SETTINGS_LABELS = Object.freeze({
   'hafalan.proses_max_days': 'Item proses/ulang terlalu lama (hari)',
   'hafalan.required_items_after_percent': 'Cek hafalan wajib setelah (% batas jilid)',
   'hafalan.murojaah_review_max_days': 'Setoran belum ditinjau (hari)',
+  'notifications.summary_hour': 'Jam ringkasan harian (WIB)',
 });
 
 const getPath = (obj, path) => path.split('.').reduce((acc, key) => acc?.[key], obj);
@@ -136,6 +138,9 @@ export const validateSettings = (settings) => {
   if (settings.attendance.high_consecutive_sessions < settings.attendance.consecutive_sessions) {
     return 'Ambang tingkat tinggi tidak boleh lebih kecil dari ambang peringatan.';
   }
+  if (!/^([A-Za-z][A-Za-z0-9_]{3,31})?$/.test(settings.notifications?.bot_username || '')) {
+    return 'Nama pengguna bot Telegram tidak valid (contoh: LpqAlFathBot, tanpa @).';
+  }
   for (const [jilid, days] of Object.entries(settings.jilid?.per_jilid || {})) {
     if (!Number.isInteger(days) || days < 7 || days > 730) return `Batas ${jilid} harus 7–730 hari.`;
   }
@@ -155,6 +160,11 @@ export const buildSettingsPatch = (saved, draft) => {
     if (Number(getPath(saved, path)) !== next) {
       const [group, key] = path.split('.');
       patch[group] = { ...(patch[group] || {}), [key]: next };
+    }
+  });
+  ['telegram_enabled', 'bot_username'].forEach((key) => {
+    if ((saved.notifications?.[key] ?? null) !== (draft.notifications?.[key] ?? null)) {
+      patch.notifications = { ...(patch.notifications || {}), [key]: draft.notifications[key] };
     }
   });
   if (JSON.stringify(saved.jilid?.per_jilid || {}) !== JSON.stringify(draft.jilid?.per_jilid || {})) {

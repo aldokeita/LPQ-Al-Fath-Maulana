@@ -11,6 +11,8 @@ const ERROR_MESSAGES = {
   INVALID_SETTINGS: 'Ada pengaturan di luar batas yang diizinkan.',
   FUTURE_DATE_NOT_ALLOWED: 'Tanggal tidak boleh di masa depan.',
   AUTH_REQUIRED: 'Sesi login berakhir. Silakan masuk kembali.',
+  TELEGRAM_ROLE_REQUIRED: 'Hanya guru dan admin yang bisa menyambungkan Telegram.',
+  TELEGRAM_TOO_MANY_TOKENS: 'Terlalu banyak tautan dibuat. Coba lagi satu jam lagi.',
 };
 
 export const getAssistantErrorMessage = (error) => {
@@ -58,3 +60,7 @@ export const fetchSantriSnapshots = async (santriIds = []) => {
   const data = await rpc('get_assistant_santri_snapshot', { p_santri_ids: santriIds });
   return Array.isArray(data) ? data : [];
 };
+
+export const getMyTelegramLink = () => rpc('get_my_telegram_link');
+export const createTelegramLinkToken = () => rpc('create_telegram_link_token');
+export const unlinkMyTelegram = () => rpc('unlink_my_telegram');

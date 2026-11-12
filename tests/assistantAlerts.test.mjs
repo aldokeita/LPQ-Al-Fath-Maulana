@@ -13,6 +13,7 @@ const defaults = {
   attendance: { consecutive_sessions: 3, repeat_every_sessions: 3, high_consecutive_sessions: 6, monthly_min_percent: 75 },
   jilid: { default_days: 30, per_jilid: {}, repeat_every_days: 14 },
   hafalan: { proses_max_days: 30, required_items_after_percent: 50, murojaah_review_max_days: 7 },
+  notifications: { telegram_enabled: false, bot_username: '', summary_hour: 19, dashboard_url: 'https://www.lpqalfathmaulana.id/dashboard' },
 };
 
 test('tanggal sekolah diformat tanpa bergeser zona waktu', () => {
@@ -130,4 +131,13 @@ test('perkara hafalan memakai istilah skor dan kontak wali terbaru dipilih', () 
   assert.equal(latest.hasil, 'janji_hadir');
   assert.equal(infographic.latestWaliContact([{}]), null);
   assert.equal(infographic.labelOf(infographic.FOLLOWUP_RESULTS, 'janji_hadir'), 'Berjanji hadir');
+});
+
+test('pengaturan notifikasi divalidasi dan dikirim sebagian', () => {
+  const draft = updateSetting(updateSetting(defaults, 'notifications.telegram_enabled', true), 'notifications.bot_username', 'LpqDemoBot');
+  assert.equal(validateSettings(draft), null);
+  assert.deepEqual(buildSettingsPatch(defaults, draft), { notifications: { telegram_enabled: true, bot_username: 'LpqDemoBot' } });
+  assert.match(validateSettings(updateSetting(defaults, 'notifications.bot_username', '@bot salah')), /bot Telegram tidak valid/);
+  assert.match(validateSettings(updateSetting(defaults, 'notifications.summary_hour', 22)), /Jam ringkasan harian \(WIB\) harus bilangan bulat 6–20/);
+  assert.deepEqual(buildSettingsPatch(defaults, updateSetting(defaults, 'notifications.summary_hour', 7)), { notifications: { summary_hour: 7 } });
 });

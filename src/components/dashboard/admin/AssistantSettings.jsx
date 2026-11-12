@@ -13,6 +13,7 @@ import {
   fetchAssistantSettings, getAssistantErrorMessage, runAssistantRulesNow, saveAssistantSettings,
 } from '@/lib/assistantAlertAdapters';
 import AttentionPanel from '@/components/dashboard/assistant/AttentionPanel';
+import TelegramConnect from '@/components/dashboard/assistant/TelegramConnect';
 
 const NumberField = ({ id, label, hint, value, onChange, min, max, suffix }) => (
   <div className="grid content-start gap-1.5">
@@ -193,6 +194,32 @@ const AssistantSettings = () => {
                 <NumberField id="haf-muro" label="Setoran belum ditinjau" suffix="hari" min={1} max={60}
                   value={draft.hafalan.murojaah_review_max_days} onChange={(v) => set('hafalan.murojaah_review_max_days', v)} />
               </Section>
+
+              <fieldset className="rounded-xl border border-border/70 p-4">
+                <legend className="px-1 text-sm font-semibold">Notifikasi Telegram</legend>
+                <p className="mb-3 text-xs text-muted-foreground">
+                  Guru menerima ringkasan harian kelasnya; guru dan admin menerima peringatan prioritas tinggi. Isi pesan hanya nama depan santri,
+                  kelas, dan alasan singkat. Tidak ada pesan selama mode senyap atau pada pukul 21.00–06.00 WIB.
+                </p>
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  <div className="flex items-center justify-between gap-3 rounded-lg border border-border/60 p-3 sm:col-span-2 lg:col-span-1">
+                    <Label htmlFor="tg-enabled" className="text-sm">Kirim lewat Telegram</Label>
+                    <Switch id="tg-enabled" className="data-[state=unchecked]:bg-slate-300 dark:data-[state=unchecked]:bg-slate-600"
+                      checked={Boolean(draft.notifications?.telegram_enabled)} onCheckedChange={(v) => set('notifications.telegram_enabled', v)} />
+                  </div>
+                  <div className="grid content-start gap-1.5">
+                    <Label htmlFor="tg-bot">Nama pengguna bot</Label>
+                    <div className="flex items-center gap-1">
+                      <span className="text-sm text-muted-foreground">@</span>
+                      <Input id="tg-bot" autoComplete="off" spellCheck={false} placeholder="LpqAlFathBot" maxLength={32}
+                        value={draft.notifications?.bot_username || ''} onChange={(e) => set('notifications.bot_username', e.target.value.replace(/^@/, '').trim())} />
+                    </div>
+                  </div>
+                  <NumberField id="tg-hour" label="Jam ringkasan harian" suffix="WIB" min={6} max={20}
+                    value={draft.notifications?.summary_hour} onChange={(v) => set('notifications.summary_hour', v)} />
+                </div>
+                <TelegramConnect className="mt-4" showWhenDisabled />
+              </fieldset>
 
               <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-between">
                 <Button type="button" variant="outline" onClick={handleRun} disabled={isRunning || hasChanges}
