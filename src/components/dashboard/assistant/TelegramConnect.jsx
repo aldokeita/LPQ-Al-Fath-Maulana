@@ -79,13 +79,13 @@ const TelegramConnect = ({ className, showWhenDisabled = false }) => {
     <div className={cn('flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl border border-sky-300/60 bg-sky-50/70 px-3 py-2.5 text-sm dark:border-sky-400/20 dark:bg-sky-500/10', className)}>
       <Send className="h-4 w-4 shrink-0 text-sky-700 dark:text-sky-300" aria-hidden="true" />
       {!ready && (
-        <p className="min-w-0 flex-1 text-sky-900 dark:text-sky-100">
+        <p className="min-w-[min(100%,15rem)] flex-1 basis-60 text-sky-900 dark:text-sky-100">
           Telegram belum aktif. Isi nama bot dan nyalakan Telegram di pengaturan notifikasi.
         </p>
       )}
       {ready && status.linked && (
         <>
-          <p className="min-w-0 flex-1 text-sky-900 dark:text-sky-100">
+          <p className="min-w-[min(100%,15rem)] flex-1 basis-60 text-sky-900 dark:text-sky-100">
             <CheckCircle2 className="mr-1 inline h-4 w-4 text-emerald-600 dark:text-emerald-300" aria-hidden="true" />
             Telegram tersambung{status.linked_at && <> sejak {new Date(status.linked_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}</>}.
           </p>
@@ -96,7 +96,7 @@ const TelegramConnect = ({ className, showWhenDisabled = false }) => {
       )}
       {ready && !status.linked && !link && (
         <>
-          <p className="min-w-0 flex-1 text-sky-900 dark:text-sky-100">Terima ringkasan harian dan peringatan prioritas tinggi lewat Telegram.</p>
+          <p className="min-w-[min(100%,15rem)] flex-1 basis-60 text-sky-900 dark:text-sky-100">Terima ringkasan harian dan peringatan prioritas tinggi lewat Telegram.</p>
           <Button type="button" size="sm" onClick={connect} disabled={isBusy}>
             {isBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> : <Send className="mr-2 h-4 w-4" aria-hidden="true" />} Sambungkan Telegram
           </Button>
@@ -104,7 +104,7 @@ const TelegramConnect = ({ className, showWhenDisabled = false }) => {
       )}
       {ready && !status.linked && link && (
         <>
-          <p className="min-w-0 flex-1 text-sky-900 dark:text-sky-100" role="status">
+          <p className="min-w-[min(100%,15rem)] flex-1 basis-60 text-sky-900 dark:text-sky-100" role="status">
             Buka Telegram, lalu tekan <strong>Start</strong> di bot @{status.bot_username}. Tautan berlaku 15 menit.
           </p>
           <Button asChild size="sm">
