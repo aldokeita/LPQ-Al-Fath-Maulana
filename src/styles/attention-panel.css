@@ -90,6 +90,37 @@
   transform: scale(0.97);
 }
 
+/* ===== Saran AI ===== */
+
+.attention-ai {
+  border: 1px solid hsl(255 70% 80% / 0.55);
+  background:
+    linear-gradient(135deg, hsl(250 90% 97% / 0.9), hsl(190 85% 96% / 0.8));
+  box-shadow: inset 0 1px 0 hsl(0 0% 100% / 0.6);
+}
+
+.attention-ai-badge {
+  color: #fff;
+  background: linear-gradient(135deg, hsl(258 70% 58%), hsl(195 80% 45%));
+  box-shadow: 0 4px 10px -6px hsl(255 70% 40% / 0.8);
+}
+
+.attention-ai-step {
+  color: hsl(258 60% 35%);
+  background: hsl(258 80% 92%);
+}
+
+.attention-ai-skeleton {
+  background: linear-gradient(90deg, hsl(255 40% 88%), hsl(195 50% 92%), hsl(255 40% 88%));
+  background-size: 200% 100%;
+  animation: attention-ai-shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes attention-ai-shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
 /* ===== Tema gelap ===== */
 
 .dark .attention-shell {
@@ -137,6 +168,28 @@
 .dark .attention-tile {
   background: hsl(220 30% 20% / 0.6);
   box-shadow: inset 0 1px 0 hsl(190 80% 85% / 0.05);
+}
+
+.dark .attention-ai {
+  border-color: hsl(258 60% 70% / 0.22);
+  background: linear-gradient(135deg, hsl(258 50% 30% / 0.28), hsl(195 60% 25% / 0.22));
+  box-shadow: inset 0 1px 0 hsl(258 80% 90% / 0.06);
+}
+
+.dark .attention-ai-step {
+  color: hsl(258 90% 88%);
+  background: hsl(258 50% 35% / 0.6);
+}
+
+.dark .attention-ai-skeleton {
+  background: linear-gradient(90deg, hsl(258 25% 28%), hsl(200 30% 30%), hsl(258 25% 28%));
+  background-size: 200% 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .attention-ai-skeleton {
+    animation: none;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -64,3 +64,45 @@ export const fetchSantriSnapshots = async (santriIds = []) => {
 export const getMyTelegramLink = () => rpc('get_my_telegram_link');
 export const createTelegramLinkToken = () => rpc('create_telegram_link_token');
 export const unlinkMyTelegram = () => rpc('unlink_my_telegram');
+
+// ===== Rekomendasi AI (Edge Function assistant-ai) =====
+
+const invokeAssistantAi = async (body) => {
+  const { data, error } = await supabase.functions.invoke('assistant-ai', { body });
+  if (error) {
+    let payload = null;
+    try {
+      if (error.context && typeof error.context.clone === 'function') payload = await error.context.clone().json();
+    } catch { /* bukan JSON */ }
+    const err = new Error(payload?.error?.message || error.message || 'Asisten AI tidak dapat dihubungi.');
+    err.code = payload?.error?.code || 'AI_UNAVAILABLE';
+    throw err;
+  }
+  if (!data?.ok) {
+    const err = new Error(data?.error?.message || 'Asisten AI tidak dapat dihubungi.');
+    err.code = data?.error?.code || 'AI_UNAVAILABLE';
+    throw err;
+  }
+  return data.data;
+};
+
+export const requestAiRecommendation = (santriId, { refresh = false } = {}) =>
+  invokeAssistantAi({ action: 'recommend', santri_id: santriId, refresh });
+
+export const fetchAiStatus = () => invokeAssistantAi({ action: 'status' });
+export const testAiConnection = () => invokeAssistantAi({ action: 'test' });
+
+// Rekomendasi terakhir per santri (RLS: admin semua, guru hanya santri kelasnya).
+export const fetchLatestAiRecommendations = async (santriIds = []) => {
+  if (!santriIds.length) return {};
+  const { data, error } = await supabase
+    .from('assistant_ai_recommendations')
+    .select('id, santri_id, hasil, provider, model, created_at')
+    .in('santri_id', santriIds)
+    .order('created_at', { ascending: false })
+    .limit(santriIds.length * 3);
+  if (error) throw error;
+  const latest = {};
+  for (const row of data || []) if (!latest[row.santri_id]) latest[row.santri_id] = row;
+  return latest;
+};

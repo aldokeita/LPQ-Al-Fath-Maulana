@@ -19,8 +19,10 @@ import {
   groupAttentionByClass, groupAttentionBySantri, isAttendanceAlert, RULE_AREAS, RULE_LABELS, TINGKAT_LABELS, validateFollowup,
 } from '@/lib/assistantAlerts';
 import {
-  decideAlert, fetchAttention, fetchSantriSnapshots, getAssistantErrorMessage, recordAlertFollowup, recordPresenceCorrections,
+  decideAlert, fetchAssistantSettings, fetchAttention, fetchLatestAiRecommendations, fetchSantriSnapshots, getAssistantErrorMessage,
+  recordAlertFollowup, recordPresenceCorrections,
 } from '@/lib/assistantAlertAdapters';
+import AiRecommendation from '@/components/dashboard/assistant/AiRecommendation';
 import JilidChangeModal from '@/components/dashboard/admin/JilidChangeModal';
 import AttentionInsights from '@/components/dashboard/assistant/AttentionInsights';
 import TelegramConnect from '@/components/dashboard/assistant/TelegramConnect';
@@ -335,7 +337,7 @@ const WaliContactNote = ({ contact }) => {
 
 const initials = (name) => String(name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
 
-const SantriCard = ({ group, snapshot, actions, guruName, showClass, onChanged }) => {
+const SantriCard = ({ group, snapshot, actions, guruName, showClass, onChanged, aiEnabled, aiInitial }) => {
   const [mode, setMode] = useState(null);
   const [isMarking, setIsMarking] = useState(false);
   const [jilidChange, setJilidChange] = useState(null);
@@ -414,6 +416,11 @@ const SantriCard = ({ group, snapshot, actions, guruName, showClass, onChanged }
 
       <WaliContactNote contact={waliContact} />
 
+      {aiEnabled && (
+        <AiRecommendation santriId={group.santriId} nickname={group.namaPanggilan || String(group.nama || '').split(' ')[0]}
+          guruName={guruName} phone={phone} initial={aiInitial} />
+      )}
+
       {mode === null && (
         <footer className="mt-3 flex flex-wrap gap-2 border-t border-border/60 pt-3">
           {waLink && (
@@ -463,6 +470,8 @@ const AreaChip = ({ area, count }) => {
 const AttentionPanel = ({ variant = 'guru', refreshKey = 0, actions = null, guruName = '' }) => {
   const [data, setData] = useState(null);
   const [snapshots, setSnapshots] = useState({});
+  const [aiEnabled, setAiEnabled] = useState(false);
+  const [aiRecs, setAiRecs] = useState({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [open, setOpen] = useState(() => readOpen(variant));
@@ -482,6 +491,15 @@ const AttentionPanel = ({ variant = 'guru', refreshKey = 0, actions = null, guru
       } catch {
         // Infografik bersifat pelengkap; daftar perkara tetap tampil bila ringkasan gagal dimuat.
         setSnapshots({});
+      }
+      // Saran AI juga pelengkap: kegagalan memuatnya tidak mengganggu panel.
+      try {
+        const settings = await fetchAssistantSettings();
+        const enabled = Boolean(settings?.ai?.enabled);
+        setAiEnabled(enabled);
+        setAiRecs(enabled ? await fetchLatestAiRecommendations(ids) : {});
+      } catch {
+        setAiRecs({});
       }
     } catch (err) {
       setError(getAssistantErrorMessage(err));
@@ -563,7 +581,8 @@ const AttentionPanel = ({ variant = 'guru', refreshKey = 0, actions = null, guru
                 <ul className="grid gap-3 xl:grid-cols-2">
                   {groupAttentionBySantri(cls.items).map((santri) => (
                     <SantriCard key={santri.santriId} group={santri} snapshot={snapshots[santri.santriId]} actions={actions}
-                      guruName={guruName} showClass={false} onChanged={load} />
+                      guruName={guruName} showClass={false} onChanged={load}
+                      aiEnabled={aiEnabled} aiInitial={aiRecs[santri.santriId]} />
                   ))}
                 </ul>
               </section>

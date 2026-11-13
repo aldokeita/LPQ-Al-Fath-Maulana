@@ -115,6 +115,48 @@ export const SETTINGS_LABELS = Object.freeze({
   'notifications.summary_hour': 'Jam ringkasan harian (WIB)',
 });
 
+// ===== Pengaturan AI =====
+
+export const AI_PROVIDERS = Object.freeze([
+  { id: 'mock', label: 'Tiruan (uji, tanpa biaya)', model: 'mock', needsModel: false },
+  { id: 'anthropic', label: 'Anthropic Claude', model: 'claude-haiku-5-5', needsModel: false },
+  { id: 'openai', label: 'OpenAI', model: '', needsModel: true },
+  { id: 'gemini', label: 'Google Gemini', model: '', needsModel: true },
+  { id: 'deepseek', label: 'DeepSeek', model: 'deepseek-chat', needsModel: false },
+  { id: 'opencode', label: 'OpenCode Zen', model: '', needsModel: true },
+  { id: 'openrouter', label: 'OpenRouter', model: '', needsModel: true },
+  { id: 'groq', label: 'Groq', model: '', needsModel: true },
+  { id: 'custom', label: 'Lainnya (kompatibel OpenAI)', model: '', needsModel: true },
+]);
+
+const AI_SETTING_KEYS = ['enabled', 'provider', 'model', 'base_url', 'monthly_budget_usd',
+  'price_input_per_mtok', 'price_output_per_mtok', 'daily_limit_per_user'];
+
+export const validateAiSettings = (ai) => {
+  if (!ai) return null;
+  const provider = AI_PROVIDERS.find((p) => p.id === ai.provider);
+  if (!provider) return 'Penyedia AI tidak dikenal.';
+  const model = String(ai.model || '').trim();
+  if (!/^[A-Za-z0-9._:/@-]{0,100}$/.test(model)) return 'Nama model AI hanya boleh huruf, angka, dan . _ : / @ -.';
+  if (ai.enabled && provider.needsModel && !model) return `Isi nama model untuk ${provider.label}.`;
+  const baseUrl = String(ai.base_url || '');
+  if (baseUrl && !/^https:\/\/\S{4,200}$/.test(baseUrl)) return 'Alamat API harus diawali https://.';
+  if (ai.provider === 'custom' && !baseUrl) return 'Isi alamat API untuk penyedia lainnya.';
+  for (const [key, label, max] of [['monthly_budget_usd', 'Anggaran bulanan', 1000],
+    ['price_input_per_mtok', 'Harga input', 1000], ['price_output_per_mtok', 'Harga output', 1000]]) {
+    const value = Number(ai[key]);
+    if (!Number.isFinite(value) || value < 0 || value > max) return `${label} harus 0–${max}.`;
+  }
+  const daily = Number(ai.daily_limit_per_user);
+  if (!Number.isInteger(daily) || daily < 1 || daily > 500) return 'Batas harian per pengguna harus 1–500.';
+  return null;
+};
+
+// Isi placeholder {nama}/{guru} dari jawaban AI dengan nama asli, hanya di browser.
+export const fillAiPlaceholders = (text, { nama, guru } = {}) => String(text || '')
+  .replace(/\{nama\}/g, nama || 'ananda')
+  .replace(/\{guru\}/g, guru || 'Guru LPQ Al-Fath Maulana');
+
 const getPath = (obj, path) => path.split('.').reduce((acc, key) => acc?.[key], obj);
 
 const setPath = (obj, path, value) => {
@@ -141,6 +183,8 @@ export const validateSettings = (settings) => {
   if (!/^([A-Za-z][A-Za-z0-9_]{3,31})?$/.test(settings.notifications?.bot_username || '')) {
     return 'Nama pengguna bot Telegram tidak valid (contoh: LpqAlFathBot, tanpa @).';
   }
+  const aiError = validateAiSettings(settings.ai);
+  if (aiError) return aiError;
   for (const [jilid, days] of Object.entries(settings.jilid?.per_jilid || {})) {
     if (!Number.isInteger(days) || days < 7 || days > 730) return `Batas ${jilid} harus 7–730 hari.`;
   }
@@ -166,6 +210,11 @@ export const buildSettingsPatch = (saved, draft) => {
     if ((saved.notifications?.[key] ?? null) !== (draft.notifications?.[key] ?? null)) {
       patch.notifications = { ...(patch.notifications || {}), [key]: draft.notifications[key] };
     }
+  });
+  AI_SETTING_KEYS.forEach((key) => {
+    const before = saved.ai?.[key] ?? null;
+    const after = draft.ai?.[key] ?? null;
+    if (before !== after) patch.ai = { ...(patch.ai || {}), [key]: after };
   });
   if (JSON.stringify(saved.jilid?.per_jilid || {}) !== JSON.stringify(draft.jilid?.per_jilid || {})) {
     patch.jilid = { ...(patch.jilid || {}), per_jilid: draft.jilid.per_jilid };

@@ -14,6 +14,7 @@ import {
 } from '@/lib/assistantAlertAdapters';
 import AttentionPanel from '@/components/dashboard/assistant/AttentionPanel';
 import TelegramConnect from '@/components/dashboard/assistant/TelegramConnect';
+import AiSettings from '@/components/dashboard/admin/AiSettings';
 
 const NumberField = ({ id, label, hint, value, onChange, min, max, suffix }) => (
   <div className="grid content-start gap-1.5">
@@ -220,6 +221,8 @@ const AssistantSettings = () => {
                 </div>
                 <TelegramConnect className="mt-4" showWhenDisabled />
               </fieldset>
+
+              {draft.ai && <AiSettings ai={draft.ai} savedAi={saved.ai} onChange={set} />}
 
               <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-between">
                 <Button type="button" variant="outline" onClick={handleRun} disabled={isRunning || hasChanges}
