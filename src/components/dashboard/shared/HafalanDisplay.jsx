@@ -14,6 +14,7 @@ const HafalanDisplay = ({
     isDraggable = false,
     onItemDrop,
     onDeleteItem,
+    onRenameItem = null,
     progressData = null, // Optional: { [itemName]: boolean }
     scoreData = null, // Optional: { [itemName]: 1 | 2 | 3 | 4 }
     onScoreChange = null,
@@ -120,6 +121,7 @@ const HafalanDisplay = ({
                                             item={item}
                                             isDraggable={isDraggable}
                                             onDelete={onDeleteItem}
+                                            onRename={onRenameItem}
                                         />
                                     )}
                                 </div>

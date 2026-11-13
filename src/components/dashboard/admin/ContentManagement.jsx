@@ -13,7 +13,8 @@ import { Switch } from "@/components/ui/switch";
 import { RotateCcw, ClipboardList, GripVertical, PlusCircle, MinusCircle, ArrowUp, ArrowDown } from 'lucide-react';
 import { motion } from 'framer-motion';
 import HafalanDisplay from '@/components/dashboard/shared/HafalanDisplay';
-import { createHafalanItem, deactivateHafalanItem, fetchHafalanItems, getAcademicErrorMessage, updateHafalanItem } from '@/lib/academicAdapters';
+import { createHafalanItem, deactivateHafalanItem, fetchHafalanItems, getAcademicErrorMessage, renameHafalanItem, updateHafalanItem } from '@/lib/academicAdapters';
+import { validateHafalanItemRename } from '@/lib/hafalanItemName';
 import { getStorageErrorMessage, uploadWebsiteAsset } from '@/lib/storageAdapters';
 import { createDefaultEnrollmentData, prepareEnrollmentDataForSave } from '@/lib/enrollmentContent';
 import { defaultContent, mergeHomepageContent } from '@/components/public/home/homeUtils';
@@ -92,6 +93,26 @@ const HafalanItemManager = ({
     }
   };
 
+  const handleRenameItem = async (item, nextName) => {
+    const result = validateHafalanItemRename({ item, nextName, items });
+    if (result.error) {
+      toast({ title: "Nama belum bisa disimpan", description: result.error, variant: "destructive" });
+      return false;
+    }
+    if (result.unchanged) return true;
+
+    try {
+      await renameHafalanItem({ id: item.id, category: item.category || category, oldName: item.item_name, newName: result.name });
+      setItems(prev => prev.map(row => row.id === item.id ? { ...row, item_name: result.name } : row));
+      toast({ title: "Berhasil", description: `Nama diubah menjadi "${result.name}". Nilai santri tetap tersimpan.` });
+      return true;
+    } catch (error) {
+      toast({ title: "Gagal mengubah nama", description: getAcademicErrorMessage(error), variant: "destructive" });
+      fetchItems();
+      return false;
+    }
+  };
+
   const handleItemDrop = async (itemId, newJilid) => {
     // Optimistic update
     setItems(prev => prev.map(item => item.id === itemId ? { ...item, jilid: newJilid } : item));
@@ -151,13 +172,14 @@ const HafalanItemManager = ({
                   isDraggable={true}
                   onItemDrop={handleItemDrop}
                   onDeleteItem={handleDeleteItem}
+                  onRenameItem={handleRenameItem}
                   isLoading={isLoading}
               />
           ))}
       </div>
 
       <p className="text-xs text-muted-foreground text-center pt-2">
-          Tarik dan lepas item hafalan untuk memindahkannya ke target lain.
+          Tarik dan lepas item hafalan untuk memindahkannya ke target lain. Klik ikon pensil untuk mengubah nama tanpa menghapus nilai santri.
       </p>
     </section>
   );
