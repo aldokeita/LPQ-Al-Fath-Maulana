@@ -32,8 +32,8 @@ const Brand = ({ dark }) => (
       <img src={LOGO} alt="" width={38} height={38} style={{ width: 38, height: 38, objectFit: 'contain' }} crossOrigin="anonymous" />
     </div>
     <div style={{ lineHeight: 1.15 }}>
-      <div style={{ fontFamily: "'Cinzel', serif", fontWeight: 700, fontSize: 15, letterSpacing: 0.6, color: dark ? '#fff' : '#0f2f36' }}>LPQ Al-Fath Maulana</div>
-      <div style={{ fontFamily: SANS, fontSize: 10.5, fontWeight: 700, letterSpacing: 2.4, textTransform: 'uppercase', color: dark ? '#fcd34d' : '#b7791f' }}>Metode Qiroati</div>
+      <div style={{ whiteSpace: 'nowrap', fontFamily: "'Cinzel', serif", fontWeight: 700, fontSize: 15, letterSpacing: 0.6, color: dark ? '#fff' : '#0f2f36' }}>LPQ Al-Fath Maulana</div>
+      <div style={{ whiteSpace: 'nowrap', fontFamily: SANS, fontSize: 10.5, fontWeight: 700, letterSpacing: 2.4, textTransform: 'uppercase', color: dark ? '#fcd34d' : '#b7791f' }}>Metode Qiroati</div>
     </div>
   </div>
 );
@@ -86,7 +86,7 @@ export const JilidCard = React.forwardRef(({ data, pesan, guru, avatar }, ref) =
     <div style={{ position: 'relative', height: '100%', padding: '30px 34px 30px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
       <div style={{ alignSelf: 'stretch', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Brand dark />
-        <span style={{ padding: '6px 12px', borderRadius: 9999, fontSize: 10.5, fontWeight: 700, letterSpacing: 2.2, textTransform: 'uppercase',
+        <span style={{ whiteSpace: 'nowrap', flexShrink: 0, padding: '6px 12px', borderRadius: 9999, fontSize: 10.5, fontWeight: 700, letterSpacing: 2.2, textTransform: 'uppercase',
           color: '#fde68a', background: 'rgba(251,191,36,0.14)', border: '1px solid rgba(251,191,36,0.4)', backdropFilter: 'blur(6px)' }}>
           Kartu Apresiasi
         </span>
@@ -113,13 +113,13 @@ export const JilidCard = React.forwardRef(({ data, pesan, guru, avatar }, ref) =
       </div>
 
       {data.dari && (
-        <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 10, padding: '6px 8px 6px 14px', borderRadius: 9999,
+        <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 10, whiteSpace: 'nowrap', padding: '6px 8px 6px 14px', borderRadius: 9999,
           background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.16)' }}>
-          <span style={{ fontSize: 14, fontWeight: 600, color: 'rgba(255,255,255,0.72)' }}>{data.dari}</span>
-          <svg width="26" height="16" viewBox="0 0 34 20" aria-hidden="true">
+          <span style={{ fontSize: 14, fontWeight: 600, color: 'rgba(255,255,255,0.72)', whiteSpace: 'nowrap', flexShrink: 0 }}>{data.dari}</span>
+          <svg width="26" height="16" viewBox="0 0 34 20" aria-hidden="true" style={{ flexShrink: 0 }}>
             <path d="M2 10h26M21 3l8 7-8 7" fill="none" stroke="#fcd34d" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
-          <span style={{ padding: '4px 12px', borderRadius: 9999, fontSize: 14, fontWeight: 800, color: '#06282f', background: '#fde68a' }}>{data.ke}</span>
+          <span style={{ whiteSpace: 'nowrap', flexShrink: 0, padding: '4px 12px', borderRadius: 9999, fontSize: 14, fontWeight: 800, color: '#06282f', background: '#fde68a' }}>{data.ke}</span>
         </div>
       )}
 
@@ -215,8 +215,8 @@ export const ProfilCard = React.forwardRef(({ data, pesan, guru, avatar }, ref) 
               {data.namaLengkap || data.panggilan}
             </div>
             <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-              {data.jilid && <span style={{ padding: '5px 12px', borderRadius: 9999, fontSize: 12.5, fontWeight: 700, color: '#fff', background: 'linear-gradient(135deg, #0d9488, #0891b2)' }}>{data.jilid}</span>}
-              <span style={{ padding: '5px 12px', borderRadius: 9999, fontSize: 12.5, fontWeight: 700, color: '#92400e', background: '#fef3c7' }}>★ {data.poin.toLocaleString('id-ID', { maximumFractionDigits: 1 })} poin</span>
+              {data.jilid && <span style={{ whiteSpace: 'nowrap', flexShrink: 0, padding: '5px 12px', borderRadius: 9999, fontSize: 12.5, fontWeight: 700, color: '#fff', background: 'linear-gradient(135deg, #0d9488, #0891b2)' }}>{data.jilid}</span>}
+              <span style={{ whiteSpace: 'nowrap', flexShrink: 0, padding: '5px 12px', borderRadius: 9999, fontSize: 12.5, fontWeight: 700, color: '#92400e', background: '#fef3c7' }}>★ {data.poin.toLocaleString('id-ID', { maximumFractionDigits: 1 })} poin</span>
             </div>
           </div>
         </div>
@@ -263,7 +263,7 @@ export const ProfilCard = React.forwardRef(({ data, pesan, guru, avatar }, ref) 
                   <div style={{ fontSize: 12, fontWeight: 700, color: '#047857', marginBottom: 6 }}>Sudah hafal</div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                     {hafal.shown.map((m) => <span key={m} style={{ padding: '4px 10px', borderRadius: 9999, fontSize: 12, fontWeight: 600, color: '#065f46', background: '#d1fae5' }}>✓ {m}</span>)}
-                    {hafal.more > 0 && <span style={{ padding: '4px 10px', borderRadius: 9999, fontSize: 12, color: '#065f46', background: '#ecfdf5' }}>+{hafal.more} lainnya</span>}
+                    {hafal.more > 0 && <span style={{ whiteSpace: 'nowrap', flexShrink: 0, padding: '4px 10px', borderRadius: 9999, fontSize: 12, color: '#065f46', background: '#ecfdf5' }}>+{hafal.more} lainnya</span>}
                   </div>
                 </>
               )}
@@ -282,7 +282,7 @@ export const ProfilCard = React.forwardRef(({ data, pesan, guru, avatar }, ref) 
                   {belum.shown.length > 0 && (
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                       {belum.shown.map((m) => <span key={m} style={{ padding: '4px 10px', borderRadius: 9999, fontSize: 12, color: '#334155', background: '#f1f5f9', border: '1px solid #e2e8f0' }}>{m}</span>)}
-                      {belum.more > 0 && <span style={{ padding: '4px 10px', fontSize: 12, color: '#64748b' }}>+{belum.more} lainnya</span>}
+                      {belum.more > 0 && <span style={{ whiteSpace: 'nowrap', flexShrink: 0, padding: '4px 10px', fontSize: 12, color: '#64748b' }}>+{belum.more} lainnya</span>}
                     </div>
                   )}
                 </>
