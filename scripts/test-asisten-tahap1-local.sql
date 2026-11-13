@@ -584,5 +584,82 @@ end $$;
 reset role;
 select set_config('request.jwt.claims', '', true);
 
+-- ===== Tahap 3b: konteks lembaga, kelas, profil, percakapan =====
+do $$
+declare v jsonb;
+begin
+  perform set_config('request.jwt.claims', '{"sub":"7e571000-0000-0000-0000-00000000000a","role":"authenticated"}', true);
+  if coalesce(public.get_assistant_settings()#>>'{ai,konteks_lembaga}', '') not like '%Qiroati%' then
+    raise exception 'TEST FAIL: default konteks lembaga';
+  end if;
+  begin
+    perform public.save_assistant_settings(jsonb_build_object('ai', jsonb_build_object('konteks_lembaga', repeat('x', 6001))));
+    raise exception 'TEST FAIL: konteks too long accepted';
+  exception when invalid_parameter_value then null;
+  end;
+  perform public.save_assistant_settings('{"silent_mode":false}');
+
+  perform set_config('request.jwt.claims', '{"sub":"7e571000-0000-0000-0000-0000000000a1","role":"authenticated"}', true);
+  v := public.get_assistant_ai_classes();
+  if jsonb_array_length(v) <> 1 or v->0->>'nama_kelas' <> 'TEST T1 Kelas A' then raise exception 'TEST FAIL: guru classes %', v; end if;
+  v := public.get_assistant_class_roster('7e571000-0000-0000-0000-0000000c1a00');
+  if exists (select 1 from jsonb_array_elements(v) x where x->>'nama_lengkap' = 'TEST T1 Lima') then
+    raise exception 'TEST FAIL: roster includes non-Anak santri';
+  end if;
+  begin
+    perform public.get_assistant_class_roster('7e571000-0000-0000-0000-0000000c1b00');
+    raise exception 'TEST FAIL: guru A read class B roster';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    perform public.get_assistant_santri_profile('7e571000-0000-0000-0000-000000000104');
+    raise exception 'TEST FAIL: guru A read class B profile';
+  exception when insufficient_privilege then null;
+  end;
+  v := public.get_assistant_santri_profile('7e571000-0000-0000-0000-000000000102');
+  if v->>'jilid' is null or jsonb_typeof(v->'hafalan') <> 'array' then raise exception 'TEST FAIL: profile shape %', v; end if;
+
+  -- Mode senyap: guru tidak mendapat kelas/profil.
+  perform set_config('request.jwt.claims', '{"sub":"7e571000-0000-0000-0000-00000000000a","role":"authenticated"}', true);
+  perform public.save_assistant_settings('{"silent_mode":true}');
+  perform set_config('request.jwt.claims', '{"sub":"7e571000-0000-0000-0000-0000000000a1","role":"authenticated"}', true);
+  if jsonb_array_length(public.get_assistant_ai_classes()) <> 0
+     or public.get_assistant_santri_profile('7e571000-0000-0000-0000-000000000102') is not null then
+    raise exception 'TEST FAIL: silent mode leaks ai data';
+  end if;
+  perform set_config('request.jwt.claims', '{"sub":"7e571000-0000-0000-0000-00000000000a","role":"authenticated"}', true);
+  perform public.save_assistant_settings('{"silent_mode":false}');
+
+  insert into public.assistant_ai_conversations (id, user_id, class_id, judul)
+  values ('7e571000-0000-0000-0000-00000000c0c0', '7e571000-0000-0000-0000-0000000000a1', '7e571000-0000-0000-0000-0000000c1a00', 'uji');
+  insert into public.assistant_ai_messages (conversation_id, role, content)
+  values ('7e571000-0000-0000-0000-00000000c0c0', 'user', 'halo');
+end $$;
+
+select set_config('request.jwt.claims', '{"sub":"7e571000-0000-0000-0000-0000000000b1","role":"authenticated"}', true);
+set local role authenticated;
+do $$
+begin
+  if exists (select 1 from public.assistant_ai_conversations) or exists (select 1 from public.assistant_ai_messages) then
+    raise exception 'TEST FAIL: other guru reads conversation';
+  end if;
+end $$;
+reset role;
+select set_config('request.jwt.claims', '{"sub":"7e571000-0000-0000-0000-0000000000a1","role":"authenticated"}', true);
+set local role authenticated;
+do $$
+begin
+  if (select count(*) from public.assistant_ai_messages) <> 1 then raise exception 'TEST FAIL: owner cannot read messages'; end if;
+  begin
+    insert into public.assistant_ai_messages (conversation_id, role, content) values ('7e571000-0000-0000-0000-00000000c0c0', 'assistant', 'palsu');
+    raise exception 'TEST FAIL: client inserted message';
+  exception when insufficient_privilege then null;
+  end;
+  delete from public.assistant_ai_conversations where id = '7e571000-0000-0000-0000-00000000c0c0';
+  if exists (select 1 from public.assistant_ai_messages) then raise exception 'TEST FAIL: delete cascade'; end if;
+end $$;
+reset role;
+select set_config('request.jwt.claims', '', true);
+
 select 'PASS: asisten tahap 1-3 (aturan, senyap, panel, koreksi, keputusan, RLS, hanya-tambah, telegram, ai)' as result;
 rollback;

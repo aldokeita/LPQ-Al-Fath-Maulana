@@ -1,7 +1,7 @@
 // Logika murni rekomendasi AI asisten: penyamaran data, prompt, validasi jawaban, biaya.
 // Dipakai Edge Function assistant-ai (Deno) dan diuji dengan node --test.
 
-export const PROMPT_VERSION = 'rekomendasi-v1';
+export const PROMPT_VERSION = 'rekomendasi-v2';
 
 const RULE_LABELS = {
   absen_beruntun: 'Tidak hadir beberapa sesi berturut-turut',
@@ -80,7 +80,9 @@ Aturan:
 - Saran harus bisa dilakukan guru di sesi mengaji atau lewat wali, dan merujuk pada data yang diberikan.
 - Jangan memberi label medis, psikologis, atau menyalahkan anak maupun orang tua.
 - Hafalan dinilai skor 1–4; skor 4 berarti sudah hafal/aman.
-- "pola_10_sesi_terakhir": H = hadir, T = terlambat, A = tidak hadir, urut dari lama ke baru.
+- "pola_10_sesi_terakhir": H = hadir, T = terlambat, A = tidak hadir, urut dari lama ke baru. Jangan menyalin pola mentah ini; jelaskan dengan kata-kata.
+- Bila ada "profil" (hafalan per kategori, karakter, kekuatan, perilaku, catatan guru, poin), pakai untuk menyesuaikan saran: mulai dari kekuatan dan apresiasi, lalu sebut materi hafalan yang perlu dilatih secara spesifik.
+- Ikuti pengetahuan lembaga dan metode Qiroati di atas; jangan menyarankan naik jilid tanpa tes kenaikan.
 - Pesan untuk wali: buka dengan salam, sampaikan keadaan dengan lembut, ajak bekerja sama, tutup dengan doa dan nama {guru}. Maksimal 6 kalimat.
 
 Balas HANYA dengan JSON valid tanpa teks lain, dengan bentuk:

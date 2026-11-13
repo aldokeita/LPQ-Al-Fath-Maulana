@@ -97,12 +97,16 @@ const httpError = async (res) => {
   return new AiProviderError('AI_PROVIDER_ERROR', message, res.status);
 };
 
-const callOpenAiCompatible = async (p, { system, user }, fetchImpl) => {
+// Percakapan: messages [{role:'user'|'assistant', content}] menggantikan user bila ada.
+const toMessages = ({ user, messages }) => (Array.isArray(messages) && messages.length ? messages : [{ role: 'user', content: user }]);
+
+const callOpenAiCompatible = async (p, prompt, fetchImpl) => {
+  const { system, json = true } = prompt;
   const body = {
     model: p.model,
-    messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
+    messages: [{ role: 'system', content: system }, ...toMessages(prompt)],
   };
-  if (p.jsonMode) body.response_format = { type: 'json_object' };
+  if (p.jsonMode && json) body.response_format = { type: 'json_object' };
   const headers = { 'content-type': 'application/json' };
   if (p.apiKey) headers.authorization = `Bearer ${p.apiKey}`;
   const res = await fetchImpl(`${p.baseUrl}/chat/completions`, {
@@ -117,14 +121,15 @@ const callOpenAiCompatible = async (p, { system, user }, fetchImpl) => {
   };
 };
 
-const callGemini = async (p, { system, user }, fetchImpl) => {
+const callGemini = async (p, prompt, fetchImpl) => {
+  const { system, json = true } = prompt;
   const res = await fetchImpl(`${p.baseUrl}/models/${encodeURIComponent(p.model)}:generateContent`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', 'x-goog-api-key': p.apiKey },
     body: JSON.stringify({
       systemInstruction: { parts: [{ text: system }] },
-      contents: [{ role: 'user', parts: [{ text: user }] }],
-      generationConfig: { responseMimeType: 'application/json' },
+      contents: toMessages(prompt).map((m) => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] })),
+      ...(json ? { generationConfig: { responseMimeType: 'application/json' } } : {}),
     }),
     signal: AbortSignal.timeout(TIMEOUT_MS),
   });
@@ -141,10 +146,12 @@ const callGemini = async (p, { system, user }, fetchImpl) => {
 // Model Claude generasi 5 menerima output_config.effort; model lama tidak.
 const supportsEffort = (model) => /^claude-(haiku|sonnet|opus|fable)-5/.test(model);
 
-const callAnthropic = async (p, { system, user, schema }, _fetchImpl, loadAnthropic) => {
+const callAnthropic = async (p, prompt, _fetchImpl, loadAnthropic) => {
+  const { system, schema, json = true } = prompt;
   const Anthropic = await loadAnthropic();
   const client = new Anthropic({ apiKey: p.apiKey, timeout: TIMEOUT_MS, maxRetries: 1 });
-  const outputConfig = { format: { type: 'json_schema', schema } };
+  const outputConfig = {};
+  if (json && schema) outputConfig.format = { type: 'json_schema', schema };
   if (supportsEffort(p.model)) outputConfig.effort = 'low';
   let response;
   try {
@@ -152,8 +159,8 @@ const callAnthropic = async (p, { system, user, schema }, _fetchImpl, loadAnthro
       model: p.model,
       max_tokens: 4000,
       system,
-      messages: [{ role: 'user', content: user }],
-      output_config: outputConfig,
+      messages: toMessages(prompt),
+      ...(Object.keys(outputConfig).length ? { output_config: outputConfig } : {}),
     });
   } catch (err) {
     if (err instanceof Anthropic.AuthenticationError || err instanceof Anthropic.PermissionDeniedError) {
@@ -168,6 +175,32 @@ const callAnthropic = async (p, { system, user, schema }, _fetchImpl, loadAnthro
     text: response.content.filter((block) => block.type === 'text').map((block) => block.text).join(''),
     inputTokens: response.usage?.input_tokens || 0,
     outputTokens: response.usage?.output_tokens || 0,
+  };
+};
+
+const mockChat = (messages) => ({
+  text: `Terima kasih atas pertanyaannya. (Jawaban tiruan) Untuk ${/\bS\d+\b/.exec(messages.at(-1)?.content || '')?.[0] || 'santri ini'}, mulailah dengan apresiasi kecil di awal sesi, lalu latih satu materi yang skornya masih di bawah 4.`,
+  inputTokens: Math.ceil(JSON.stringify(messages).length / 4),
+  outputTokens: 60,
+});
+
+const mockClass = (user) => {
+  const codes = [...new Set(user.match(/"kode":"(S\d+)"/g) || [])].map((c) => c.slice(8, -1));
+  return {
+    text: JSON.stringify({
+      ringkasan: 'Kelas ini sebagian besar hadir rutin; beberapa santri tertahan di jilidnya. (Jawaban tiruan)',
+      sorotan: [
+        ...(codes[0] ? [{ kode: codes[0], jenis: 'perhatian', catatan: 'Dampingi latihan jilid dan cek kendala bersama wali.' }] : []),
+        ...(codes[1] ? [{ kode: codes[1], jenis: 'apresiasi', catatan: 'Kehadirannya konsisten; beri pujian di depan kelas.' }] : []),
+      ],
+      saran_umum: [
+        { judul: 'Buka sesi dengan muroja\'ah doa bersama', alasan: 'Banyak hafalan doa masih di bawah skor 4.' },
+        { judul: 'Umumkan perolehan poin pekanan', alasan: 'Poin dapat menjadi apresiasi yang menyemangati.' },
+      ],
+      fokus_pekan_ini: 'Menuntaskan hafalan doa yang belum aman.',
+    }),
+    inputTokens: Math.ceil(user.length / 4),
+    outputTokens: 150,
   };
 };
 
@@ -193,7 +226,11 @@ const defaultLoadAnthropic = async () => (await import('npm:@anthropic-ai/sdk'))
 
 // Panggil penyedia terpilih. fetchImpl dan loadAnthropic dapat diganti untuk pengujian.
 export const generate = async (provider, prompt, { fetchImpl = fetch, loadAnthropic = defaultLoadAnthropic } = {}) => {
-  if (provider.kind === 'mock') return mockAnswer(prompt.user);
+  if (provider.kind === 'mock') {
+    if (prompt.json === false) return mockChat(toMessages(prompt));
+    if (prompt.kind === 'kelas') return mockClass(prompt.user);
+    return mockAnswer(prompt.user);
+  }
   if (!provider.model) throw new AiProviderError('AI_MODEL_MISSING', 'Nama model belum diisi di pengaturan AI.');
   if (!provider.hasKey) throw new AiProviderError('AI_KEY_MISSING', `Secret ${provider.keyEnv} belum diisi.`);
   if (provider.kind === 'anthropic') return callAnthropic(provider, prompt, fetchImpl, loadAnthropic);
