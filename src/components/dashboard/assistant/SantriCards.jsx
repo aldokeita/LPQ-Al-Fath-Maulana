@@ -120,7 +120,12 @@ const Avatar = ({ src, name, size, ring = 'linear-gradient(135deg, #fde68a, #5ee
 
 // ===== Kartu apresiasi kenaikan jilid =====
 
-export const JilidCard = React.forwardRef(({ data, pesan, guru, avatar }, ref) => (
+// Nama panjang (dua baris) memakai huruf lebih kecil dan foto sedikit lebih kecil agar kartu tetap muat.
+const isLongName = (name) => String(name || '').length > 20;
+
+export const JilidCard = React.forwardRef(({ data, pesan, guru, avatar }, ref) => {
+  const longName = isLongName(data.namaLengkap || data.panggilan);
+  return (
   <div ref={ref} style={{ width: CARD_W, height: CARD_H, position: 'relative', overflow: 'hidden', borderRadius: 28, background: '#052e36', color: '#fff', fontFamily: SANS }}>
     <BuildingBackdrop blur={3} position="center 45%"
       overlay="linear-gradient(180deg, rgba(4,32,42,0.70) 0%, rgba(7,48,66,0.58) 34%, rgba(14,30,72,0.88) 66%, rgba(22,16,58,0.96) 100%)" />
@@ -138,12 +143,12 @@ export const JilidCard = React.forwardRef(({ data, pesan, guru, avatar }, ref) =
         </span>
       </div>
 
-      <div dir="rtl" lang="ar" style={{ fontFamily: ARABIC, fontSize: 38, lineHeight: 1.3, marginTop: 8, color: '#fcd34d', textShadow: '0 4px 22px rgba(251,191,36,0.45)' }}>
+      <div dir="rtl" lang="ar" style={{ flexShrink: 0, fontFamily: ARABIC, fontSize: 38, lineHeight: 1.3, marginTop: 8, color: '#fcd34d', textShadow: '0 4px 22px rgba(251,191,36,0.45)' }}>
         مَا شَاءَ اللهُ
       </div>
 
-      <div style={{ position: 'relative', marginTop: 6 }}>
-        <Avatar src={avatar} name={data.namaLengkap || data.panggilan} size={184} ringWidth={6}
+      <div style={{ position: 'relative', marginTop: 6, flexShrink: 0 }}>
+        <Avatar src={avatar} name={data.namaLengkap || data.panggilan} size={longName ? 156 : 184} ringWidth={6}
           glow="0 0 0 8px rgba(255,255,255,0.06), 0 18px 50px rgba(45,212,191,0.35)" />
         <span style={{ position: 'absolute', left: '50%', bottom: -14, transform: 'translateX(-50%)', whiteSpace: 'nowrap',
           padding: '7px 16px', borderRadius: 9999, fontSize: 15, fontWeight: 800, color: '#06282f',
@@ -152,14 +157,14 @@ export const JilidCard = React.forwardRef(({ data, pesan, guru, avatar }, ref) =
         </span>
       </div>
 
-      <div style={{ marginTop: 28, fontSize: 13, fontWeight: 600, letterSpacing: 2.4, textTransform: 'uppercase', color: 'rgba(255,255,255,0.7)' }}>Selamat naik jilid</div>
-      <div style={{ fontSize: 33, fontWeight: 800, lineHeight: 1.12, marginTop: 4, letterSpacing: -0.4, textAlign: 'center', maxWidth: '100%',
+      <div style={{ flexShrink: 0, marginTop: 26, fontSize: 13, fontWeight: 700, letterSpacing: 2.4, textTransform: 'uppercase', color: 'rgba(255,255,255,0.7)' }}>Selamat naik jilid</div>
+      <div style={{ flexShrink: 0, fontSize: longName ? 26 : 32, fontWeight: 800, lineHeight: longName ? '33px' : '42px', padding: '0 4px', marginTop: 2, letterSpacing: -0.4, textAlign: 'center', maxWidth: '100%',
         display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
         {data.namaLengkap || data.panggilan}
       </div>
 
       {data.dari && (
-        <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 10, whiteSpace: 'nowrap', padding: '6px 8px 6px 14px', borderRadius: 9999,
+        <div style={{ flexShrink: 0, marginTop: 10, display: 'flex', alignItems: 'center', gap: 10, whiteSpace: 'nowrap', padding: '6px 8px 6px 14px', borderRadius: 9999,
           background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.16)' }}>
           <span style={{ display: 'inline-block', fontSize: 14, fontWeight: 700, color: 'rgba(255,255,255,0.72)', whiteSpace: 'nowrap', flexShrink: 0 }}>{nb(data.dari)}</span>
           <svg width="26" height="16" viewBox="0 0 34 20" aria-hidden="true" style={{ flexShrink: 0 }}>
@@ -185,7 +190,8 @@ export const JilidCard = React.forwardRef(({ data, pesan, guru, avatar }, ref) =
       <ContactFooter dark />
     </div>
   </div>
-));
+);
+});
 JilidCard.displayName = 'JilidCard';
 
 // ===== Kartu profil kehadiran & hafalan =====
@@ -257,7 +263,7 @@ export const ProfilCard = React.forwardRef(({ data, pesan, guru, avatar }, ref) 
             glow="0 12px 30px rgba(13,148,136,0.25)" />
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: '#0f766e' }}>Santri</div>
-            <div style={{ fontSize: 26, fontWeight: 800, lineHeight: 1.12, letterSpacing: -0.3, marginTop: 2,
+            <div style={{ fontSize: 26, fontWeight: 800, lineHeight: '34px', letterSpacing: -0.3, marginTop: 0,
               display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
               {data.namaLengkap || data.panggilan}
             </div>
