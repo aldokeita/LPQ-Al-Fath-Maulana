@@ -14,14 +14,32 @@ if [[ -z "$REF" ]]; then
 fi
 echo "Proyek target: ${REF}"
 
-declare -A ENV_OF=(
-  [anthropic]=ANTHROPIC_API_KEY [openai]=OPENAI_API_KEY [gemini]=GEMINI_API_KEY
-  [deepseek]=DEEPSEEK_API_KEY [opencode]=OPENCODE_API_KEY [openrouter]=OPENROUTER_API_KEY
-  [groq]=GROQ_API_KEY [custom]=AI_CUSTOM_API_KEY
-)
+key_env_for() {
+  case "$1" in
+    anthropic) echo ANTHROPIC_API_KEY ;;
+    openai) echo OPENAI_API_KEY ;;
+    gemini) echo GEMINI_API_KEY ;;
+    deepseek) echo DEEPSEEK_API_KEY ;;
+    opencode) echo OPENCODE_API_KEY ;;
+    openrouter) echo OPENROUTER_API_KEY ;;
+    groq) echo GROQ_API_KEY ;;
+    custom) echo AI_CUSTOM_API_KEY ;;
+    *) echo "" ;;
+  esac
+}
+
 echo "Penyedia: anthropic, openai, gemini, deepseek, opencode, openrouter, groq, custom"
-echo "(atau 'lewati' untuk hanya men-deploy fungsi tanpa memasang kunci)"
-read -r -p "Penyedia yang kuncinya akan dipasang: " PROVIDER
+echo "Ketik 'lewati' untuk hanya men-deploy fungsi tanpa memasang kunci."
+PROVIDER=""
+KEY_ENV=""
+while true; do
+  read -r -p "Penyedia (atau lewati): " PROVIDER
+  PROVIDER="$(printf '%s' "$PROVIDER" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')"
+  [[ "$PROVIDER" == "lewati" ]] && break
+  KEY_ENV="$(key_env_for "$PROVIDER")"
+  [[ -n "$KEY_ENV" ]] && break
+  echo "Penyedia tidak dikenal. Pilih salah satu dari daftar di atas, atau ketik lewati."
+done
 
 TMP="$(mktemp -d)"
 chmod 700 "$TMP"
@@ -29,8 +47,6 @@ trap 'rm -rf "$TMP"' EXIT
 umask 077
 
 if [[ "$PROVIDER" != "lewati" ]]; then
-  KEY_ENV="${ENV_OF[$PROVIDER]:-}"
-  [[ -n "$KEY_ENV" ]] || { echo "Penyedia tidak dikenal." >&2; exit 1; }
   read -r -s -p "Tempel kunci API ${PROVIDER}: " API_KEY; echo
   [[ ${#API_KEY} -ge 16 && "$API_KEY" != *[[:space:]]* ]] || { echo "Kunci tidak valid." >&2; exit 1; }
   printf '%s=%s\n' "$KEY_ENV" "$API_KEY" > "$TMP/secrets.env"
