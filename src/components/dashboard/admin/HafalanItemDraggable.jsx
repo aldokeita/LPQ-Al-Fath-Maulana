@@ -1,13 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { useDrag } from 'react-dnd';
+import { useDrag, useDrop } from 'react-dnd';
 import { cn } from '@/lib/utils';
 import { Check, GripVertical, Loader2, Pencil, Trash2, X } from 'lucide-react';
 
-const HafalanItemDraggable = ({ item, isDraggable, onDelete, onRename }) => {
+const HafalanItemDraggable = ({ item, jilid, isDraggable, onDelete, onRename, onReorder }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState(item.item_name);
   const [isSaving, setIsSaving] = useState(false);
+  const [dropPosition, setDropPosition] = useState(null);
   const inputRef = useRef(null);
+  const rowRef = useRef(null);
 
   const [{ isDragging }, drag] = useDrag(() => ({
     type: 'HAFALAN_ITEM',
@@ -17,6 +19,36 @@ const HafalanItemDraggable = ({ item, isDraggable, onDelete, onRename }) => {
     }),
     canDrag: isDraggable && !isEditing,
   }), [item, isDraggable, isEditing]);
+
+  const [{ isOver }, drop] = useDrop(() => ({
+    accept: 'HAFALAN_ITEM',
+    canDrop: (dragged) => Boolean(onReorder) && dragged.id !== item.id,
+    hover: (dragged, monitor) => {
+      if (dragged.id === item.id || !rowRef.current) return;
+      const rect = rowRef.current.getBoundingClientRect();
+      const offset = monitor.getClientOffset();
+      if (!offset) return;
+      setDropPosition(offset.y < rect.top + rect.height / 2 ? 'before' : 'after');
+    },
+    drop: (dragged, monitor) => {
+      if (monitor.didDrop() || dragged.id === item.id) return;
+      const rect = rowRef.current?.getBoundingClientRect();
+      const offset = monitor.getClientOffset();
+      const position = rect && offset && offset.y >= rect.top + rect.height / 2 ? 'after' : 'before';
+      onReorder?.(dragged.id, jilid, item.id, position);
+      return { handled: true };
+    },
+    collect: (monitor) => ({ isOver: monitor.isOver({ shallow: true }) && monitor.canDrop() }),
+  }), [item.id, jilid, onReorder]);
+
+  useEffect(() => {
+    if (!isOver) setDropPosition(null);
+  }, [isOver]);
+
+  const setRowRef = (node) => {
+    rowRef.current = node;
+    if (isDraggable) drag(drop(node));
+  };
 
   useEffect(() => {
     if (!isEditing) setDraft(item.item_name);
@@ -78,9 +110,11 @@ const HafalanItemDraggable = ({ item, isDraggable, onDelete, onRename }) => {
 
   return (
     <div
-      ref={isDraggable ? drag : null}
+      ref={setRowRef}
       className={cn(
         "relative flex items-center justify-between p-2 rounded-lg border bg-white dark:bg-slate-900 transition-all",
+        isOver && dropPosition === 'before' && "before:absolute before:inset-x-1 before:-top-[5px] before:h-0.5 before:rounded-full before:bg-primary",
+        isOver && dropPosition === 'after' && "after:absolute after:inset-x-1 after:-bottom-[5px] after:h-0.5 after:rounded-full after:bg-primary",
         isDragging ? "opacity-50 scale-95 shadow-none" : "hover:shadow-sm",
         isDraggable ? "cursor-move" : "cursor-default"
       )}

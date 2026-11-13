@@ -15,6 +15,7 @@ import { motion } from 'framer-motion';
 import HafalanDisplay from '@/components/dashboard/shared/HafalanDisplay';
 import { createHafalanItem, deactivateHafalanItem, fetchHafalanItems, getAcademicErrorMessage, renameHafalanItem, updateHafalanItem } from '@/lib/academicAdapters';
 import { validateHafalanItemRename } from '@/lib/hafalanItemName';
+import { groupItemsByLevel, moveHafalanItem } from '@/lib/hafalanItemOrder';
 import { getStorageErrorMessage, uploadWebsiteAsset } from '@/lib/storageAdapters';
 import { createDefaultEnrollmentData, prepareEnrollmentDataForSave } from '@/lib/enrollmentContent';
 import { defaultContent, mergeHomepageContent } from '@/components/public/home/homeUtils';
@@ -71,7 +72,7 @@ const HafalanItemManager = ({
         category,
         programScope,
         itemName: newItemName,
-        itemOrder: items.length + 1,
+        itemOrder: items.reduce((max, item) => Math.max(max, Number(item.item_order) || 0), 0) + 1,
         jilid: targetJilid
       });
       setNewItemName('');
@@ -113,27 +114,29 @@ const HafalanItemManager = ({
     }
   };
 
-  const handleItemDrop = async (itemId, newJilid) => {
-    // Optimistic update
-    setItems(prev => prev.map(item => item.id === itemId ? { ...item, jilid: newJilid } : item));
+  const handleItemReorder = async (draggedId, targetJilid, targetId = null, position = 'before') => {
+    const previousItems = items;
+    const { items: nextItems, updates } = moveHafalanItem({ items, levels, draggedId, targetJilid, targetId, position });
+    if (!updates.length) return;
 
+    setItems(nextItems);
     try {
-        await updateHafalanItem(itemId, { jilid: newJilid });
-      toast({ title: "Berhasil", description: `Item dipindahkan ke ${[levelPrefix, newJilid].filter(Boolean).join(' ')}` });
+      await Promise.all(updates.map(({ id, ...changes }) => updateHafalanItem(id, changes)));
+      const moved = updates.find((update) => update.id === draggedId && update.jilid);
+      toast({
+        title: "Berhasil",
+        description: moved
+          ? `Item dipindahkan ke ${[levelPrefix, targetJilid].filter(Boolean).join(' ')}`
+          : "Urutan hafalan disimpan."
+      });
     } catch (error) {
-        toast({ title: "Gagal memindahkan item", description: getAcademicErrorMessage(error), variant: "destructive" });
-        fetchItems(); // Revert on error
+      setItems(previousItems);
+      toast({ title: "Gagal menyimpan urutan", description: getAcademicErrorMessage(error), variant: "destructive" });
+      fetchItems();
     }
   };
 
-  // Group items by Jilid for display
-  const itemsByJilid = Object.fromEntries(levels.map((level, index) => [
-    String(level),
-    items.filter((item) => {
-      const itemLevel = String(item.jilid || '');
-      return itemLevel === String(level) || (index === 0 && !itemLevel);
-    })
-  ]));
+  const itemsByJilid = groupItemsByLevel(items, levels);
 
   return (
     <section className="space-y-6 rounded-lg border bg-muted/20 p-4 sm:p-6" aria-labelledby={`hafalan-${programScope}-${category}`}>
@@ -170,16 +173,16 @@ const HafalanItemManager = ({
                   titlePrefix={levelPrefix}
                   items={itemsByJilid[jilid]}
                   isDraggable={true}
-                  onItemDrop={handleItemDrop}
                   onDeleteItem={handleDeleteItem}
                   onRenameItem={handleRenameItem}
+                  onReorderItem={handleItemReorder}
                   isLoading={isLoading}
               />
           ))}
       </div>
 
       <p className="text-xs text-muted-foreground text-center pt-2">
-          Tarik dan lepas item hafalan untuk memindahkannya ke target lain. Klik ikon pensil untuk mengubah nama tanpa menghapus nilai santri.
+          Tarik item untuk mengubah urutan di kolomnya atau memindahkannya ke jilid lain. Klik ikon pensil untuk mengubah nama tanpa menghapus nilai santri.
       </p>
     </section>
   );
