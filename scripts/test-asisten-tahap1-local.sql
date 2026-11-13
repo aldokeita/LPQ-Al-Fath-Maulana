@@ -508,5 +508,81 @@ begin
   end if;
 end $$;
 
-select 'PASS: asisten tahap 1-2 (aturan, senyap, panel, koreksi, keputusan, RLS, hanya-tambah, telegram)' as result;
+-- ===== Tahap 3: pengaturan & data rekomendasi AI =====
+do $$
+declare v jsonb;
+begin
+  perform set_config('request.jwt.claims', '{"sub":"7e571000-0000-0000-0000-00000000000a","role":"authenticated"}', true);
+  v := public.get_assistant_settings();
+  if v#>>'{ai,provider}' <> 'mock' or (v#>>'{ai,enabled}')::boolean then raise exception 'TEST FAIL: ai default'; end if;
+  v := public.save_assistant_settings('{"ai":{"enabled":true,"provider":"anthropic","model":"claude-haiku-5-5"}}');
+  if v#>>'{ai,provider}' <> 'anthropic' or (v#>>'{ai,monthly_budget_usd}')::numeric <> 10
+     or v#>>'{notifications,summary_hour}' is null then
+    raise exception 'TEST FAIL: ai partial save';
+  end if;
+  begin
+    perform public.save_assistant_settings('{"ai":{"provider":"rahasia"}}');
+    raise exception 'TEST FAIL: invalid provider accepted';
+  exception when invalid_parameter_value then null;
+  end;
+  begin
+    perform public.save_assistant_settings('{"ai":{"provider":"custom","base_url":""}}');
+    raise exception 'TEST FAIL: custom without base_url accepted';
+  exception when invalid_parameter_value then null;
+  end;
+  begin
+    perform public.save_assistant_settings('{"ai":{"monthly_budget_usd":5000}}');
+    raise exception 'TEST FAIL: budget out of range accepted';
+  exception when invalid_parameter_value then null;
+  end;
+
+  insert into public.assistant_ai_recommendations (santri_id, input_hash, provider, model, hasil)
+  values ('7e571000-0000-0000-0000-000000000102', 'h-a', 'mock', 'mock', '{"ringkasan":"x","langkah":[],"pesan_wali":""}'),
+         ('7e571000-0000-0000-0000-000000000104', 'h-b', 'mock', 'mock', '{"ringkasan":"y","langkah":[],"pesan_wali":""}');
+  insert into public.assistant_ai_usage (user_id, provider, model, status, input_tokens, output_tokens, biaya_usd)
+  values ('7e571000-0000-0000-0000-0000000000a1', 'mock', 'mock', 'ok', 100, 50, 0.25),
+         ('7e571000-0000-0000-0000-0000000000a1', 'mock', 'mock', 'cache', 0, 0, 0);
+  v := public.get_assistant_ai_usage();
+  if (v->>'biaya_usd')::numeric <> 0.25 or (v->>'permintaan')::int <> 1 or (v->>'dari_cache')::int <> 1 then
+    raise exception 'TEST FAIL: ai month usage %', v;
+  end if;
+
+  perform set_config('request.jwt.claims', '{"sub":"7e571000-0000-0000-0000-0000000000a1","role":"authenticated"}', true);
+  begin
+    perform public.get_assistant_ai_usage();
+    raise exception 'TEST FAIL: guru read ai usage';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+
+-- RLS: guru A hanya melihat rekomendasi santri kelasnya; log biaya hanya admin.
+select set_config('request.jwt.claims', '{"sub":"7e571000-0000-0000-0000-0000000000a1","role":"authenticated"}', true);
+set local role authenticated;
+do $$
+begin
+  if (select count(*) from public.assistant_ai_recommendations where input_hash in ('h-a', 'h-b')) <> 1
+     or not exists (select 1 from public.assistant_ai_recommendations where input_hash = 'h-a') then
+    raise exception 'TEST FAIL: ai recommendation RLS for guru';
+  end if;
+  if exists (select 1 from public.assistant_ai_usage) then raise exception 'TEST FAIL: guru sees ai usage'; end if;
+  begin
+    insert into public.assistant_ai_recommendations (santri_id, input_hash, provider, model, hasil)
+    values ('7e571000-0000-0000-0000-000000000102', 'h-x', 'mock', 'mock', '{}');
+    raise exception 'TEST FAIL: guru inserted ai recommendation';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+reset role;
+select set_config('request.jwt.claims', '{"sub":"7e571000-0000-0000-0000-00000000000a","role":"authenticated"}', true);
+set local role authenticated;
+do $$
+begin
+  if (select count(*) from public.assistant_ai_recommendations where input_hash in ('h-a', 'h-b')) <> 2 then
+    raise exception 'TEST FAIL: admin ai recommendation RLS';
+  end if;
+end $$;
+reset role;
+select set_config('request.jwt.claims', '', true);
+
+select 'PASS: asisten tahap 1-3 (aturan, senyap, panel, koreksi, keputusan, RLS, hanya-tambah, telegram, ai)' as result;
 rollback;
