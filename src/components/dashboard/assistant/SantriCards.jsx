@@ -1,4 +1,4 @@
-import React, { useLayoutEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { fillPesan, limitList } from '@/lib/santriCards';
 import { OFFICIAL_CONTACT } from '@/lib/institutionContent';
 
@@ -262,27 +262,54 @@ const ScoreDots = ({ skor }) => (
 const MSG_LINE = 19.5;
 const MSG_PAD = 10;
 const MSG_MAX_LINES = 7;
+const CHIP_GAP = 6;
+const CHIP_MAX_ROWS = 5;
 
 export const ProfilCard = React.forwardRef(({ data, pesan, guru, avatar }, ref) => {
   const { kehadiran: k, hafalan: h } = data;
-  // Sudah hafal lebih dulu (apresiasi), lalu yang sedang dilatih; masing-masing diberi jatah awal 4
-  // agar keduanya tampil, sisanya menyusul, dan yang belum dinilai paling akhir.
+  // Tiga pertama berselang-seling sudah hafal (didahulukan) dan sedang dilatih agar keduanya selalu tampil,
+  // sisanya menyusul, dan yang belum dinilai paling akhir.
   const hafalChips = h.sudahHafal.map((m) => ({ key: `h-${m}`, tone: 'hafal', label: m }));
   const latihChips = h.dilatih.map((d) => ({ key: `l-${d.materi}`, tone: 'latih', label: d.materi, skor: d.skor }));
   const all = [
-    ...hafalChips.slice(0, 4), ...latihChips.slice(0, 4), ...hafalChips.slice(4), ...latihChips.slice(4),
+    ...[0, 1, 2].flatMap((i) => [hafalChips[i], latihChips[i]]).filter(Boolean), ...hafalChips.slice(3), ...latihChips.slice(3),
     ...(h.belumDinilaiList || []).map((m) => ({ key: `b-${m}`, tone: 'belum', label: m })),
   ];
-  // Pesan memakai sisa ruang kartu: jumlah baris dihitung dari tinggi baris pesan setelah tata letak.
-  const msgRowRef = useRef(null);
-  const [msgLines, setMsgLines] = useState(3);
+  // Ruang kosong kartu dibagi bertahap: pesan guru didahulukan (tambah baris selama masih terpotong),
+  // lalu sisa ruang untuk baris chip hafalan yang masih tersembunyi. Selalu per baris utuh, jadi tidak ada teks terpotong.
+  const layoutKey = JSON.stringify([data, pesan, Boolean(avatar)]);
+  const [fitState, setFitState] = useState({ key: layoutKey, rows: 2, lines: 3 });
+  const { rows: chipRows, lines: msgLines } = fitState.key === layoutKey ? fitState : { rows: 2, lines: 3 };
+  const columnRef = useRef(null);
+  const spacerRef = useRef(null);
+  // Ukur ulang setelah font selesai dimuat; ukuran teks berubah saat font cadangan diganti.
+  const [fontTick, setFontTick] = useState(0);
+  useEffect(() => {
+    let active = true;
+    document.fonts?.ready?.then(() => { if (active) setFontTick((t) => t + 1); });
+    return () => { active = false; };
+  }, []);
+  const chipBoxRef = useRef(null);
+  const msgRef = useRef(null);
   useLayoutEffect(() => {
-    const row = msgRowRef.current;
-    if (!row) return;
-    const fit = Math.floor((row.clientHeight - MSG_PAD * 2) / MSG_LINE);
-    setMsgLines(Math.max(3, Math.min(MSG_MAX_LINES, fit)));
-  }, [data, pesan, avatar]);
-  const { shown, more } = limitList(all, 8);
+    const free = spacerRef.current?.clientHeight ?? 0;
+    const chipBox = chipBoxRef.current;
+    const msg = msgRef.current;
+    const column = columnRef.current;
+    let next = null;
+    if (column && column.scrollHeight > column.clientHeight + 1) {
+      // Isi melebihi kartu: kurangi baris chip dulu, lalu baris pesan, sampai batas minimum.
+      if (chipRows > 2) next = { rows: chipRows - 1, lines: msgLines };
+      else if (msgLines > 3) next = { rows: chipRows, lines: msgLines - 1 };
+    } else if (msg && msg.scrollHeight > msg.clientHeight + 1 && free >= MSG_LINE && msgLines < MSG_MAX_LINES) {
+      next = { rows: chipRows, lines: msgLines + 1 };
+    } else if (chipBox && chipBox.scrollHeight > chipBox.clientHeight + 1 && free >= CHIP_H + CHIP_GAP && chipRows < CHIP_MAX_ROWS) {
+      next = { rows: chipRows + 1, lines: msgLines };
+    }
+    if (next) setFitState({ key: layoutKey, ...next });
+    else if (fitState.key !== layoutKey) setFitState({ key: layoutKey, rows: chipRows, lines: msgLines });
+  }, [layoutKey, chipRows, msgLines, fitState.key, fontTick]);
+  const { shown, more } = limitList(all, 14);
   const chips = more > 0 ? [...shown, { key: 'more', tone: 'more', label: `+${more} lainnya` }] : shown;
   const longName = isLongName(data.namaLengkap || data.panggilan);
   return (
@@ -294,7 +321,7 @@ export const ProfilCard = React.forwardRef(({ data, pesan, guru, avatar }, ref) 
       <Blob style={{ width: 260, height: 260, bottom: -120, left: -90, background: 'rgba(167,139,250,0.35)' }} />
       <StarPattern id="star-profil" color="#0f766e" opacity={0.05} />
 
-      <div style={{ position: 'relative', height: '100%', padding: '22px 30px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div ref={columnRef} style={{ position: 'relative', height: '100%', boxSizing: 'border-box', padding: '22px 30px 16px', display: 'flex', flexDirection: 'column', gap: 8, overflow: 'hidden' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Brand />
           <div style={{ textAlign: 'right', fontSize: 10.5, fontWeight: 700, letterSpacing: 1.8, textTransform: 'uppercase', color: '#5b7479', lineHeight: 1.4 }}>
@@ -369,8 +396,8 @@ export const ProfilCard = React.forwardRef(({ data, pesan, guru, avatar }, ref) 
                 <span><span style={{ color: '#f59e0b' }}>●</span> Sedang dilatih</span>
                 {h.belumDinilai > 0 && <span><span style={{ color: '#94a3b8' }}>●</span> Belum dinilai ({h.belumDinilai})</span>}
               </div>
-              {/* Tinggi dibatasi 2 baris chip utuh agar tidak pernah terpotong di tengah baris. */}
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, maxHeight: CHIP_H * 2 + 6, overflow: 'hidden' }}>
+              {/* Tinggi dibatasi sejumlah baris chip utuh agar tidak pernah terpotong di tengah baris. */}
+              <div ref={chipBoxRef} style={{ display: 'flex', flexWrap: 'wrap', gap: CHIP_GAP, maxHeight: CHIP_H * chipRows + CHIP_GAP * (chipRows - 1), overflow: 'hidden' }}>
                 {chips.map((c) => (
                   <span key={c.key} style={{ ...CHIP, ...CHIP_TONE[c.tone] }}>
                     {c.tone === 'hafal' ? `✓ ${c.label}` : c.label}{c.tone === 'latih' && <ScoreDots skor={c.skor} />}
@@ -381,10 +408,11 @@ export const ProfilCard = React.forwardRef(({ data, pesan, guru, avatar }, ref) 
           )}
         </Panel>
 
-        <div ref={msgRowRef} style={{ flex: '1 1 0', minHeight: MSG_LINE * 3 + MSG_PAD * 2, display: 'flex', alignItems: 'flex-end', gap: 16 }}>
+        <div ref={spacerRef} aria-hidden="true" style={{ flex: '1 1 0', minHeight: 0 }} />
+        <div style={{ flexShrink: 0, display: 'flex', alignItems: 'flex-end', gap: 16 }}>
           <p style={{ flex: 1, margin: 0, fontSize: 13, lineHeight: `${MSG_LINE}px`, color: '#134e4a', background: 'rgba(20,184,166,0.1)', borderRadius: 14,
-            padding: `${MSG_PAD}px 12px`, display: '-webkit-box', WebkitLineClamp: msgLines, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-            <span style={{ display: '-webkit-box', WebkitLineClamp: msgLines, WebkitBoxOrient: 'vertical', maxHeight: MSG_LINE * msgLines, overflow: 'hidden' }}>{fillPesan(pesan, { nama: data.panggilan })}</span>
+            padding: `${MSG_PAD}px 12px`, overflow: 'hidden' }}>
+            <span ref={msgRef} style={{ display: 'block', maxHeight: MSG_LINE * msgLines, overflow: 'hidden' }}>{fillPesan(pesan, { nama: data.panggilan })}</span>
           </p>
           <Signature guru={guru} label={data.tanggal} />
         </div>
