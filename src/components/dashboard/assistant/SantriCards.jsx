@@ -196,11 +196,24 @@ JilidCard.displayName = 'JilidCard';
 
 // ===== Kartu profil kehadiran & hafalan =====
 
-const DOT = {
-  hadir: { background: '#10b981' },
-  koreksi: { background: '#38bdf8' },
-  terlambat: { background: '#f59e0b' },
-  absen: { background: 'transparent', border: '2.5px solid #f43f5e' },
+// Ikon per sesi: centang hijau = hadir tepat waktu (termasuk koreksi "sebenarnya hadir"),
+// jam kuning = terlambat, silang merah = tidak hadir. Bentuk berbeda agar tidak bergantung pada warna saja.
+const SESI_ICON = {
+  hadir: { bg: '#10b981', d: 'M6.5 12.5l3.5 3.5 7.5-8' },
+  koreksi: { bg: '#10b981', d: 'M6.5 12.5l3.5 3.5 7.5-8' },
+  terlambat: { bg: '#f59e0b', d: 'M12 7v5.2l3.2 2' },
+  absen: { bg: '#ef4444', d: 'M8 8l8 8M16 8l-8 8' },
+};
+
+const SesiIcon = ({ status, size = 20 }) => {
+  const icon = SESI_ICON[status] || SESI_ICON.hadir;
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" style={{ flexShrink: 0, display: 'block' }}>
+      <circle cx="12" cy="12" r="12" fill={icon.bg} />
+      {status === 'terlambat' && <circle cx="12" cy="12" r="6.6" fill="none" stroke="#fff" strokeWidth="2.2" />}
+      <path d={icon.d} fill="none" stroke="#fff" strokeWidth={status === 'terlambat' ? 2.2 : 2.8} strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
 };
 
 const Ring = ({ pct }) => {
@@ -221,7 +234,7 @@ const Ring = ({ pct }) => {
 };
 
 const Panel = ({ title, children, style }) => (
-  <div style={{ background: 'rgba(255,255,255,0.82)', border: '1px solid rgba(219,234,236,0.9)', borderRadius: 18, padding: '11px 14px',
+  <div style={{ flexShrink: 0, background: 'rgba(255,255,255,0.82)', border: '1px solid rgba(219,234,236,0.9)', borderRadius: 18, padding: '11px 14px',
     boxShadow: '0 8px 24px rgba(15,47,54,0.06)', ...style }}>
     <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.8, textTransform: 'uppercase', color: '#0f766e', marginBottom: 6 }}>{title}</div>
     {children}
@@ -289,20 +302,29 @@ export const ProfilCard = React.forwardRef(({ data, pesan, guru, avatar }, ref) 
           </div>
         </div>
 
-        <Panel title="Kehadiran 4 pekan">
+        <Panel title={k.judul}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
             <Ring pct={k.persen} />
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 15, fontWeight: 700 }}>
-                {k.total ? `Hadir ${k.hadir} dari ${k.total} sesi` : 'Belum ada sesi tercatat'}
+              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8, whiteSpace: 'nowrap' }}>
+                <span style={{ fontSize: 15, fontWeight: 700 }}>{k.total ? `Hadir ${k.hadir} dari ${k.total} sesi` : 'Belum ada sesi tercatat'}</span>
+                {k.sesi.length > 0 && (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 9.5, color: '#5b7479' }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}><SesiIcon status="hadir" size={10} /> hadir</span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}><SesiIcon status="terlambat" size={10} /> terlambat</span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}><SesiIcon status="absen" size={10} /> absen</span>
+                  </span>
+                )}
               </div>
               {k.sesi.length > 0 && (
                 <>
-                  <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
-                    {k.sesi.map((s, i) => <span key={i} style={{ width: 16, height: 16, borderRadius: 9999, boxSizing: 'border-box', ...(DOT[s] || DOT.hadir) }} />)}
-                  </div>
-                  <div style={{ fontSize: 10.5, color: '#5b7479', marginTop: 6 }}>
-                    10 sesi terakhir · <span style={{ color: '#10b981' }}>●</span> hadir · <span style={{ color: '#f59e0b' }}>●</span> terlambat · <span style={{ color: '#f43f5e' }}>○</span> tidak hadir
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 5px', marginTop: 8 }}>
+                    {k.sesi.map((x, i) => (
+                      <div key={i} style={{ width: 21, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                        <SesiIcon status={x.s} size={21} />
+                        {x.tgl && <span style={{ fontSize: 8.5, lineHeight: '11px', color: '#5b7479', fontWeight: 600 }}>{x.tgl}</span>}
+                      </div>
+                    ))}
                   </div>
                 </>
               )}
@@ -310,10 +332,10 @@ export const ProfilCard = React.forwardRef(({ data, pesan, guru, avatar }, ref) 
           </div>
         </Panel>
 
-        <Panel title="Hafalan" style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+        <Panel title="Hafalan" style={{ flexShrink: 0 }}>
           {h.wajibTotal > 0 && (
             <div style={{ marginBottom: 10 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, fontWeight: 600 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 12.5, fontWeight: 700, whiteSpace: 'nowrap' }}>
                 <span>Hafalan wajib {data.jilid}</span>
                 <span>{h.wajibAman}/{h.wajibTotal} sudah hafal</span>
               </div>
@@ -331,8 +353,8 @@ export const ProfilCard = React.forwardRef(({ data, pesan, guru, avatar }, ref) 
                 <span><span style={{ color: '#f59e0b' }}>●</span> Sedang dilatih</span>
                 {h.belumDinilai > 0 && <span><span style={{ color: '#94a3b8' }}>●</span> Belum dinilai ({h.belumDinilai})</span>}
               </div>
-              {/* Tinggi dibatasi 3 baris chip utuh agar tidak pernah terpotong di tengah baris. */}
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, maxHeight: CHIP_H * 3 + 12, overflow: 'hidden' }}>
+              {/* Tinggi dibatasi 2 baris chip utuh agar tidak pernah terpotong di tengah baris. */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, maxHeight: CHIP_H * 2 + 6, overflow: 'hidden' }}>
                 {chips.map((c) => (
                   <span key={c.key} style={{ ...CHIP, ...CHIP_TONE[c.tone] }}>
                     {c.tone === 'hafal' ? `✓ ${c.label}` : c.label}{c.tone === 'latih' && <ScoreDots skor={c.skor} />}
@@ -343,10 +365,10 @@ export const ProfilCard = React.forwardRef(({ data, pesan, guru, avatar }, ref) 
           )}
         </Panel>
 
-        <div style={{ flexShrink: 0, display: 'flex', alignItems: 'flex-end', gap: 16 }}>
+        <div style={{ flexShrink: 0, marginTop: 'auto', display: 'flex', alignItems: 'flex-end', gap: 16 }}>
           <p style={{ flex: 1, margin: 0, fontSize: 13, lineHeight: '19.5px', color: '#134e4a', background: 'rgba(20,184,166,0.1)', borderRadius: 14,
             padding: '10px 12px', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-            {fillPesan(pesan, { nama: data.panggilan })}
+            <span style={{ display: 'block', maxHeight: 58.5, overflow: 'hidden' }}>{fillPesan(pesan, { nama: data.panggilan })}</span>
           </p>
           <Signature guru={guru} label={data.tanggal} />
         </div>

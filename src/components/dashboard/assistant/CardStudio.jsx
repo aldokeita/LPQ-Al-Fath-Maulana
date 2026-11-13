@@ -7,8 +7,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/components/ui/use-toast';
 import { cn } from '@/lib/utils';
-import { fetchSantriProfile, fetchSantriSnapshots, requestCardNote } from '@/lib/assistantAlertAdapters';
+import { fetchSantriMonthAttendance, fetchSantriProfile, fetchSantriSnapshots, requestCardNote } from '@/lib/assistantAlertAdapters';
 import { resolveAvatarUrl } from '@/lib/storageAdapters';
+import { getCardFontEmbedCSS } from '@/lib/cardFonts';
 import { buildJilidCard, buildProfilCard, cardFileName, DEFAULT_PESAN } from '@/lib/santriCards';
 import { CARD_H, CARD_W, JilidCard, ProfilCard } from '@/components/dashboard/assistant/SantriCards';
 
@@ -71,11 +72,14 @@ const loadAvatar = async (santriId) => {
 
 const CardStudio = ({ roster, guruName, aiEnabled = true, focusSantriId }) => {
   useArabicFont();
+  // Siapkan font tertanam sejak studio dibuka agar ekspor pertama tidak menunggu.
+  useEffect(() => { getCardFontEmbedCSS(); }, []);
   const [santriId, setSantriId] = useState(focusSantriId && roster.some((r) => r.id === focusSantriId) ? focusSantriId : '');
   const [jenis, setJenis] = useState('jilid');
   const [profile, setProfile] = useState(null);
   const [snapshot, setSnapshot] = useState(null);
   const [avatar, setAvatar] = useState(null);
+  const [bulanan, setBulanan] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [pesan, setPesan] = useState(DEFAULT_PESAN.jilid);
@@ -89,13 +93,20 @@ const CardStudio = ({ roster, guruName, aiEnabled = true, focusSantriId }) => {
     setIsLoading(true);
     setError(null);
     setAvatar(null);
-    Promise.all([fetchSantriProfile(santriId), fetchSantriSnapshots([santriId]), loadAvatar(santriId).catch(() => null)])
-      .then(([p, snaps, foto]) => {
+    setBulanan(null);
+    Promise.all([
+      fetchSantriProfile(santriId),
+      fetchSantriSnapshots([santriId]),
+      loadAvatar(santriId).catch(() => null),
+      fetchSantriMonthAttendance(santriId).catch(() => null),
+    ])
+      .then(([p, snaps, foto, bulan]) => {
         if (!active) return;
         if (!p) throw new Error('Data santri tidak tersedia (mode senyap aktif atau akses ditolak).');
         setProfile(p);
         setSnapshot(snaps?.[0] || null);
         setAvatar(foto);
+        setBulanan(bulan || null);
       })
       .catch((err) => { if (active) { setProfile(null); setError(err.message); } })
       .finally(() => { if (active) setIsLoading(false); });
@@ -105,7 +116,7 @@ const CardStudio = ({ roster, guruName, aiEnabled = true, focusSantriId }) => {
   useEffect(() => { setPesan(DEFAULT_PESAN[jenis]); }, [jenis, santriId]);
 
   const jilidData = profile ? buildJilidCard(profile) : null;
-  const profilData = profile ? buildProfilCard(profile, snapshot) : null;
+  const profilData = profile ? buildProfilCard(profile, snapshot, { bulanan }) : null;
   const nama = profile?.nama_lengkap || '';
 
   const writeWithAi = async () => {
@@ -122,7 +133,11 @@ const CardStudio = ({ roster, guruName, aiEnabled = true, focusSantriId }) => {
 
   const renderBlob = async () => {
     await document.fonts?.ready;
-    return toBlob(cardRef.current, { pixelRatio: 2, cacheBust: true, width: CARD_W, height: CARD_H, backgroundColor: 'transparent' });
+    const fontEmbedCSS = await getCardFontEmbedCSS();
+    return toBlob(cardRef.current, {
+      pixelRatio: 2, cacheBust: true, width: CARD_W, height: CARD_H, backgroundColor: 'transparent',
+      ...(fontEmbedCSS ? { fontEmbedCSS } : {}),
+    });
   };
 
   const exportCard = async (mode) => {

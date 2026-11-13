@@ -620,13 +620,22 @@ begin
   if v->>'jilid' is null or jsonb_typeof(v->'hafalan') <> 'array' or jsonb_typeof(v->'hafalan_wajib_jilid') <> 'array' then
     raise exception 'TEST FAIL: profile shape %', v;
   end if;
+  v := public.get_assistant_santri_month_attendance('7e571000-0000-0000-0000-000000000102');
+  if jsonb_typeof(v->'sesi') <> 'array' or (v->>'total')::int <> jsonb_array_length(v->'sesi')
+     or (v->>'hadir')::int > (v->>'total')::int or (v->>'bulan')::date <> date_trunc('month', public.jakarta_today())::date then
+    raise exception 'TEST FAIL: month attendance shape %', v;
+  end if;
+  if public.get_assistant_santri_month_attendance('7e571000-0000-0000-0000-000000000104') is not null then
+    raise exception 'TEST FAIL: guru A read class B month attendance';
+  end if;
 
   -- Mode senyap: guru tidak mendapat kelas/profil.
   perform set_config('request.jwt.claims', '{"sub":"7e571000-0000-0000-0000-00000000000a","role":"authenticated"}', true);
   perform public.save_assistant_settings('{"silent_mode":true}');
   perform set_config('request.jwt.claims', '{"sub":"7e571000-0000-0000-0000-0000000000a1","role":"authenticated"}', true);
   if jsonb_array_length(public.get_assistant_ai_classes()) <> 0
-     or public.get_assistant_santri_profile('7e571000-0000-0000-0000-000000000102') is not null then
+     or public.get_assistant_santri_profile('7e571000-0000-0000-0000-000000000102') is not null
+     or public.get_assistant_santri_month_attendance('7e571000-0000-0000-0000-000000000102') is not null then
     raise exception 'TEST FAIL: silent mode leaks ai data';
   end if;
   perform set_config('request.jwt.claims', '{"sub":"7e571000-0000-0000-0000-00000000000a","role":"authenticated"}', true);

@@ -77,3 +77,21 @@ test('pesan kartu dari AI dibersihkan dan dibatasi', () => {
   assert.equal(parseCardNote('x'.repeat(400)).length, 240);
   assert.throws(() => parseCardNote('  '), /AI_EMPTY_RESPONSE/);
 });
+
+test('kartu profil memakai kehadiran sebulan penuh bila tersedia', () => {
+  const bulanan = {
+    bulan: '2026-11-01',
+    hadir: 3,
+    total: 4,
+    sesi: [
+      { t: '2026-11-02', s: 'hadir' },
+      { t: '2026-11-03', s: 'terlambat' },
+      { t: '2026-11-05', s: 'absen' },
+      { t: '2026-11-06', s: 'koreksi' },
+    ],
+  };
+  const card = buildProfilCard({ nama_lengkap: 'Bilal' }, { hadir_4pekan: 1, sesi_4pekan: 9 }, { bulanan, today: new Date('2026-11-13') });
+  assert.equal(card.kehadiran.judul, 'Kehadiran November 2026');
+  assert.equal(card.kehadiran.persen, 75);
+  assert.deepEqual(card.kehadiran.sesi.map((s) => [s.s, s.tgl]), [['hadir', 2], ['terlambat', 3], ['absen', 5], ['koreksi', 6]]);
+});

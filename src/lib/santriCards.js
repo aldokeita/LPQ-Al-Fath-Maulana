@@ -50,12 +50,34 @@ export const buildJilidCard = (profile, { today = new Date() } = {}) => {
 
 const scoreOf = (value) => (value === null || value === undefined || value === '' ? null : Number(value));
 
-// Kartu profil: kehadiran 4 pekan + 10 sesi terakhir, dan hafalan (sudah hafal, dilatih, belum dinilai).
-export const buildProfilCard = (profile, snapshot, { today = new Date() } = {}) => {
-  if (!profile) return null;
-  const sesi = Array.isArray(snapshot?.sesi_terakhir) ? snapshot.sesi_terakhir : [];
+// Kehadiran bulanan dari get_assistant_santri_month_attendance; tanpa data bulanan memakai snapshot 4 pekan.
+const buildKehadiran = (bulanan, snapshot, today) => {
+  if (bulanan && Array.isArray(bulanan.sesi)) {
+    const hadir = Number(bulanan.hadir) || 0;
+    const total = Number(bulanan.total) || 0;
+    return {
+      judul: `Kehadiran ${formatBulan(bulanan.bulan ? `${bulanan.bulan}T00:00:00` : today)}`,
+      hadir,
+      total,
+      persen: total > 0 ? Math.round((hadir / total) * 100) : null,
+      sesi: bulanan.sesi.map((x) => ({ s: x.s, tgl: Number(String(x.t || '').slice(8, 10)) || null })),
+    };
+  }
   const hadir4 = Number(snapshot?.hadir_4pekan ?? NaN);
   const total4 = Number(snapshot?.sesi_4pekan ?? NaN);
+  const sesi = Array.isArray(snapshot?.sesi_terakhir) ? snapshot.sesi_terakhir : [];
+  return {
+    judul: 'Kehadiran 4 pekan',
+    hadir: Number.isFinite(hadir4) ? hadir4 : null,
+    total: Number.isFinite(total4) ? total4 : null,
+    persen: Number.isFinite(hadir4) && total4 > 0 ? Math.round((hadir4 / total4) * 100) : null,
+    sesi: sesi.slice(-10).map((x) => ({ s: x.s, tgl: Number(String(x.t || '').slice(8, 10)) || null })),
+  };
+};
+
+// Kartu profil: kehadiran sebulan (per sesi), dan hafalan (sudah hafal, dilatih, belum dinilai).
+export const buildProfilCard = (profile, snapshot, { today = new Date(), bulanan = null } = {}) => {
+  if (!profile) return null;
   const progress = (profile.hafalan || []).map((h) => ({ ...h, skor: scoreOf(h.skor) }));
   const wajib = (profile.hafalan_wajib_jilid || []).map((w) => ({ ...w, skor: scoreOf(w.skor) }));
 
@@ -73,12 +95,7 @@ export const buildProfilCard = (profile, snapshot, { today = new Date() } = {}) 
     poin: Number(profile.poin || 0),
     bulan: formatBulan(today),
     tanggal: formatTanggal(today),
-    kehadiran: {
-      hadir: Number.isFinite(hadir4) ? hadir4 : null,
-      total: Number.isFinite(total4) ? total4 : null,
-      persen: Number.isFinite(hadir4) && total4 > 0 ? Math.round((hadir4 / total4) * 100) : null,
-      sesi: sesi.slice(-10).map((s) => s.s),
-    },
+    kehadiran: buildKehadiran(bulanan, snapshot, today),
     hafalan: {
       wajibTotal,
       wajibAman,

@@ -208,4 +208,7 @@ export const fetchAiEvaluation = (from, to) => rpc('get_assistant_ai_evaluation'
 // ===== Kartu santri =====
 export const fetchSantriProfile = (santriId) => rpc('get_assistant_santri_profile', { p_santri_id: santriId });
 
+// Kehadiran satu santri sepanjang bulan berjalan (atau bulan p_month) untuk kartu profil.
+export const fetchSantriMonthAttendance = (santriId, month = null) => rpc('get_assistant_santri_month_attendance', { p_santri_id: santriId, p_month: month });
+
 export const requestCardNote = (santriId, jenis) => invokeAssistantAi({ action: 'card_note', santri_id: santriId, jenis });
