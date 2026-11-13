@@ -368,3 +368,21 @@ export const findSantri = (roster = [], query = '') => {
 };
 
 export const santriShortName = (r) => String(r?.nama_panggilan || '').trim() || String(r?.nama_lengkap || 'Santri').split(' ')[0];
+
+// ===== Pesan kartu santri =====
+
+export const CARD_NOTE_SYSTEM_PROMPT = `Anda membantu guru TPQ menulis pesan singkat untuk kartu santri yang dibagikan ke wali.
+
+Aturan:
+- Sebut santri dengan {nama}; jangan menjelaskan placeholder ini dan jangan menebak nama asli.
+- Satu sampai dua kalimat, paling banyak 200 karakter, Bahasa Indonesia yang hangat untuk anak dan orang tua.
+- Kartu "jilid": ucapkan selamat naik ke jilid baru, hargai usahanya, dan tutup dengan doa singkat.
+- Kartu "profil": sebut satu hal baik yang spesifik dari data (kehadiran atau hafalan tertentu), lalu satu dorongan lembut.
+- Tanpa tanda kutip, tanpa emoji, tanpa salam pembuka, tanpa skor atau istilah teknis aplikasi.
+Balas hanya dengan teks pesannya.`;
+
+export const parseCardNote = (text) => {
+  const clean = String(text || '').replace(/[\r\n]+/g, ' ').replace(/^["'“”\s]+|["'“”\s]+$/g, '').replace(/\*\*/g, '').replace(/\s+/g, ' ').trim();
+  if (!clean) throw new Error('AI_EMPTY_RESPONSE');
+  return clean.slice(0, 240);
+};

@@ -1,6 +1,6 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import {
-  AlertTriangle, Award, Bot, Check, Copy, FileText, Loader2, MessageCircle, MessageSquarePlus, StickyNote, RefreshCw, Send,
+  AlertTriangle, Award, Bot, Check, Copy, FileText, Contact, Loader2, MessageCircle, MessageSquarePlus, StickyNote, RefreshCw, Send,
   Sparkles, Target, Trash2, Users,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -21,6 +21,8 @@ import AiText from '@/components/dashboard/assistant/AiText';
 import AiFeedback from '@/components/dashboard/assistant/AiFeedback';
 import MicButton from '@/components/dashboard/assistant/MicButton';
 import { appendTranscript } from '@/lib/speechInput';
+
+const CardStudio = lazy(() => import('@/components/dashboard/assistant/CardStudio'));
 import '@/styles/attention-panel.css';
 
 const ALL = '__semua__';
@@ -660,6 +662,7 @@ const AiWorkspace = ({ className, guruName }) => {
     { id: 'kelas', label: 'Gambaran kelas', icon: Users },
     { id: 'chat', label: 'Tanya asisten', icon: MessageSquarePlus },
     { id: 'rapor', label: 'Rapor wali', icon: FileText },
+    { id: 'kartu', label: 'Kartu santri', icon: Contact },
   ];
 
   return (
@@ -669,7 +672,7 @@ const AiWorkspace = ({ className, guruName }) => {
         <span className="attention-ai-badge flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl"><Sparkles className="h-5 w-5" aria-hidden="true" /></span>
         <div className="min-w-0 flex-1">
           <h2 id="ai-workspace-title" className="text-lg font-semibold leading-tight text-foreground">Asisten AI</h2>
-          <p className="text-sm text-foreground/75">Gambaran kelas, konsultasi, dan draf rapor wali berdasarkan data santri.</p>
+          <p className="text-sm text-foreground/75">Gambaran kelas, konsultasi, rapor wali, dan kartu santri berdasarkan data.</p>
         </div>
         {classes.length > 1 && (
           <div className="w-full sm:w-56">
@@ -695,6 +698,12 @@ const AiWorkspace = ({ className, guruName }) => {
         <div id={`ai-panel-${tab}`} role="tabpanel" aria-labelledby={`ai-tab-${tab}`}>
           {classId && tab === 'kelas' && <ClassInsight classId={classId} />}
           {classId && tab === 'chat' && <AiChat classId={classId} roster={roster} focus={focus} />}
+          {classId && tab === 'kartu' && (
+            <Suspense fallback={<p className="flex items-center gap-2 py-6 text-sm text-muted-foreground" role="status"><Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> Memuat…</p>}>
+              <CardStudio key={`${classId}-${roster.length}`} roster={roster} guruName={guruName}
+                focusSantriId={focus?.classId === classId ? focus.santriId : null} />
+            </Suspense>
+          )}
           {classId && tab === 'rapor' && (
             <ReportPanel key={`${classId}-${roster.length}`} roster={roster} guruName={guruName}
               focusSantriId={focus?.classId === classId ? focus.santriId : null} />

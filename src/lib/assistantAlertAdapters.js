@@ -204,3 +204,8 @@ export const deleteAiKnowledge = async (id) => {
 
 // ===== Evaluasi (admin) =====
 export const fetchAiEvaluation = (from, to) => rpc('get_assistant_ai_evaluation', { p_from: from, p_to: to });
+
+// ===== Kartu santri =====
+export const fetchSantriProfile = (santriId) => rpc('get_assistant_santri_profile', { p_santri_id: santriId });
+
+export const requestCardNote = (santriId, jenis) => invokeAssistantAi({ action: 'card_note', santri_id: santriId, jenis });

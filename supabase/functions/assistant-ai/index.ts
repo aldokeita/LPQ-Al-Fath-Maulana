@@ -20,7 +20,8 @@ import {
 import {
   buildClassContext, buildNameMasker, buildRecommendationInput,
   CLASS_PROMPT_VERSION, CLASS_RESULT_SCHEMA, CLASS_SYSTEM_PROMPT, formatWeeklyDigest, parseClassInsight,
-  parseReport, REPORT_PROMPT_VERSION, REPORT_SCHEMA, REPORT_SYSTEM_PROMPT, selectKnowledge, withKnowledge,
+  CARD_NOTE_SYSTEM_PROMPT, parseCardNote, parseReport, REPORT_PROMPT_VERSION, REPORT_SCHEMA, REPORT_SYSTEM_PROMPT, selectKnowledge,
+  withKnowledge,
 } from "../_shared/aiContext.js";
 import { generate, keyStatus, resolveProvider } from "../_shared/aiProviders.js";
 import {
@@ -117,7 +118,7 @@ Deno.serve(async (req) => {
     }
   }
 
-  if (!["recommend", "class_insight", "chat", "report"].includes(action)) return fail(req, "INVALID_REQUEST", "Aksi tidak dikenal.");
+  if (!["recommend", "class_insight", "chat", "report", "card_note"].includes(action)) return fail(req, "INVALID_REQUEST", "Aksi tidak dikenal.");
   if (!ai.enabled) return fail(req, "AI_DISABLED", "Asisten AI belum diaktifkan admin.", 403);
 
   const knowledge = await loadKnowledge(admin);
@@ -253,6 +254,33 @@ Deno.serve(async (req) => {
       santri_id: santriId, bulan, requested_by: user.id, input_hash: hash, provider: provider.id, model: provider.model, hasil: out.parsed,
     }).select("id, hasil, provider, model, created_at, bulan").single();
     return ok(req, { ...(saved || { hasil: out.parsed, provider: provider.id, model: provider.model, created_at: new Date().toISOString(), bulan }), cached: false });
+  }
+
+  // ===== Pesan kartu santri =====
+  if (action === "card_note") {
+    const santriId = String(body?.santri_id || "");
+    const jenis = body?.jenis === "jilid" ? "jilid" : "profil";
+    if (!UUID.test(santriId)) return fail(req, "INVALID_REQUEST", "Santri tidak valid.");
+    const [{ data: profile, error: profileError }, { data: snapshots }] = await Promise.all([
+      client.rpc("get_assistant_santri_profile", { p_santri_id: santriId }),
+      client.rpc("get_assistant_santri_snapshot", { p_santri_ids: [santriId] }),
+    ]);
+    if (profileError) return fail(req, "CLASS_ACCESS_DENIED", "Anda tidak memiliki akses ke santri ini.", 403);
+    if (!profile) return fail(req, "NOT_FOUND", "Data santri tidak tersedia.", 404);
+    const limited = await checkLimits();
+    if (limited) return limited;
+    const snapshot = Array.isArray(snapshots) ? snapshots.find((s: Json) => s.santri_id === santriId) : null;
+    const masker = buildNameMasker([profile]);
+    const { perkara: _p, santri: _s, ...data } = buildRecommendationInput([], snapshot, profile, masker);
+    const kenaikan = (profile.riwayat_jilid || [])[0] || null;
+    const input = { jenis_kartu: jenis, jilid_sekarang: profile.jilid || null, kenaikan_terakhir: kenaikan, ...data };
+    const out = await callAi("kartu", santriId, {
+      system: withKnowledge(konteks, "", CARD_NOTE_SYSTEM_PROMPT),
+      messages: [{ role: "user", content: `Data santri (JSON):\n${JSON.stringify(input).replace(/\bS1\b/g, "{nama}")}\n\nTulis pesan kartu "${jenis}".` }],
+      json: false,
+    }, parseCardNote);
+    if (out.error) return out.error;
+    return ok(req, { pesan: out.parsed, provider: provider.id, model: provider.model });
   }
 
   // ===== Saran kelas =====
