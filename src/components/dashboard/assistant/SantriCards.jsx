@@ -62,7 +62,7 @@ const ContactFooter = ({ dark }) => {
     OFFICIAL_CONTACT.instagram && { k: 'ig', icon: 'ig', label: `@${String(OFFICIAL_CONTACT.instagram).replace(/^@/, '')}` },
   ].filter(Boolean);
   return (
-    <div style={{ alignSelf: 'stretch', marginTop: 12, paddingTop: 10, borderTop: `1px solid ${dark ? 'rgba(255,255,255,0.14)' : 'rgba(15,47,54,0.12)'}`,
+    <div style={{ flexShrink: 0, alignSelf: 'stretch', marginTop: 12, paddingTop: 10, borderTop: `1px solid ${dark ? 'rgba(255,255,255,0.14)' : 'rgba(15,47,54,0.12)'}`,
       fontFamily: SANS, fontSize: 10, lineHeight: 1.35, color: text, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 5, maxWidth: '100%', textAlign: 'center' }}>
         <ContactIcon name="pin" color={icon} />
@@ -138,12 +138,12 @@ export const JilidCard = React.forwardRef(({ data, pesan, guru, avatar }, ref) =
         </span>
       </div>
 
-      <div dir="rtl" lang="ar" style={{ fontFamily: ARABIC, fontSize: 40, lineHeight: 1.35, marginTop: 10, color: '#fcd34d', textShadow: '0 4px 22px rgba(251,191,36,0.45)' }}>
+      <div dir="rtl" lang="ar" style={{ fontFamily: ARABIC, fontSize: 38, lineHeight: 1.3, marginTop: 8, color: '#fcd34d', textShadow: '0 4px 22px rgba(251,191,36,0.45)' }}>
         مَا شَاءَ اللهُ
       </div>
 
       <div style={{ position: 'relative', marginTop: 6 }}>
-        <Avatar src={avatar} name={data.namaLengkap || data.panggilan} size={200} ringWidth={6}
+        <Avatar src={avatar} name={data.namaLengkap || data.panggilan} size={184} ringWidth={6}
           glow="0 0 0 8px rgba(255,255,255,0.06), 0 18px 50px rgba(45,212,191,0.35)" />
         <span style={{ position: 'absolute', left: '50%', bottom: -14, transform: 'translateX(-50%)', whiteSpace: 'nowrap',
           padding: '7px 16px', borderRadius: 9999, fontSize: 15, fontWeight: 800, color: '#06282f',
@@ -169,12 +169,12 @@ export const JilidCard = React.forwardRef(({ data, pesan, guru, avatar }, ref) =
         </div>
       )}
 
-      <p style={{ marginTop: 14, marginBottom: 0, fontSize: 14, lineHeight: 1.55, textAlign: 'center', color: 'rgba(255,255,255,0.9)', padding: '0 6px',
+      <p style={{ flexShrink: 0, marginTop: 14, marginBottom: 0, fontSize: 13.5, lineHeight: '21px', textAlign: 'center', color: 'rgba(255,255,255,0.9)', padding: '0 6px',
         display: '-webkit-box', WebkitLineClamp: data.dari ? 3 : 4, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
         {fillPesan(pesan, { nama: data.panggilan, ke: data.ke })}
       </p>
 
-      <div style={{ alignSelf: 'stretch', marginTop: 'auto', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16,
+      <div style={{ flexShrink: 0, alignSelf: 'stretch', marginTop: 'auto', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16,
         paddingTop: 12 }}>
         <div>
           <div style={{ fontSize: 10.5, letterSpacing: 1.6, textTransform: 'uppercase', color: 'rgba(255,255,255,0.6)' }}>{data.adaRiwayat ? 'Tanggal naik' : 'Tanggal'}</div>
@@ -338,8 +338,8 @@ export const ProfilCard = React.forwardRef(({ data, pesan, guru, avatar }, ref) 
           )}
         </Panel>
 
-        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16 }}>
-          <p style={{ flex: 1, margin: 0, fontSize: 13, lineHeight: 1.5, color: '#134e4a', background: 'rgba(20,184,166,0.1)', borderRadius: 14,
+        <div style={{ flexShrink: 0, display: 'flex', alignItems: 'flex-end', gap: 16 }}>
+          <p style={{ flex: 1, margin: 0, fontSize: 13, lineHeight: '19.5px', color: '#134e4a', background: 'rgba(20,184,166,0.1)', borderRadius: 14,
             padding: '10px 12px', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
             {fillPesan(pesan, { nama: data.panggilan })}
           </p>
