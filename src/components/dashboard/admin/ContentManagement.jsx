@@ -10,11 +10,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
-import { RotateCcw, ClipboardList, GripVertical, PlusCircle, MinusCircle, ArrowUp, ArrowDown } from 'lucide-react';
+import { RotateCcw, ClipboardList, GripVertical, PlusCircle, MinusCircle, ArrowUp, ArrowDown, CaseSensitive, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import HafalanDisplay from '@/components/dashboard/shared/HafalanDisplay';
 import { createHafalanItem, deactivateHafalanItem, fetchHafalanItems, getAcademicErrorMessage, renameHafalanItem, updateHafalanItem } from '@/lib/academicAdapters';
-import { validateHafalanItemRename } from '@/lib/hafalanItemName';
+import { formatHafalanItemName, usesHafalanTitleCase, validateHafalanItemRename } from '@/lib/hafalanItemName';
 import { groupItemsByLevel, moveHafalanItem } from '@/lib/hafalanItemOrder';
 import { getStorageErrorMessage, uploadWebsiteAsset } from '@/lib/storageAdapters';
 import { createDefaultEnrollmentData, prepareEnrollmentDataForSave } from '@/lib/enrollmentContent';
@@ -49,6 +49,10 @@ const HafalanItemManager = ({
   const [newItemName, setNewItemName] = useState('');
   const [targetJilid, setTargetJilid] = useState(String(levels[0]));
   const [isLoading, setIsLoading] = useState(false);
+  const [isTidying, setIsTidying] = useState(false);
+  const formatName = (value) => formatHafalanItemName(value, { category, programScope });
+  const untidyItems = items.filter((item) => formatName(item.item_name) !== item.item_name);
+  const canTidyNames = usesHafalanTitleCase({ category, programScope });
 
   useEffect(() => {
     fetchItems();
@@ -66,12 +70,13 @@ const HafalanItemManager = ({
   };
 
   const handleAddItem = async () => {
-    if (!newItemName.trim()) return;
+    const itemName = formatName(newItemName);
+    if (!itemName) return;
     try {
       await createHafalanItem({
         category,
         programScope,
-        itemName: newItemName,
+        itemName,
         itemOrder: items.reduce((max, item) => Math.max(max, Number(item.item_order) || 0), 0) + 1,
         jilid: targetJilid
       });
@@ -95,7 +100,7 @@ const HafalanItemManager = ({
   };
 
   const handleRenameItem = async (item, nextName) => {
-    const result = validateHafalanItemRename({ item, nextName, items });
+    const result = validateHafalanItemRename({ item, nextName, items, format: formatName });
     if (result.error) {
       toast({ title: "Nama belum bisa disimpan", description: result.error, variant: "destructive" });
       return false;
@@ -112,6 +117,27 @@ const HafalanItemManager = ({
       fetchItems();
       return false;
     }
+  };
+
+  // Renames only item_name (never jilid or item_order), so the admin's ordering stays intact.
+  const handleTidyNames = async () => {
+    if (!untidyItems.length) return;
+    if (!window.confirm(`Rapikan ${untidyItems.length} nama ${title} ke Title Case? Urutan dan nilai santri tidak berubah.`)) return;
+    setIsTidying(true);
+    let done = 0;
+    try {
+      for (const item of untidyItems) {
+        const newName = formatName(item.item_name);
+        await renameHafalanItem({ id: item.id, category: item.category || category, oldName: item.item_name, newName });
+        setItems(prev => prev.map(row => row.id === item.id ? { ...row, item_name: newName } : row));
+        done += 1;
+      }
+      toast({ title: "Berhasil", description: `${done} nama ${title} sudah dirapikan.` });
+    } catch (error) {
+      toast({ title: `Baru ${done} nama dirapikan`, description: getAcademicErrorMessage(error), variant: "destructive" });
+      fetchItems();
+    }
+    setIsTidying(false);
   };
 
   const handleItemReorder = async (draggedId, targetJilid, targetId = null, position = 'before') => {
@@ -163,6 +189,12 @@ const HafalanItemManager = ({
             <Input placeholder="Nama hafalan baru..." value={newItemName} onChange={e => setNewItemName(e.target.value)} className="min-w-[200px] flex-1 bg-background" />
             <Button onClick={handleAddItem}><Plus className="w-4 h-4 mr-2"/> Tambah</Button>
           </div>
+          {canTidyNames && untidyItems.length > 0 && (
+            <Button type="button" variant="outline" onClick={handleTidyNames} disabled={isTidying} className="w-full bg-background md:w-auto">
+              {isTidying ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CaseSensitive className="mr-2 h-4 w-4" />}
+              Rapikan {untidyItems.length} Nama
+            </Button>
+          )}
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
