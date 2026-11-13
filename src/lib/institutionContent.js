@@ -11,6 +11,8 @@ export const OFFICIAL_CONTACT = Object.freeze({
   emailHref: 'mailto:admin@lpqalfathmaulana.id',
   mapUrl: 'https://maps.app.goo.gl/zh4REizJZx6LByMD9',
   website: OFFICIAL_WEBSITE,
+  instagram: 'lpq_alfathmaulana',
+  instagramUrl: 'https://www.instagram.com/lpq_alfathmaulana/',
 });
 
 export const OFFICIAL_PROFILE = Object.freeze({

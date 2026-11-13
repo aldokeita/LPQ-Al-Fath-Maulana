@@ -1,5 +1,6 @@
 import React from 'react';
 import { fillPesan, limitList } from '@/lib/santriCards';
+import { OFFICIAL_CONTACT } from '@/lib/institutionContent';
 
 // Kartu santri berukuran tetap 540×675 (diekspor 2× menjadi 1080×1350, rasio 4:5 untuk WhatsApp).
 // Warna ditulis langsung (bukan token tema) agar hasil ekspor sama di mode terang maupun gelap.
@@ -37,6 +38,48 @@ const Brand = ({ dark }) => (
     </div>
   </div>
 );
+
+const ICONS = {
+  pin: 'M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21zm0-9a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z',
+  globe: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zm0 0c2.5 2.6 3.7 5.6 3.7 9s-1.2 6.4-3.7 9m0-18C9.5 5.6 8.3 8.6 8.3 12s1.2 6.4 3.7 9M3.5 9h17M3.5 15h17',
+  ig: 'M7.5 3h9A4.5 4.5 0 0 1 21 7.5v9a4.5 4.5 0 0 1-4.5 4.5h-9A4.5 4.5 0 0 1 3 16.5v-9A4.5 4.5 0 0 1 7.5 3zm4.5 5a4 4 0 1 0 0 8 4 4 0 0 0 0-8zm5-1.2h.01',
+};
+
+const ContactIcon = ({ name, color }) => (
+  <svg width="12" height="12" viewBox="0 0 24 24" aria-hidden="true" style={{ flexShrink: 0 }}>
+    <path d={ICONS[name]} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+const websiteLabel = (url) => String(url || '').replace(/^https?:\/\//, '').replace(/\/$/, '');
+
+// Footer kontak resmi lembaga: alamat, website, dan Instagram (bila tersedia).
+const ContactFooter = ({ dark }) => {
+  const text = dark ? 'rgba(255,255,255,0.72)' : '#3f5f64';
+  const icon = dark ? '#5eead4' : '#0d9488';
+  const items = [
+    OFFICIAL_CONTACT.website && { k: 'web', icon: 'globe', label: websiteLabel(OFFICIAL_CONTACT.website) },
+    OFFICIAL_CONTACT.instagram && { k: 'ig', icon: 'ig', label: `@${String(OFFICIAL_CONTACT.instagram).replace(/^@/, '')}` },
+  ].filter(Boolean);
+  return (
+    <div style={{ alignSelf: 'stretch', marginTop: 12, paddingTop: 10, borderTop: `1px solid ${dark ? 'rgba(255,255,255,0.14)' : 'rgba(15,47,54,0.12)'}`,
+      fontFamily: SANS, fontSize: 10, lineHeight: 1.35, color: text, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 5, maxWidth: '100%', textAlign: 'center' }}>
+        <ContactIcon name="pin" color={icon} />
+        <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{OFFICIAL_CONTACT.address}</span>
+      </div>
+      {items.length > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, fontWeight: 700, fontSize: 10.5 }}>
+          {items.map((it) => (
+            <span key={it.k} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap' }}>
+              <ContactIcon name={it.icon} color={icon} />{it.label}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
 const Signature = ({ guru, dark, label = 'Guru Pengajar' }) => (
   <div style={{ textAlign: 'right', minWidth: 170 }}>
@@ -86,7 +129,7 @@ export const JilidCard = React.forwardRef(({ data, pesan, guru, avatar }, ref) =
     <Blob style={{ width: 200, height: 200, top: -80, right: -40, background: 'rgba(251,191,36,0.22)' }} />
     <StarPattern id="star-jilid" color="#ffffff" opacity={0.05} />
 
-    <div style={{ position: 'relative', height: '100%', padding: '30px 34px 30px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+    <div style={{ position: 'relative', height: '100%', padding: '26px 34px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
       <div style={{ alignSelf: 'stretch', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Brand dark />
         <span style={{ whiteSpace: 'nowrap', flexShrink: 0, padding: '6px 12px', borderRadius: 9999, fontSize: 10.5, fontWeight: 700, letterSpacing: 2.2, textTransform: 'uppercase',
@@ -100,7 +143,7 @@ export const JilidCard = React.forwardRef(({ data, pesan, guru, avatar }, ref) =
       </div>
 
       <div style={{ position: 'relative', marginTop: 6 }}>
-        <Avatar src={avatar} name={data.namaLengkap || data.panggilan} size={220} ringWidth={6}
+        <Avatar src={avatar} name={data.namaLengkap || data.panggilan} size={200} ringWidth={6}
           glow="0 0 0 8px rgba(255,255,255,0.06), 0 18px 50px rgba(45,212,191,0.35)" />
         <span style={{ position: 'absolute', left: '50%', bottom: -14, transform: 'translateX(-50%)', whiteSpace: 'nowrap',
           padding: '7px 16px', borderRadius: 9999, fontSize: 15, fontWeight: 800, color: '#06282f',
@@ -139,6 +182,7 @@ export const JilidCard = React.forwardRef(({ data, pesan, guru, avatar }, ref) =
         </div>
         <Signature guru={guru} dark />
       </div>
+      <ContactFooter dark />
     </div>
   </div>
 ));
@@ -200,7 +244,7 @@ export const ProfilCard = React.forwardRef(({ data, pesan, guru, avatar }, ref) 
       <Blob style={{ width: 260, height: 260, bottom: -120, left: -90, background: 'rgba(167,139,250,0.35)' }} />
       <StarPattern id="star-profil" color="#0f766e" opacity={0.05} />
 
-      <div style={{ position: 'relative', height: '100%', padding: '30px 32px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ position: 'relative', height: '100%', padding: '24px 32px 18px', display: 'flex', flexDirection: 'column', gap: 10 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Brand />
           <div style={{ textAlign: 'right', fontSize: 10.5, fontWeight: 700, letterSpacing: 1.8, textTransform: 'uppercase', color: '#5b7479', lineHeight: 1.4 }}>
@@ -301,6 +345,7 @@ export const ProfilCard = React.forwardRef(({ data, pesan, guru, avatar }, ref) 
           </p>
           <Signature guru={guru} label={data.tanggal} />
         </div>
+        <ContactFooter />
       </div>
     </div>
   );
