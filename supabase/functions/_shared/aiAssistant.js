@@ -1,7 +1,7 @@
 // Logika murni rekomendasi AI asisten: penyamaran data, prompt, validasi jawaban, biaya.
 // Dipakai Edge Function assistant-ai (Deno) dan diuji dengan node --test.
 
-export const PROMPT_VERSION = 'rekomendasi-v2';
+export const PROMPT_VERSION = 'rekomendasi-v3';
 
 const RULE_LABELS = {
   absen_beruntun: 'Tidak hadir beberapa sesi berturut-turut',
@@ -75,7 +75,7 @@ export const SYSTEM_PROMPT = `Anda asisten guru di sebuah Taman Pendidikan Al-Qu
 Tugas: dari data seorang santri yang perlu perhatian, beri saran tindak lanjut yang praktis untuk guru.
 
 Aturan:
-- Data sudah disamarkan. Jangan menebak nama. Sebut santri dengan placeholder {nama}; sebut guru dengan {guru}.
+- Data sudah disamarkan. Jangan menebak nama. Sebut santri dengan placeholder {nama}; sebut guru dengan {guru}. Jangan menjelaskan placeholder ini kepada guru.
 - Bahasa Indonesia yang santun, hangat, dan ringkas. Nuansa adab pesantren boleh, tetapi jangan berceramah.
 - Saran harus bisa dilakukan guru di sesi mengaji atau lewat wali, dan merujuk pada data yang diberikan.
 - Jangan memberi label medis, psikologis, atau menyalahkan anak maupun orang tua.

@@ -13,6 +13,7 @@ import {
   deleteAiConversation, fetchAiClasses, fetchAiClassRoster, fetchAiConversations, fetchAiMessages, fetchAssistantSettings,
   requestClassInsight, sendAiChat,
 } from '@/lib/assistantAlertAdapters';
+import AiText from '@/components/dashboard/assistant/AiText';
 import '@/styles/attention-panel.css';
 
 const ALL = '__semua__';
@@ -295,7 +296,7 @@ const AiChat = ({ classId, roster }) => {
             </div>
           </li>
         )}
-        {messages.map((m) => <Bubble key={m.id} role={m.role}>{m.content}</Bubble>)}
+        {messages.map((m) => <Bubble key={m.id} role={m.role}>{m.role === 'assistant' ? <AiText text={m.content} /> : m.content}</Bubble>)}
         {isSending && (
           <li className="flex justify-start" role="status">
             <div className="attention-ai flex items-center gap-2 rounded-2xl rounded-bl-md px-3.5 py-2.5 text-sm text-foreground/70">

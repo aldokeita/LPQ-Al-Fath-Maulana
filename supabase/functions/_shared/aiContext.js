@@ -3,7 +3,7 @@
 
 import { buildAnonymizedInput } from './aiAssistant.js';
 
-export const CLASS_PROMPT_VERSION = 'kelas-v1';
+export const CLASS_PROMPT_VERSION = 'kelas-v2';
 
 const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const words = (value) => String(value || '').split(/[\s.,'’-]+/).map((w) => w.trim()).filter((w) => w.length >= 3);
@@ -130,6 +130,8 @@ export const buildClassContext = (roster, snapshots, items, masker) => {
 
 const BASE_RULES = `Aturan umum:
 - Data sudah disamarkan. Santri disebut dengan kode S1, S2, dst.; tulis kodenya persis agar aplikasi dapat menggantinya dengan nama. Jangan menebak nama asli.
+- Guru melihat nama asli, bukan kode. Jangan pernah menjelaskan, menyebut kata "kode", atau meminta guru memakai kode; tulis saja S1 di tempat nama santri. Bila menemukan "[nama]", sebut "santri tersebut".
+- Kategori ("Pra TK C", "Jilid 2A") adalah tingkat bacaan, bukan nama orang.
 - Bahasa Indonesia yang santun, hangat, dan ringkas; jangan berceramah.
 - Saran harus bisa dilakukan guru di sesi mengaji atau bersama wali, dan merujuk pada data.
 - Jangan memberi label medis atau psikologis, dan jangan menyalahkan anak maupun orang tua.

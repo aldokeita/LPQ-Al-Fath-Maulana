@@ -107,3 +107,8 @@ test('penyedia: percakapan multi-giliran tanpa mode JSON', async () => {
   const mockClass = await generate(resolveProvider({ provider: 'mock' }), { kind: 'kelas', system: 'S', user: '{"kode":"S1"},{"kode":"S2"}' });
   assert.equal(parseClassInsight(mockClass.text, ['S1', 'S2']).sorotan.length, 2);
 });
+
+test('prompt melarang AI membahas kode kepada guru', async () => {
+  const { CHAT_SYSTEM_PROMPT, CLASS_SYSTEM_PROMPT } = await import('../supabase/functions/_shared/aiContext.js');
+  for (const p of [CHAT_SYSTEM_PROMPT, CLASS_SYSTEM_PROMPT]) assert.match(p, /Jangan pernah menjelaskan, menyebut kata "kode"/);
+});
