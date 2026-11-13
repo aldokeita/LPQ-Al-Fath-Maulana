@@ -58,6 +58,9 @@ const BuildingBackdrop = ({ overlay, blur = 3, position = 'center 40%' }) => (
   </>
 );
 
+// Spasi tak terputus: label pendek seperti "Jilid 1B" tidak boleh terbelah saat diekspor di HP.
+const nb = (text) => String(text || '').replace(/ /g, '\u00a0');
+
 export const initialsOf = (name) => String(name || '?').trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() || '').join('') || '?';
 
 // Avatar bulat dengan cincin gradasi; tanpa foto memakai inisial.
@@ -102,7 +105,7 @@ export const JilidCard = React.forwardRef(({ data, pesan, guru, avatar }, ref) =
         <span style={{ position: 'absolute', left: '50%', bottom: -14, transform: 'translateX(-50%)', whiteSpace: 'nowrap',
           padding: '7px 16px', borderRadius: 9999, fontSize: 15, fontWeight: 800, color: '#06282f',
           background: 'linear-gradient(135deg, #fde68a 0%, #5eead4 100%)', boxShadow: '0 8px 22px rgba(0,0,0,0.3)', border: '2px solid rgba(255,255,255,0.85)' }}>
-          ★ {data.ke}
+          {nb(`★ ${data.ke}`)}
         </span>
       </div>
 
@@ -115,11 +118,11 @@ export const JilidCard = React.forwardRef(({ data, pesan, guru, avatar }, ref) =
       {data.dari && (
         <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 10, whiteSpace: 'nowrap', padding: '6px 8px 6px 14px', borderRadius: 9999,
           background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.16)' }}>
-          <span style={{ fontSize: 14, fontWeight: 600, color: 'rgba(255,255,255,0.72)', whiteSpace: 'nowrap', flexShrink: 0 }}>{data.dari}</span>
+          <span style={{ display: 'inline-block', fontSize: 14, fontWeight: 700, color: 'rgba(255,255,255,0.72)', whiteSpace: 'nowrap', flexShrink: 0 }}>{nb(data.dari)}</span>
           <svg width="26" height="16" viewBox="0 0 34 20" aria-hidden="true" style={{ flexShrink: 0 }}>
             <path d="M2 10h26M21 3l8 7-8 7" fill="none" stroke="#fcd34d" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
-          <span style={{ whiteSpace: 'nowrap', flexShrink: 0, padding: '4px 12px', borderRadius: 9999, fontSize: 14, fontWeight: 800, color: '#06282f', background: '#fde68a' }}>{data.ke}</span>
+          <span style={{ whiteSpace: 'nowrap', flexShrink: 0, padding: '4px 12px', borderRadius: 9999, fontSize: 14, fontWeight: 800, color: '#06282f', background: '#fde68a' }}>{nb(data.ke)}</span>
         </div>
       )}
 
@@ -215,7 +218,7 @@ export const ProfilCard = React.forwardRef(({ data, pesan, guru, avatar }, ref) 
               {data.namaLengkap || data.panggilan}
             </div>
             <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-              {data.jilid && <span style={{ whiteSpace: 'nowrap', flexShrink: 0, padding: '5px 12px', borderRadius: 9999, fontSize: 12.5, fontWeight: 700, color: '#fff', background: 'linear-gradient(135deg, #0d9488, #0891b2)' }}>{data.jilid}</span>}
+              {data.jilid && <span style={{ whiteSpace: 'nowrap', flexShrink: 0, padding: '5px 12px', borderRadius: 9999, fontSize: 12.5, fontWeight: 700, color: '#fff', background: 'linear-gradient(135deg, #0d9488, #0891b2)' }}>{nb(data.jilid)}</span>}
               <span style={{ whiteSpace: 'nowrap', flexShrink: 0, padding: '5px 12px', borderRadius: 9999, fontSize: 12.5, fontWeight: 700, color: '#92400e', background: '#fef3c7' }}>★ {data.poin.toLocaleString('id-ID', { maximumFractionDigits: 1 })} poin</span>
             </div>
           </div>
