@@ -617,7 +617,9 @@ begin
   exception when insufficient_privilege then null;
   end;
   v := public.get_assistant_santri_profile('7e571000-0000-0000-0000-000000000102');
-  if v->>'jilid' is null or jsonb_typeof(v->'hafalan') <> 'array' then raise exception 'TEST FAIL: profile shape %', v; end if;
+  if v->>'jilid' is null or jsonb_typeof(v->'hafalan') <> 'array' or jsonb_typeof(v->'hafalan_wajib_jilid') <> 'array' then
+    raise exception 'TEST FAIL: profile shape %', v;
+  end if;
 
   -- Mode senyap: guru tidak mendapat kelas/profil.
   perform set_config('request.jwt.claims', '{"sub":"7e571000-0000-0000-0000-00000000000a","role":"authenticated"}', true);

@@ -56,15 +56,28 @@ const int = (v) => (Number.isFinite(Number(v)) && v !== null && v !== '' ? Math.
 // Profil tersamar satu santri (untuk saran per santri dan chat).
 export const buildProfileContext = (profile, masker) => {
   if (!profile) return null;
+  // Semua hafalan yang pernah dinilai, per kategori: nama materi yang sudah aman (skor 4) dan yang masih dilatih.
   const hafalan = {};
   (profile.hafalan || []).forEach((h) => {
     const k = h.kategori || 'Lainnya';
-    hafalan[k] = hafalan[k] || { skor_4: 0, skor_1_3: [], belum_dinilai_ulang_30_hari: 0 };
-    if (Number(h.skor) === 4) hafalan[k].skor_4 += 1;
-    else hafalan[k].skor_1_3.push(`${h.materi} (skor ${h.skor ?? '-'})`);
+    hafalan[k] = hafalan[k] || { sudah_hafal_skor_4: [], masih_dilatih: [], belum_dinilai_ulang_30_hari: 0 };
+    if (Number(h.skor) === 4) hafalan[k].sudah_hafal_skor_4.push(h.materi);
+    else hafalan[k].masih_dilatih.push(`${h.materi} (skor ${h.skor ?? '-'})`);
     if (Number(h.skor) !== 4 && Number(h.hari_sejak_dinilai) > 30) hafalan[k].belum_dinilai_ulang_30_hari += 1;
   });
-  Object.values(hafalan).forEach((v) => { v.skor_1_3 = v.skor_1_3.slice(0, 15); });
+  Object.values(hafalan).forEach((v) => {
+    v.sudah_hafal_skor_4 = v.sudah_hafal_skor_4.slice(0, 40);
+    v.masih_dilatih = v.masih_dilatih.slice(0, 20);
+  });
+  // Hafalan wajib jilid saat ini, termasuk yang belum pernah dinilai.
+  const wajib = profile.hafalan_wajib_jilid || [];
+  const hafalanWajib = wajib.length ? {
+    jilid: profile.jilid || null,
+    total: wajib.length,
+    sudah_skor_4: wajib.filter((w) => Number(w.skor) === 4).length,
+    masih_dilatih: wajib.filter((w) => w.skor != null && Number(w.skor) !== 4).map((w) => `${w.kategori}: ${w.materi} (skor ${w.skor})`).slice(0, 30),
+    belum_dinilai: wajib.filter((w) => w.skor == null).map((w) => `${w.kategori}: ${w.materi}`).slice(0, 30),
+  } : null;
   const m = (t) => masker.mask(t);
   return {
     usia_tahun: int(profile.usia),
@@ -72,6 +85,7 @@ export const buildProfileContext = (profile, masker) => {
     poin_gamifikasi: profile.poin ?? 0,
     riwayat_jilid: (profile.riwayat_jilid || []).map((r) => `${r.dari || '?'} → ${r.ke} (${r.hari_lalu} hari lalu)`),
     hafalan_per_kategori: hafalan,
+    hafalan_wajib_jilid_ini: hafalanWajib,
     karakter: (profile.karakter || []).map((c) => `${c.indikator}: ${c.skor}`),
     kekuatan_karakter: profile.kekuatan || [],
     perilaku_180_hari: (profile.perilaku || []).map((b) => ({
@@ -135,7 +149,8 @@ const BASE_RULES = `Aturan umum:
 - Bahasa Indonesia yang santun, hangat, dan ringkas; jangan berceramah.
 - Saran harus bisa dilakukan guru di sesi mengaji atau bersama wali, dan merujuk pada data.
 - Jangan memberi label medis atau psikologis, dan jangan menyalahkan anak maupun orang tua.
-- Jangan menyalin kode mentah dari data (mis. pola "HHAAH"); jelaskan dengan kata-kata.`;
+- Jangan menyalin kode mentah dari data (mis. pola "HHAAH"); jelaskan dengan kata-kata.
+- Skor hafalan 1–4; skor 4 berarti sudah hafal dan aman. Bila ditanya hafalan, sebut nama materinya dari data: yang sudah hafal (skor 4), yang masih dilatih beserta skornya, dan hafalan wajib jilid yang belum dinilai. Jangan mengarang materi yang tidak ada di data.`;
 
 export const withInstitution = (konteks, body) =>
   `${konteks ? `Pengetahuan dasar lembaga:\n${String(konteks).trim()}\n\n` : ''}${body}`;

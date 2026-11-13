@@ -42,7 +42,8 @@ test('profil tersamar: hafalan per kategori, catatan bebas disamarkan, tanpa nam
   const ctx = buildProfileContext(profile, m);
   const text = JSON.stringify(ctx);
   assert.equal(/Bilal|Aisyah|Ramadhan|"b"/.test(text), false);
-  assert.deepEqual(ctx.hafalan_per_kategori.Doa, { skor_4: 1, skor_1_3: ['Doa tidur (skor 2)'], belum_dinilai_ulang_30_hari: 1 });
+  assert.deepEqual(ctx.hafalan_per_kategori.Doa, { sudah_hafal_skor_4: ['Doa makan'], masih_dilatih: ['Doa tidur (skor 2)'], belum_dinilai_ulang_30_hari: 1 });
+  assert.equal(ctx.hafalan_wajib_jilid_ini, null);
   assert.equal(ctx.perilaku_180_hari[0].perilaku, 'S2 bercanda dengan S1');
   assert.equal(ctx.catatan_guru[0].catatan, 'S2 semangat');
   const input = buildRecommendationInput([{ rule: 'jilid_lama', tingkat: 'sedang', detail: { days: 50, jilid: 'Jilid 2A', threshold: 30 } }], null, profile, m);
@@ -194,4 +195,20 @@ test('findSantri mendahulukan nama persis, lalu awalan kata, lalu sebagian', () 
   assert.deepEqual(findSantri(roster, 'abil').map((r) => r.santri_id), ['3']);
   assert.deepEqual(findSantri(roster, '  '), []);
   assert.equal(santriShortName(roster[1]), 'Bilqis');
+});
+
+test('profil memuat hafalan wajib jilid: sudah hafal, masih dilatih, dan belum dinilai', () => {
+  const ctx = buildProfileContext({
+    jilid: 'Jilid 1A',
+    hafalan: [{ kategori: 'Doa', materi: 'Doa makan', skor: 4, hari_sejak_dinilai: 3 }],
+    hafalan_wajib_jilid: [
+      { kategori: 'Doa', materi: 'Doa makan', skor: 4, status: 'lulus' },
+      { kategori: 'Doa', materi: 'Tasbih', skor: 2, status: 'proses' },
+      { kategori: 'Surat', materi: 'Al-Fatihah', skor: null, status: 'belum' },
+    ],
+  }, buildNameMasker([]));
+  assert.deepEqual(ctx.hafalan_wajib_jilid_ini, {
+    jilid: 'Jilid 1A', total: 3, sudah_skor_4: 1,
+    masih_dilatih: ['Doa: Tasbih (skor 2)'], belum_dinilai: ['Surat: Al-Fatihah'],
+  });
 });
