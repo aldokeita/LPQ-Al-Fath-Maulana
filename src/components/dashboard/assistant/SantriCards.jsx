@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useLayoutEffect, useRef, useState } from 'react';
 import { fillPesan, limitList } from '@/lib/santriCards';
 import { OFFICIAL_CONTACT } from '@/lib/institutionContent';
 
@@ -259,13 +259,29 @@ const ScoreDots = ({ skor }) => (
   </span>
 );
 
+const MSG_LINE = 19.5;
+const MSG_PAD = 10;
+const MSG_MAX_LINES = 7;
+
 export const ProfilCard = React.forwardRef(({ data, pesan, guru, avatar }, ref) => {
   const { kehadiran: k, hafalan: h } = data;
+  // Sudah hafal lebih dulu (apresiasi), lalu yang sedang dilatih; masing-masing diberi jatah awal 4
+  // agar keduanya tampil, sisanya menyusul, dan yang belum dinilai paling akhir.
+  const hafalChips = h.sudahHafal.map((m) => ({ key: `h-${m}`, tone: 'hafal', label: m }));
+  const latihChips = h.dilatih.map((d) => ({ key: `l-${d.materi}`, tone: 'latih', label: d.materi, skor: d.skor }));
   const all = [
-    ...h.dilatih.map((d) => ({ key: `l-${d.materi}`, tone: 'latih', label: d.materi, skor: d.skor })),
-    ...h.sudahHafal.map((m) => ({ key: `h-${m}`, tone: 'hafal', label: m })),
+    ...hafalChips.slice(0, 4), ...latihChips.slice(0, 4), ...hafalChips.slice(4), ...latihChips.slice(4),
     ...(h.belumDinilaiList || []).map((m) => ({ key: `b-${m}`, tone: 'belum', label: m })),
   ];
+  // Pesan memakai sisa ruang kartu: jumlah baris dihitung dari tinggi baris pesan setelah tata letak.
+  const msgRowRef = useRef(null);
+  const [msgLines, setMsgLines] = useState(3);
+  useLayoutEffect(() => {
+    const row = msgRowRef.current;
+    if (!row) return;
+    const fit = Math.floor((row.clientHeight - MSG_PAD * 2) / MSG_LINE);
+    setMsgLines(Math.max(3, Math.min(MSG_MAX_LINES, fit)));
+  }, [data, pesan, avatar]);
   const { shown, more } = limitList(all, 8);
   const chips = more > 0 ? [...shown, { key: 'more', tone: 'more', label: `+${more} lainnya` }] : shown;
   const longName = isLongName(data.namaLengkap || data.panggilan);
@@ -365,10 +381,10 @@ export const ProfilCard = React.forwardRef(({ data, pesan, guru, avatar }, ref) 
           )}
         </Panel>
 
-        <div style={{ flexShrink: 0, marginTop: 'auto', display: 'flex', alignItems: 'flex-end', gap: 16 }}>
-          <p style={{ flex: 1, margin: 0, fontSize: 13, lineHeight: '19.5px', color: '#134e4a', background: 'rgba(20,184,166,0.1)', borderRadius: 14,
-            padding: '10px 12px', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-            <span style={{ display: 'block', maxHeight: 58.5, overflow: 'hidden' }}>{fillPesan(pesan, { nama: data.panggilan })}</span>
+        <div ref={msgRowRef} style={{ flex: '1 1 0', minHeight: MSG_LINE * 3 + MSG_PAD * 2, display: 'flex', alignItems: 'flex-end', gap: 16 }}>
+          <p style={{ flex: 1, margin: 0, fontSize: 13, lineHeight: `${MSG_LINE}px`, color: '#134e4a', background: 'rgba(20,184,166,0.1)', borderRadius: 14,
+            padding: `${MSG_PAD}px 12px`, display: '-webkit-box', WebkitLineClamp: msgLines, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+            <span style={{ display: '-webkit-box', WebkitLineClamp: msgLines, WebkitBoxOrient: 'vertical', maxHeight: MSG_LINE * msgLines, overflow: 'hidden' }}>{fillPesan(pesan, { nama: data.panggilan })}</span>
           </p>
           <Signature guru={guru} label={data.tanggal} />
         </div>
