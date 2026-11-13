@@ -12,7 +12,7 @@ import { getSantriAttendanceSuccessMessage } from '@/lib/attendanceAdapters';
 import { getSantriMonthlyAttendanceStats, getSantriLearningHighlights } from '@/lib/attendanceProfileData';
 import { guruScanCardProps, runGuruAttendanceScan } from '@/lib/guruAttendanceScan';
 import { useAttendanceSessionConfiguration } from '@/hooks/useAttendanceSessionConfiguration';
-import { parseDetectorSize } from '@/lib/faceCameraEngine';
+import { parseDetectorSize, saveBackendPreference } from '@/lib/faceCameraEngine';
 import { createPerfMeter, noopPerf } from '@/lib/kioskPerf';
 import FaceCameraCapture from '@/components/dashboard/shared/FaceCameraCapture';
 import AttendanceProfileCard from '@/components/dashboard/shared/AttendanceProfileCard';
@@ -35,7 +35,9 @@ const CARD_LIFETIME_MS = 12000;
 const MAX_CARDS = 3;
 const depthStyle = depth => ({ opacity: depth === 0 ? 1 : depth === 1 ? 0.9 : 0.75, y: 0, scale: 1 });
 // ?debug-kinerja shows a timing panel; ?ukuran-deteksi=320 tries a smaller detector size on site.
+// ?backend=wasm|webgl|auto is remembered on this device (the kiosk PC), before the camera loads the models.
 const kioskParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
+if (kioskParams.has('backend')) saveBackendPreference(kioskParams.get('backend'));
 const perfMeter = kioskParams.has('debug-kinerja') ? createPerfMeter() : noopPerf;
 const detectorSize = parseDetectorSize(kioskParams.get('ukuran-deteksi'));
 const loadLevelConfig = () => supabase.from('website_content').select('content').eq('key','level_config').maybeSingle()

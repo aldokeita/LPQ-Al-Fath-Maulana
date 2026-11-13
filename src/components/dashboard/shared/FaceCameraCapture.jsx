@@ -19,6 +19,8 @@ const stateIcons = { idle: Camera, permission: Loader2, loading: Loader2, active
 const spinningStates = ['permission', 'loading', 'recognizing'];
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 const requestAttendanceChallenge = () => faceAttendanceRequest({ action: 'challenge', purpose: 'attendance' });
+const describeBackend = ({ backend, preference, simd, threads }) => (backend === 'wasm'
+  ? `wasm${simd ? ' SIMD' : ''}${threads ? ' + thread' : ''}` : backend) + ` (pilihan: ${preference})`;
 // Kiosk evidence times are relative to the first frame; the server checks order, span and the 40 s ceiling.
 const kioskEvidence = frames => frames.map(frame => ({ pose: 'center', elapsedMs: frame.at - frames[0].at + 1, faceCount: 1, quality: true }));
 // An unrecognized santri who stays in front of the camera gets another attempt after this delay.
@@ -110,6 +112,8 @@ export default function FaceCameraCapture({ purpose = 'attendance', mode = 'pass
       const engine = await timed('muat model wajah', loadFaceEngine);
       perf.note('sumber model', resourceSource(FACE_MODEL_URLS[FACE_MODEL_URLS.length - 1]));
       perf.note('ukuran deteksi', detectorSize);
+      perf.note('backend', describeBackend(engine.backend));
+      perf.note('GPU', engine.backend.renderer || 'WebGL tidak tersedia');
       if (ticket !== generation.current) return;
       if (purpose === 'attendance') { await (gestureMode ? runGestureAttendance(engine, ticket, handsLoading) : runPassiveAttendance(engine, ticket)); return; }
       let challenge = await faceAttendanceRequest({ action: 'challenge', purpose, santriId, guruId, consent });
