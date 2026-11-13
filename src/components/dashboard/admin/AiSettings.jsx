@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { AlertTriangle, CheckCircle2, KeyRound, Loader2, PlugZap, Sparkles, XCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, KeyRound, Loader2, PlugZap, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -64,13 +64,7 @@ const AiSettings = ({ ai, savedAi, onChange }) => {
   };
 
   return (
-    <fieldset className="rounded-xl border border-border/70 p-4">
-      <legend className="flex items-center gap-1.5 px-1 text-sm font-semibold"><Sparkles className="h-4 w-4 text-violet-600 dark:text-violet-300" aria-hidden="true" /> Rekomendasi AI</legend>
-      <p className="mb-3 text-xs text-muted-foreground">
-        Guru dapat meminta saran tindak lanjut dan draf pesan wali di kartu santri. Nama, kelas, dan nomor HP tidak dikirim ke penyedia AI.
-        Saran yang sama dipakai ulang tanpa biaya sampai data santri berubah.
-      </p>
-
+    <div>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="flex items-center justify-between gap-3 rounded-lg border border-border/60 p-3">
           <Label htmlFor="ai-enabled" className="text-sm">Aktifkan saran AI</Label>
@@ -175,7 +169,7 @@ const AiSettings = ({ ai, savedAi, onChange }) => {
           {isTesting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> : <PlugZap className="mr-2 h-4 w-4" aria-hidden="true" />} Uji koneksi
         </Button>
       </div>
-    </fieldset>
+    </div>
   );
 };
 

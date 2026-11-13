@@ -96,7 +96,7 @@ const AiKnowledge = () => {
   return (
     <Card>
       <CardHeader className="flex flex-row flex-wrap items-start gap-3 space-y-0">
-        <div className="min-w-0 flex-1">
+        <div className="min-w-[min(100%,16rem)] flex-1 basis-72">
           <CardTitle className="flex items-center gap-2 text-lg"><BookOpen className="h-5 w-5 text-violet-600 dark:text-violet-300" aria-hidden="true" /> Pustaka materi AI</CardTitle>
           <CardDescription>
             Materi Qiroati, target hafalan per jilid, adab, dan tips mengajar. AI memilih materi yang paling relevan untuk setiap saran dan jawaban. Jangan menulis nama santri.
