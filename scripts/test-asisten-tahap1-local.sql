@@ -747,5 +747,77 @@ end $$;
 reset role;
 select set_config('request.jwt.claims', '', true);
 
+-- ===== Tahap 3d: tanya asisten lewat Telegram =====
+
+insert into public.telegram_links (user_id, chat_id, active) values ('7e571000-0000-0000-0000-0000000000a1', 990001, true)
+on conflict (user_id) do update set chat_id = excluded.chat_id, active = true, unlinked_at = null;
+
+do $$
+declare
+  v jsonb;
+begin
+  if public.assistant_ai_telegram_data(990999) is not null then raise exception 'TEST FAIL: unlinked chat returns data'; end if;
+  if has_function_privilege('authenticated', 'public.assistant_ai_telegram_data(bigint, uuid, uuid)', 'execute')
+     or has_function_privilege('authenticated', 'public.assistant_telegram_refresh_webhook()', 'execute') then
+    raise exception 'TEST FAIL: telegram functions exposed';
+  end if;
+
+  v := public.assistant_ai_telegram_data(990001, null, '7e571000-0000-0000-0000-000000000102');
+  if (v->>'user_id')::uuid <> '7e571000-0000-0000-0000-0000000000a1'
+     or (v->>'class_id')::uuid <> '7e571000-0000-0000-0000-0000000c1a00'
+     or v->'profile' is null or (v->>'santri_id')::uuid <> '7e571000-0000-0000-0000-000000000102' then
+    raise exception 'TEST FAIL: telegram data %', v - 'roster' - 'snapshots' - 'items' - 'ai' - 'profile';
+  end if;
+  -- Kelas dan santri guru lain tidak bisa dipilih.
+  v := public.assistant_ai_telegram_data(990001, '7e571000-0000-0000-0000-0000000c1b00', '7e571000-0000-0000-0000-000000000104');
+  if (v->>'class_id')::uuid <> '7e571000-0000-0000-0000-0000000c1a00' or v->'profile' <> 'null'::jsonb or v->>'santri_id' is not null then
+    raise exception 'TEST FAIL: telegram data crosses class %', v->>'class_id';
+  end if;
+  if exists (select 1 from jsonb_array_elements(v->'roster') x where (x->>'santri_id')::uuid = '7e571000-0000-0000-0000-000000000104') then
+    raise exception 'TEST FAIL: roster of other class';
+  end if;
+
+  -- Pilihan tersimpan dipakai bila tidak dikirim.
+  insert into public.assistant_ai_telegram_state (user_id, class_id, santri_id)
+  values ('7e571000-0000-0000-0000-0000000000a1', '7e571000-0000-0000-0000-0000000c1a00', '7e571000-0000-0000-0000-000000000102');
+  v := public.assistant_ai_telegram_data(990001);
+  if (v->>'santri_id')::uuid <> '7e571000-0000-0000-0000-000000000102' then raise exception 'TEST FAIL: state santri not used'; end if;
+  if current_setting('request.jwt.claims', true) not in ('', '{}') and current_setting('request.jwt.claims', true) is not null then
+    raise exception 'TEST FAIL: claims not restored: %', current_setting('request.jwt.claims', true);
+  end if;
+
+  -- Mode senyap: guru tidak mendapat kelas lewat Telegram.
+  perform set_config('request.jwt.claims', '{"sub":"7e571000-0000-0000-0000-00000000000a","role":"authenticated"}', true);
+  perform public.save_assistant_settings('{"silent_mode":true}');
+  perform set_config('request.jwt.claims', '', true);
+  v := public.assistant_ai_telegram_data(990001);
+  if jsonb_array_length(v->'classes') <> 0 or not (v->>'silent')::boolean then raise exception 'TEST FAIL: silent telegram'; end if;
+  perform set_config('request.jwt.claims', '{"sub":"7e571000-0000-0000-0000-00000000000a","role":"authenticated"}', true);
+  perform public.save_assistant_settings('{"silent_mode":false}');
+  perform set_config('request.jwt.claims', '', true);
+
+  -- Chat diputus: tidak ada data.
+  update public.telegram_links set active = false where chat_id = 990001;
+  if public.assistant_ai_telegram_data(990001) is not null then raise exception 'TEST FAIL: inactive link returns data'; end if;
+end $$;
+
+select set_config('request.jwt.claims', '{"sub":"7e571000-0000-0000-0000-0000000000a1","role":"authenticated"}', true);
+set local role authenticated;
+do $$
+begin
+  begin
+    perform 1 from public.assistant_ai_telegram_state;
+    raise exception 'TEST FAIL: client reads telegram state';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    perform 1 from public.assistant_telegram_updates;
+    raise exception 'TEST FAIL: client reads telegram updates';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+reset role;
+select set_config('request.jwt.claims', '', true);
+
 select 'PASS: asisten tahap 1-3 (aturan, senyap, panel, koreksi, keputusan, RLS, hanya-tambah, telegram, ai)' as result;
 rollback;

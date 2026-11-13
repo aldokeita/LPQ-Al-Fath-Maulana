@@ -307,3 +307,49 @@ export const formatWeeklyDigest = (hasil, namaKelas, nama = {}, tanggal = '') =>
   if ((hasil.saran_umum || []).length) lines.push('', '📌 <b>Saran untuk kelas</b>', ...hasil.saran_umum.slice(0, 3).map((s, i) => `${i + 1}. ${fill(s.judul)}`));
   return lines.join('\n').slice(0, 3800);
 };
+
+// ===== Tanya lewat Telegram =====
+
+// Jawaban AI (teks dengan **tebal**, judul #, dan butir -) menjadi HTML Telegram yang aman.
+export const toTelegramHtml = (text) => String(text || '')
+  .split('\n')
+  .map((line) => {
+    let t = line.replace(/^\s*#{1,6}\s+/, '').replace(/^(\s*)[-*]\s+/, '$1• ');
+    t = escapeHtml(t);
+    return t.replace(/\*\*([^*\n]+?)\*\*/g, '<b>$1</b>').replace(/\*\*/g, '');
+  })
+  .join('\n')
+  .replace(/\n{3,}/g, '\n\n')
+  .trim();
+
+// Potong pesan panjang di batas paragraf/baris agar tag HTML tidak terbelah (batas Telegram 4096).
+export const splitTelegram = (html, max = 3800) => {
+  const parts = [];
+  let rest = String(html || '');
+  while (rest.length > max) {
+    let cut = rest.lastIndexOf('\n\n', max);
+    if (cut < max / 2) cut = rest.lastIndexOf('\n', max);
+    if (cut < max / 2) cut = rest.lastIndexOf(' ', max);
+    if (cut <= 0) cut = max;
+    parts.push(rest.slice(0, cut).trim());
+    rest = rest.slice(cut).trim();
+  }
+  if (rest) parts.push(rest);
+  return parts;
+};
+
+const normalizeName = (value) => String(value || '').toLowerCase().normalize('NFKD').replace(/[^\p{L}\p{N} ]/gu, '').trim();
+
+// Cari santri di roster dari ketikan guru: panggilan/nama persis lebih dulu, lalu awalan kata, lalu sebagian.
+export const findSantri = (roster = [], query = '') => {
+  const q = normalizeName(query);
+  if (!q) return [];
+  const names = (r) => [normalizeName(r.nama_panggilan), normalizeName(r.nama_lengkap)].filter(Boolean);
+  const exact = roster.filter((r) => names(r).some((n) => n === q));
+  if (exact.length) return exact;
+  const prefix = roster.filter((r) => names(r).some((n) => n.split(' ').some((w) => w.startsWith(q))));
+  if (prefix.length) return prefix;
+  return roster.filter((r) => names(r).some((n) => n.includes(q)));
+};
+
+export const santriShortName = (r) => String(r?.nama_panggilan || '').trim() || String(r?.nama_lengkap || 'Santri').split(' ')[0];

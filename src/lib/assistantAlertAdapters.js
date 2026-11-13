@@ -126,7 +126,7 @@ export const fetchAiClassRoster = async (classId) => {
 
 export const fetchAiConversations = async () => {
   const { data, error } = await supabase.from('assistant_ai_conversations')
-    .select('id, judul, class_id, santri_id, updated_at').order('updated_at', { ascending: false }).limit(20);
+    .select('id, judul, class_id, santri_id, sumber, updated_at').order('updated_at', { ascending: false }).limit(20);
   if (error) throw error;
   return data || [];
 };

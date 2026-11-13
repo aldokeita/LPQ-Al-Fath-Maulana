@@ -68,7 +68,7 @@ echo "Mendaftarkan webhook ke Telegram..."
 curl -fsS "https://api.telegram.org/bot${BOT_TOKEN}/setWebhook" \
   --data-urlencode "url=${FUNCTIONS_URL}/telegram-webhook" \
   --data-urlencode "secret_token=${WEBHOOK_SECRET}" \
-  --data-urlencode 'allowed_updates=["message"]' \
+  --data-urlencode 'allowed_updates=["message","callback_query"]' \
   --data-urlencode "drop_pending_updates=true" >/dev/null
 echo
 

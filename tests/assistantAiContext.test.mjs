@@ -167,3 +167,31 @@ test('formatWeeklyDigest mengganti kode dengan nama dan meloloskan HTML', () => 
   assert.ok(text.includes('<b>Bilal</b> — absen 3 kali'));
   assert.ok(!/\bS\d\b/.test(text));
 });
+
+const { toTelegramHtml, splitTelegram, findSantri, santriShortName } = await import('../supabase/functions/_shared/aiContext.js');
+
+test('toTelegramHtml mengubah markdown jawaban AI menjadi HTML Telegram yang aman', () => {
+  const html = toTelegramHtml('## Saran\n- **Bilal**: latih <Al-Kafirun> & murojaah\n\n\n\nSelesai **');
+  assert.equal(html, 'Saran\n• <b>Bilal</b>: latih &lt;Al-Kafirun&gt; &amp; murojaah\n\nSelesai');
+});
+
+test('splitTelegram memotong di batas paragraf tanpa melebihi batas', () => {
+  const para = 'a'.repeat(300);
+  const parts = splitTelegram(Array(20).fill(para).join('\n\n'), 1000);
+  assert.ok(parts.length > 1);
+  assert.ok(parts.every((p) => p.length <= 1000 && !p.startsWith('\n')));
+  assert.deepEqual(splitTelegram('pendek'), ['pendek']);
+});
+
+test('findSantri mendahulukan nama persis, lalu awalan kata, lalu sebagian', () => {
+  const roster = [
+    { santri_id: '1', nama_lengkap: 'Muhammad Bilal', nama_panggilan: 'Bilal' },
+    { santri_id: '2', nama_lengkap: 'Bilqis Azzahra', nama_panggilan: null },
+    { santri_id: '3', nama_lengkap: 'Ahmad Nabil', nama_panggilan: 'Nabil' },
+  ];
+  assert.deepEqual(findSantri(roster, 'bilal').map((r) => r.santri_id), ['1']);
+  assert.deepEqual(findSantri(roster, 'Bil').map((r) => r.santri_id), ['1', '2']);
+  assert.deepEqual(findSantri(roster, 'abil').map((r) => r.santri_id), ['3']);
+  assert.deepEqual(findSantri(roster, '  '), []);
+  assert.equal(santriShortName(roster[1]), 'Bilqis');
+});

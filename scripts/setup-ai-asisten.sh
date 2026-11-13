@@ -60,6 +60,11 @@ if [[ "$PROVIDER" != "lewati" ]]; then
   npx supabase secrets set --env-file "$TMP/secrets.env"
 fi
 
-echo "Men-deploy assistant-ai..."
-npx supabase functions deploy assistant-ai
+echo "Men-deploy assistant-ai, telegram-webhook, dan telegram-dispatch..."
+npx supabase functions deploy assistant-ai telegram-webhook telegram-dispatch
+
+# Bot perlu menerima tombol (callback_query) untuk memilih kelas/santri dan menilai jawaban AI.
+echo "Memperbarui pendaftaran webhook bot Telegram..."
+echo "select public.assistant_telegram_refresh_webhook();" > "$TMP/webhook.sql"
+npx supabase db query --remote --file "$TMP/webhook.sql" || echo "Lewati: Telegram belum disiapkan."
 echo "Selesai. Atur penyedia dan model di dasbor admin > Asisten > Rekomendasi AI, lalu Uji koneksi."

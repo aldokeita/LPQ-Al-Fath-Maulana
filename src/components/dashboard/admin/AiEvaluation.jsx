@@ -8,7 +8,8 @@ import { cn } from '@/lib/utils';
 import { fetchAiEvaluation } from '@/lib/assistantAlertAdapters';
 
 const FITUR_LABELS = {
-  rekomendasi: 'Saran per santri', kelas: 'Gambaran kelas', kelas_pekanan: 'Ringkasan pekanan', chat: 'Tanya asisten',
+  rekomendasi: 'Saran per santri', kelas: 'Gambaran kelas', kelas_pekanan: 'Ringkasan pekanan', chat: 'Tanya asisten (dasbor)',
+  telegram: 'Tanya asisten (Telegram)',
   rapor: 'Rapor wali', uji: 'Uji koneksi',
 };
 const JENIS_LABELS = { rekomendasi: 'Saran per santri', kelas: 'Gambaran kelas', chat: 'Jawaban chat', rapor: 'Rapor wali' };

@@ -18,44 +18,20 @@ import {
   buildUserPrompt, estimateCost, inputHash, parseRecommendation, RESULT_SCHEMA, sha256Hex, SYSTEM_PROMPT,
 } from "../_shared/aiAssistant.js";
 import {
-  buildChatContext, buildChatMessages, buildClassContext, buildNameMasker, buildProfileContext, buildRecommendationInput,
-  CHAT_SYSTEM_PROMPT, CLASS_PROMPT_VERSION, CLASS_RESULT_SCHEMA, CLASS_SYSTEM_PROMPT, formatWeeklyDigest, parseClassInsight,
+  buildClassContext, buildNameMasker, buildRecommendationInput,
+  CLASS_PROMPT_VERSION, CLASS_RESULT_SCHEMA, CLASS_SYSTEM_PROMPT, formatWeeklyDigest, parseClassInsight,
   parseReport, REPORT_PROMPT_VERSION, REPORT_SCHEMA, REPORT_SYSTEM_PROMPT, selectKnowledge, withKnowledge,
 } from "../_shared/aiContext.js";
-import { AiProviderError, generate, keyStatus, resolveProvider } from "../_shared/aiProviders.js";
+import { generate, keyStatus, resolveProvider } from "../_shared/aiProviders.js";
+import {
+  ChatError, ERROR_STATUS, errorCode, friendlyMessage, loadKnowledge, monthUsageExceeded, runChatTurn, usageLimit,
+} from "../_shared/aiChatCore.ts";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const getEnv = (name: string) => Deno.env.get(name);
 type Json = Record<string, any>;
 
-const ERROR_STATUS: Record<string, number> = {
-  AI_KEY_MISSING: 503, AI_MODEL_MISSING: 503, AI_BASE_URL_MISSING: 503,
-  AI_KEY_REJECTED: 502, AI_RATE_LIMITED: 429, AI_PROVIDER_ERROR: 502, AI_REFUSED: 422,
-  AI_INVALID_JSON: 502, AI_EMPTY_RESPONSE: 502,
-};
-
-const errorCode = (err: unknown) => err instanceof AiProviderError ? err.code
-  : String((err as Error)?.message || "").startsWith("AI_") ? String((err as Error).message) : "AI_PROVIDER_ERROR";
-
-const friendlyMessage = (code: string) =>
-  ["AI_KEY_MISSING", "AI_MODEL_MISSING", "AI_BASE_URL_MISSING", "AI_KEY_REJECTED"].includes(code)
-    ? "Asisten AI belum siap dipakai. Hubungi admin untuk memeriksa pengaturan AI."
-    : code === "AI_RATE_LIMITED"
-      ? "Penyedia AI sedang sibuk. Coba lagi beberapa menit lagi."
-      : "Asisten AI gagal menjawab. Coba lagi sebentar lagi.";
-
 const jakartaDate = () => new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10);
-
-const loadKnowledge = async (admin: any) => {
-  const { data } = await admin.from("assistant_ai_knowledge").select("judul, kategori, isi")
-    .eq("aktif", true).order("updated_at", { ascending: false }).limit(60);
-  return (data || []) as Json[];
-};
-
-const monthUsageExceeded = async (admin: any, ai: Json) => {
-  const { data: usage } = await admin.rpc("assistant_ai_month_usage");
-  return Number(usage?.biaya_usd || 0) >= Number(ai.monthly_budget_usd ?? 10);
-};
 
 // Hasilkan saran kelas dari data mentah (roster, snapshot, perkara). Dipakai aksi class_insight dan
 // ringkasan pekanan.
@@ -148,16 +124,8 @@ Deno.serve(async (req) => {
 
   // Batas harian per pengguna dan anggaran bulanan lembaga.
   const checkLimits = async () => {
-    const since = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
-    const { count } = await admin.from("assistant_ai_usage").select("id", { count: "exact", head: true })
-      .eq("user_id", user.id).eq("status", "ok").gte("created_at", since);
-    if ((count || 0) >= Number(ai.daily_limit_per_user || 40)) {
-      return fail(req, "AI_DAILY_LIMIT", "Batas permintaan AI harian Anda sudah tercapai. Coba lagi besok.", 429);
-    }
-    if (await monthUsageExceeded(admin, ai)) {
-      return fail(req, "AI_BUDGET_EXCEEDED", "Anggaran AI bulan ini sudah habis. Hubungi admin.", 429);
-    }
-    return null;
+    const code = await usageLimit(admin, ai, user.id);
+    return code ? fail(req, code, friendlyMessage(code), 429) : null;
   };
 
   // Panggil AI dan catat pemakaian; mengembalikan hasil parse atau Response galat.
@@ -345,64 +313,27 @@ Deno.serve(async (req) => {
   const cls = await readClass(classId);
   if (cls.error) return cls.error;
   if (santriId && !cls.roster.some((r) => r.santri_id === santriId)) return fail(req, "INVALID_REQUEST", "Santri bukan anggota kelas ini.");
+  const conversationId = body?.conversation_id ? String(body.conversation_id) : null;
+  if (conversationId && !UUID.test(conversationId)) return fail(req, "INVALID_REQUEST", "Percakapan tidak valid.");
 
-  let conversationId = body?.conversation_id ? String(body.conversation_id) : null;
-  let history: Json[] = [];
-  if (conversationId) {
-    if (!UUID.test(conversationId)) return fail(req, "INVALID_REQUEST", "Percakapan tidak valid.");
-    const { data: conv } = await admin.from("assistant_ai_conversations").select("id, user_id")
-      .eq("id", conversationId).maybeSingle();
-    if (!conv || conv.user_id !== user.id) return fail(req, "NOT_FOUND", "Percakapan tidak ditemukan.", 404);
-    const { data: rows } = await admin.from("assistant_ai_messages").select("role, content")
-      .eq("conversation_id", conversationId).order("created_at", { ascending: true });
-    history = rows || [];
-  }
-
-  const limited = await checkLimits();
-  if (limited) return limited;
-
-  let profil = null;
-  let profileJilid = "";
+  let profile = null;
   if (santriId) {
-    const { data: profile } = await client.rpc("get_assistant_santri_profile", { p_santri_id: santriId });
-    profil = buildProfileContext(profile, cls.masker);
-    profileJilid = profile?.jilid || "";
+    const { data } = await client.rpc("get_assistant_santri_profile", { p_santri_id: santriId });
+    profile = data;
   }
-  const pustaka = selectKnowledge(knowledge, `${message} ${profileJilid}`);
-  const contextText = buildChatContext({ kelas: cls.kelas, profil, kodeFokus: santriId ? cls.masker.codeOf(santriId) : null });
-  const messages = buildChatMessages(history, message, contextText, cls.masker);
-  const out = await callAi("chat", santriId, {
-    system: withKnowledge(konteks, pustaka, CHAT_SYSTEM_PROMPT), messages, json: false,
-  }, (text) => {
-    if (!String(text || "").trim()) throw new Error("AI_EMPTY_RESPONSE");
-    return cls.masker.unmask(String(text).trim()).slice(0, 6000);
-  });
-  if (out.error) return out.error;
-  const answer = out.parsed as string;
-
-  if (!conversationId) {
-    const { data: conv } = await admin.from("assistant_ai_conversations").insert({
-      user_id: user.id, class_id: classId, santri_id: santriId, judul: message.slice(0, 80),
-    }).select("id").single();
-    conversationId = conv?.id || null;
-  } else {
-    await admin.from("assistant_ai_conversations").update({ updated_at: new Date().toISOString(), santri_id: santriId, class_id: classId })
-      .eq("id", conversationId);
+  try {
+    const turn = await runChatTurn({
+      admin, provider, ai, knowledge, userId: user.id, classId, roster: cls.roster, snapshots: cls.snapshots, items: cls.items,
+      santriId, profile, conversationId, message, sumber: "dasbor",
+    });
+    return ok(req, {
+      conversation_id: turn.conversationId, answer: turn.answer, provider: provider.id, model: provider.model,
+      user_message_id: turn.userMessageId, message_id: turn.messageId,
+    });
+  } catch (err) {
+    const code = err instanceof ChatError ? err.code : "AI_PROVIDER_ERROR";
+    return fail(req, code, err instanceof ChatError ? err.message : friendlyMessage(code), ERROR_STATUS[code] || 502);
   }
-  let saved: Json[] = [];
-  if (conversationId) {
-    const now = Date.now();
-    const { data } = await admin.from("assistant_ai_messages").insert([
-      { conversation_id: conversationId, role: "user", content: message, created_at: new Date(now).toISOString() },
-      { conversation_id: conversationId, role: "assistant", content: answer, created_at: new Date(now + 1).toISOString() },
-    ]).select("id, role");
-    saved = data || [];
-  }
-  return ok(req, {
-    conversation_id: conversationId, answer, provider: provider.id, model: provider.model,
-    user_message_id: saved.find((m) => m.role === "user")?.id || null,
-    message_id: saved.find((m) => m.role === "assistant")?.id || null,
-  });
 });
 
 // Ringkasan kelas pekanan untuk setiap guru yang menyambungkan Telegram. Dipanggil pg_cron Senin pagi.

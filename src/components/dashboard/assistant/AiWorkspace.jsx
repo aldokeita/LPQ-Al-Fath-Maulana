@@ -336,7 +336,7 @@ const AiChat = ({ classId, roster, focus }) => {
               <SelectTrigger id="ai-chat-history" className="min-w-0"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="baru">Percakapan baru</SelectItem>
-                {classConversations.map((c) => <SelectItem key={c.id} value={c.id}>{c.judul}</SelectItem>)}
+                {classConversations.map((c) => <SelectItem key={c.id} value={c.id}>{c.sumber === 'telegram' ? `Telegram · ${c.judul}` : c.judul}</SelectItem>)}
               </SelectContent>
             </Select>
             {conversationId && (
