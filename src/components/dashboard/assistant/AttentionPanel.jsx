@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  AlertTriangle, ArrowUpCircle, BellRing, BookOpen, CalendarX2, Check, CheckCircle2, ChevronDown, EyeOff, Loader2,
+  AlertTriangle, ArrowUpCircle, BellRing, BookOpen, Bot, CalendarX2, Check, CheckCircle2, ChevronDown, EyeOff, Loader2,
   MessageCircle, Mic, PhoneCall, RefreshCw, Sparkles, User, UserCheck, X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -433,6 +433,12 @@ const SantriCard = ({ group, snapshot, actions, guruName, showClass, onChanged, 
           <Button type="button" size="sm" variant="outline" onClick={() => setMode('wali')}>
             <PhoneCall className="mr-2 h-4 w-4" aria-hidden="true" /> {waliContact ? 'Catat kontak lagi' : 'Catat kontak wali'}
           </Button>
+          {aiEnabled && (
+            <Button type="button" size="sm" variant="outline" className="border-violet-300 text-violet-800 hover:bg-violet-50 dark:border-violet-400/30 dark:text-violet-200 dark:hover:bg-violet-500/10"
+              onClick={() => window.dispatchEvent(new CustomEvent('lpq:ai-ask', { detail: { santriId: group.santriId, classId: group.classId } }))}>
+              <Bot className="mr-2 h-4 w-4" aria-hidden="true" /> Tanya AI tentang {group.namaPanggilan || String(group.nama || '').split(' ')[0]}
+            </Button>
+          )}
           {actions?.onOpenDetail && (
             <Button type="button" size="sm" variant="ghost" onClick={() => actions.onOpenDetail(group.santriId)}>
               <User className="mr-2 h-4 w-4" aria-hidden="true" /> Detail santri

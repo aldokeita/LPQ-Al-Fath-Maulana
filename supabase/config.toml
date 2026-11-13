@@ -70,4 +70,4 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.assistant-ai]
-verify_jwt = true
+verify_jwt = false

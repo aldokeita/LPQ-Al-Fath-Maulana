@@ -527,7 +527,7 @@ const GuruDashboard = () => {
           </section>
         )}
         <Suspense fallback={null}><AttentionPanel variant="guru" refreshKey={attentionRefreshKey} actions={attentionActions} guruName={guruData?.nama} /></Suspense>
-        <Suspense fallback={null}><AiWorkspace /></Suspense>
+        <Suspense fallback={null}><AiWorkspace guruName={guruData?.nama} /></Suspense>
         <div className="space-y-8">
             {myClasses.map(cls => (
                 <Card key={cls.id} className="shadow-lg hover:shadow-xl transition-shadow duration-300 border-border/50">

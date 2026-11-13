@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/use-toast';
 import { cn } from '@/lib/utils';
 import { generateWhatsAppLink } from '@/utils/whatsappMessages';
+import AiFeedback from '@/components/dashboard/assistant/AiFeedback';
 import { AI_PROVIDERS, fillAiPlaceholders } from '@/lib/assistantAlerts';
 import { requestAiRecommendation } from '@/lib/assistantAlertAdapters';
 
@@ -130,9 +131,12 @@ const AiRecommendation = ({ santriId, nickname, guruName, phone, initial }) => {
               </div>
             </details>
           )}
-          <p className={cn('text-[11px] text-foreground/60')}>
-            Dibuat AI ({providerLabel(rec.provider)} · {rec.model}) · {formatTime(rec.created_at)}. Periksa sebelum dipakai.
-          </p>
+          <div className="flex items-center gap-2">
+            <p className={cn('min-w-0 flex-1 text-[11px] text-foreground/60')}>
+              Dibuat AI ({providerLabel(rec.provider)} · {rec.model}) · {formatTime(rec.created_at)}. Periksa sebelum dipakai.
+            </p>
+            <AiFeedback jenis="rekomendasi" targetId={rec.id} />
+          </div>
         </div>
       )}
     </section>

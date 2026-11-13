@@ -204,6 +204,21 @@ const mockClass = (user) => {
   };
 };
 
+const mockReport = (user) => ({
+  text: JSON.stringify({
+    pembuka: "Assalamu'alaikum warahmatullahi wabarakatuh, Ayah/Bunda wali ananda {nama}. (Jawaban tiruan)",
+    kehadiran: '{nama} hadir cukup rutin bulan ini.',
+    bacaan: 'Bacaan Qiroati {nama} terus berkembang di jilidnya.',
+    hafalan: 'Beberapa doa sudah hafal; doa lainnya masih perlu dilatih.',
+    karakter: '{nama} santun kepada guru dan teman.',
+    apresiasi: 'Terima kasih atas semangat {nama} bulan ini.',
+    saran_rumah: 'Ajak {nama} membaca doa sebelum makan bersama di rumah.',
+    penutup: 'Semoga Allah memudahkan langkah {nama}. Salam, {guru}.',
+  }),
+  inputTokens: Math.ceil(user.length / 4),
+  outputTokens: 160,
+});
+
 const mockAnswer = (user) => {
   const tinggi = /"tingkat": "tinggi"/.test(user);
   return {
@@ -229,6 +244,7 @@ export const generate = async (provider, prompt, { fetchImpl = fetch, loadAnthro
   if (provider.kind === 'mock') {
     if (prompt.json === false) return mockChat(toMessages(prompt));
     if (prompt.kind === 'kelas') return mockClass(prompt.user);
+    if (prompt.kind === 'rapor') return mockReport(prompt.user);
     return mockAnswer(prompt.user);
   }
   if (!provider.model) throw new AiProviderError('AI_MODEL_MISSING', 'Nama model belum diisi di pengaturan AI.');

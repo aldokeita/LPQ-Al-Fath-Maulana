@@ -77,6 +77,14 @@ const AiSettings = ({ ai, savedAi, onChange }) => {
           <Switch id="ai-enabled" className="data-[state=unchecked]:bg-slate-300 dark:data-[state=unchecked]:bg-slate-600"
             checked={Boolean(ai.enabled)} onCheckedChange={(v) => onChange('ai.enabled', v)} />
         </div>
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-border/60 p-3">
+          <div className="min-w-0">
+            <Label htmlFor="ai-weekly" className="text-sm">Ringkasan kelas pekanan</Label>
+            <p className="text-xs text-muted-foreground">Senin 06.30 WIB ke Telegram guru. Perlu notifikasi Telegram aktif.</p>
+          </div>
+          <Switch id="ai-weekly" className="data-[state=unchecked]:bg-slate-300 dark:data-[state=unchecked]:bg-slate-600"
+            checked={Boolean(ai.weekly_digest)} onCheckedChange={(v) => onChange('ai.weekly_digest', v)} />
+        </div>
         <div className="grid content-start gap-1.5">
           <Label htmlFor="ai-provider">Penyedia</Label>
           <Select value={ai.provider} onValueChange={(v) => { onChange('ai.provider', v); onChange('ai.model', ''); }}>

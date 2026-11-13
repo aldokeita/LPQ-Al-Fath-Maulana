@@ -112,3 +112,58 @@ test('prompt melarang AI membahas kode kepada guru', async () => {
   const { CHAT_SYSTEM_PROMPT, CLASS_SYSTEM_PROMPT } = await import('../supabase/functions/_shared/aiContext.js');
   for (const p of [CHAT_SYSTEM_PROMPT, CLASS_SYSTEM_PROMPT]) assert.match(p, /Jangan pernah menjelaskan, menyebut kata "kode"/);
 });
+
+const {
+  selectKnowledge, withKnowledge, parseReport, REPORT_SECTIONS, formatWeeklyDigest,
+} = await import('../supabase/functions/_shared/aiContext.js');
+
+test('selectKnowledge memilih materi paling relevan dan menghormati batas karakter', () => {
+  const entries = [
+    { judul: 'Adab di kelas', kategori: 'Adab', isi: 'Salam, duduk rapi, dan mendengarkan guru.' },
+    { judul: 'Target Jilid 3', kategori: 'Jilid', isi: 'Jilid 3 menekankan mad thobi\'i dan bacaan panjang.' },
+    { judul: 'Hafalan doa harian', kategori: 'Hafalan', isi: 'Doa makan, doa tidur, doa masuk masjid.' },
+  ];
+  const picked = selectKnowledge(entries, 'Bagaimana target jilid 3?');
+  assert.ok(picked.startsWith('### Target Jilid 3'));
+  assert.ok(picked.includes('Adab di kelas'));
+  const small = selectKnowledge(entries, 'hafalan doa', 80);
+  assert.ok(small.includes('Hafalan doa harian'));
+  assert.ok(small.length <= 80);
+  assert.equal(selectKnowledge([], 'apa saja'), '');
+});
+
+test('withKnowledge menambahkan pustaka hanya bila ada', () => {
+  assert.ok(withKnowledge('Profil LPQ', '### A\nisi', 'Tugas').includes('Pustaka materi lembaga'));
+  assert.ok(!withKnowledge('Profil LPQ', '', 'Tugas').includes('Pustaka materi'));
+});
+
+test('parseReport mewajibkan bagian inti dan memotong teks panjang', () => {
+  const full = Object.fromEntries(REPORT_SECTIONS.map((k) => [k, `Isi ${k} {nama}`]));
+  full.hafalan = 'x'.repeat(900);
+  const parsed = parseReport(JSON.stringify(full));
+  assert.equal(parsed.pembuka, 'Isi pembuka {nama}');
+  assert.ok(parsed.hafalan.length <= 500);
+  assert.throws(() => parseReport(JSON.stringify({ pembuka: 'a' })), /AI_INVALID_JSON/);
+});
+
+test('mock rapor menghasilkan semua bagian dengan placeholder', async () => {
+  const provider = resolveProvider({ provider: 'mock' });
+  const result = await generate(provider, { kind: 'rapor', system: 's', user: 'data' });
+  const parsed = parseReport(result.text);
+  assert.deepEqual(Object.keys(parsed), REPORT_SECTIONS);
+  assert.ok(parsed.penutup.includes('{guru}'));
+});
+
+test('formatWeeklyDigest mengganti kode dengan nama dan meloloskan HTML', () => {
+  const hasil = {
+    ringkasan: 'S1 rajin, S2 perlu didampingi <segera>.',
+    fokus_pekan_ini: 'Murojaah bersama',
+    sorotan: [{ kode: 'S2', jenis: 'perhatian', catatan: 'absen 3 kali' }, { kode: 'S1', jenis: 'apresiasi', catatan: 'hafalan lancar' }],
+    saran_umum: [{ judul: 'Apresiasi pagi', alasan: '' }],
+  };
+  const text = formatWeeklyDigest(hasil, 'Kelas A & B', { S1: 'Aisyah', S2: 'Bilal' }, '16-11-2026');
+  assert.ok(text.includes('Aisyah rajin, Bilal perlu didampingi &lt;segera&gt;.'));
+  assert.ok(text.includes('<i>Kelas A &amp; B</i>'));
+  assert.ok(text.includes('<b>Bilal</b> — absen 3 kali'));
+  assert.ok(!/\bS\d\b/.test(text));
+});

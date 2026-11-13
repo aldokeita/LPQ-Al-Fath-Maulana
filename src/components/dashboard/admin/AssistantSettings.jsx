@@ -16,6 +16,8 @@ import AttentionPanel from '@/components/dashboard/assistant/AttentionPanel';
 import TelegramConnect from '@/components/dashboard/assistant/TelegramConnect';
 import AiSettings from '@/components/dashboard/admin/AiSettings';
 import AiWorkspace from '@/components/dashboard/assistant/AiWorkspace';
+import AiKnowledge from '@/components/dashboard/admin/AiKnowledge';
+import AiEvaluation from '@/components/dashboard/admin/AiEvaluation';
 
 const NumberField = ({ id, label, hint, value, onChange, min, max, suffix }) => (
   <div className="grid content-start gap-1.5">
@@ -246,6 +248,8 @@ const AssistantSettings = () => {
 
       <AttentionPanel variant="admin" refreshKey={refreshKey} />
       <AiWorkspace key={`ai-${refreshKey}`} />
+      <AiKnowledge />
+      <AiEvaluation />
     </div>
   );
 };

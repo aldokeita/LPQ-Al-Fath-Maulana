@@ -227,3 +227,83 @@ export const buildChatMessages = (history, question, contextText, masker, limit 
   if (messages[0].role !== 'user') messages.unshift({ role: 'user', content: contextText });
   return messages;
 };
+
+// ===== Pustaka materi =====
+
+const termsOf = (text) => [...new Set(String(text || '').toLowerCase().match(/[\p{L}\p{N}]{4,}/gu) || [])];
+
+// Pilih materi pustaka yang paling relevan dengan pertanyaan/konteks, dibatasi jumlah karakter.
+export const selectKnowledge = (entries = [], query = '', maxChars = 6000) => {
+  const terms = termsOf(query);
+  const scored = entries
+    .filter((e) => e && e.isi)
+    .map((e, index) => {
+      const hay = `${e.judul} ${e.kategori} ${e.isi}`.toLowerCase();
+      const score = terms.reduce((sum, t) => sum + (hay.includes(t) ? (String(e.judul).toLowerCase().includes(t) ? 3 : 1) : 0), 0);
+      return { e, score, index };
+    })
+    .sort((a, b) => b.score - a.score || a.index - b.index);
+  const picked = [];
+  let used = 0;
+  for (const { e } of scored) {
+    const block = `### ${e.judul} (${e.kategori || 'Umum'})\n${String(e.isi).trim()}`;
+    if (used + block.length > maxChars) continue;
+    picked.push(block);
+    used += block.length;
+  }
+  return picked.join('\n\n');
+};
+
+export const withKnowledge = (konteks, pustaka, body) => withInstitution(
+  [String(konteks || '').trim(), pustaka ? `Pustaka materi lembaga (rujuk bila relevan):\n${pustaka}` : ''].filter(Boolean).join('\n\n'),
+  body,
+);
+
+// ===== Rapor wali =====
+
+export const REPORT_PROMPT_VERSION = 'rapor-v1';
+
+export const REPORT_SYSTEM_PROMPT = `Anda membantu guru TPQ menyusun rapor perkembangan bulanan untuk wali santri, dikirim lewat WhatsApp.
+
+Aturan:
+- Sebut santri dengan {nama} dan guru dengan {guru}; jangan menjelaskan placeholder ini. Jangan menebak nama asli.
+- Bahasa Indonesia yang hangat, santun, dan mudah dipahami orang tua; hindari istilah teknis aplikasi (skor, kode, poin mentah boleh disebut sebagai "bintang/poin").
+- Mulai dari kekuatan dan kemajuan, lalu sampaikan yang perlu dilatih dengan lembut dan spesifik (sebut materi hafalan).
+- Jangan menyalahkan anak atau orang tua, jangan memberi label medis/psikologis.
+- Setiap bagian 1–2 kalimat. Bila data suatu bagian belum tercatat, tulis bahwa guru akan terus memantau.
+
+Balas HANYA dengan JSON valid:
+{"pembuka": "...", "kehadiran": "...", "bacaan": "perkembangan jilid Qiroati", "hafalan": "...", "karakter": "...", "apresiasi": "...", "saran_rumah": "1–2 kegiatan sederhana di rumah", "penutup": "doa dan salam penutup"}`;
+
+export const REPORT_SECTIONS = ['pembuka', 'kehadiran', 'bacaan', 'hafalan', 'karakter', 'apresiasi', 'saran_rumah', 'penutup'];
+
+export const REPORT_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: REPORT_SECTIONS,
+  properties: Object.fromEntries(REPORT_SECTIONS.map((k) => [k, { type: 'string' }])),
+};
+
+export const parseReport = (text) => {
+  const data = extractJson(text);
+  const result = Object.fromEntries(REPORT_SECTIONS.map((k) => [k, clean(data?.[k], 500)]));
+  if (!result.pembuka || !result.bacaan || !result.penutup) throw new Error('AI_INVALID_JSON');
+  return result;
+};
+
+// ===== Ringkasan pekanan Telegram =====
+
+const escapeHtml = (value) => String(value || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+// Pesan Telegram (HTML) dari hasil saran kelas; hanya nama panggilan/depan, tanpa data sensitif.
+export const formatWeeklyDigest = (hasil, namaKelas, nama = {}, tanggal = '') => {
+  const fill = (t) => escapeHtml(String(t || '').replace(/\bS(\d{1,3})\b/g, (m) => nama[m] || 'santri'));
+  const lines = [`🗓 <b>Gambaran kelas pekan ini</b>${tanggal ? ` · ${escapeHtml(tanggal)}` : ''}`, `<i>${escapeHtml(namaKelas)}</i>`, '', fill(hasil.ringkasan)];
+  if (hasil.fokus_pekan_ini) lines.push('', `🎯 <b>Fokus:</b> ${fill(hasil.fokus_pekan_ini)}`);
+  const perhatian = (hasil.sorotan || []).filter((s) => s.jenis === 'perhatian').slice(0, 5);
+  const apresiasi = (hasil.sorotan || []).filter((s) => s.jenis === 'apresiasi').slice(0, 3);
+  if (perhatian.length) lines.push('', '🔸 <b>Perlu didampingi</b>', ...perhatian.map((s) => `• <b>${fill(s.kode)}</b> — ${fill(s.catatan)}`));
+  if (apresiasi.length) lines.push('', '🌟 <b>Layak diapresiasi</b>', ...apresiasi.map((s) => `• <b>${fill(s.kode)}</b> — ${fill(s.catatan)}`));
+  if ((hasil.saran_umum || []).length) lines.push('', '📌 <b>Saran untuk kelas</b>', ...hasil.saran_umum.slice(0, 3).map((s, i) => `${i + 1}. ${fill(s.judul)}`));
+  return lines.join('\n').slice(0, 3800);
+};

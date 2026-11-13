@@ -142,3 +142,65 @@ export const deleteAiConversation = async (conversationId) => {
   const { error } = await supabase.from('assistant_ai_conversations').delete().eq('id', conversationId);
   if (error) throw error;
 };
+
+// ===== Rapor wali =====
+export const requestAiReport = (santriId, { refresh = false } = {}) =>
+  invokeAssistantAi({ action: 'report', santri_id: santriId, refresh });
+
+export const fetchLatestAiReport = async (santriId) => {
+  const { data, error } = await supabase.from('assistant_ai_reports')
+    .select('id, bulan, hasil, provider, model, created_at').eq('santri_id', santriId)
+    .order('created_at', { ascending: false }).limit(1).maybeSingle();
+  if (error) throw error;
+  return data;
+};
+
+// ===== Umpan balik 👍/👎 =====
+export const fetchMyAiFeedback = async (jenis, targetIds = []) => {
+  const ids = targetIds.filter(Boolean);
+  if (!ids.length) return {};
+  const { data, error } = await supabase.from('assistant_ai_feedback')
+    .select('target_id, nilai, komentar').eq('jenis', jenis).in('target_id', ids);
+  if (error) throw error;
+  return Object.fromEntries((data || []).map((row) => [row.target_id, row]));
+};
+
+export const saveAiFeedback = async ({ userId, jenis, targetId, nilai, komentar = null }) => {
+  if (!nilai) {
+    const { error } = await supabase.from('assistant_ai_feedback').delete()
+      .eq('user_id', userId).eq('jenis', jenis).eq('target_id', targetId);
+    if (error) throw error;
+    return null;
+  }
+  const { data, error } = await supabase.from('assistant_ai_feedback').upsert({
+    user_id: userId, jenis, target_id: targetId, nilai, komentar: komentar ? String(komentar).trim().slice(0, 500) : null,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: 'user_id,jenis,target_id' }).select('target_id, nilai, komentar').single();
+  if (error) throw error;
+  return data;
+};
+
+// ===== Pustaka materi (admin) =====
+export const fetchAiKnowledge = async () => {
+  const { data, error } = await supabase.from('assistant_ai_knowledge')
+    .select('id, judul, kategori, isi, aktif, updated_at').order('kategori').order('judul');
+  if (error) throw error;
+  return data || [];
+};
+
+export const saveAiKnowledge = async ({ id, patch, userId }) => {
+  const body = { ...patch, updated_at: new Date().toISOString() };
+  const result = id
+    ? await supabase.from('assistant_ai_knowledge').update(body).eq('id', id).select('id').single()
+    : await supabase.from('assistant_ai_knowledge').insert({ ...body, created_by: userId || null }).select('id').single();
+  if (result.error) throw result.error;
+  return result.data;
+};
+
+export const deleteAiKnowledge = async (id) => {
+  const { error } = await supabase.from('assistant_ai_knowledge').delete().eq('id', id);
+  if (error) throw error;
+};
+
+// ===== Evaluasi (admin) =====
+export const fetchAiEvaluation = (from, to) => rpc('get_assistant_ai_evaluation', { p_from: from, p_to: to });

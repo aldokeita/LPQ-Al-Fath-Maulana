@@ -130,7 +130,7 @@ export const AI_PROVIDERS = Object.freeze([
 ]);
 
 const AI_SETTING_KEYS = ['enabled', 'provider', 'model', 'base_url', 'monthly_budget_usd',
-  'price_input_per_mtok', 'price_output_per_mtok', 'daily_limit_per_user', 'konteks_lembaga'];
+  'price_input_per_mtok', 'price_output_per_mtok', 'daily_limit_per_user', 'konteks_lembaga', 'weekly_digest'];
 
 export const AI_KONTEKS_MAX = 6000;
 

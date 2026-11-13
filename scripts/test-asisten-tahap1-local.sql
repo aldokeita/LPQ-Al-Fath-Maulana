@@ -661,5 +661,91 @@ end $$;
 reset role;
 select set_config('request.jwt.claims', '', true);
 
+-- ===== Tahap 3c: umpan balik, pustaka, rapor, evaluasi, ringkasan pekanan =====
+
+insert into public.assistant_ai_reports (id, santri_id, bulan, input_hash, provider, model, hasil) values
+  ('7e571000-0000-0000-0000-00000000aa01', '7e571000-0000-0000-0000-000000000102', '2026-11', 'h', 'mock', 'tiruan', '{"pembuka":"x"}'),
+  ('7e571000-0000-0000-0000-00000000aa02', '7e571000-0000-0000-0000-000000000104', '2026-11', 'h', 'mock', 'tiruan', '{"pembuka":"y"}');
+insert into public.assistant_ai_knowledge (id, judul, kategori, isi, aktif) values
+  ('7e571000-0000-0000-0000-00000000ab01', 'Materi aktif', 'Jilid', 'Isi materi aktif untuk AI.', true),
+  ('7e571000-0000-0000-0000-00000000ab02', 'Materi arsip', 'Jilid', 'Isi materi yang dimatikan.', false);
+
+do $$
+begin
+  -- Ringkasan pekanan mati secara bawaan; fungsi layanan tidak bisa dipanggil pengguna.
+  if jsonb_array_length(public.assistant_ai_digest_targets()) <> 0 then raise exception 'TEST FAIL: digest on by default'; end if;
+  if has_function_privilege('authenticated', 'public.assistant_ai_digest_targets()', 'execute')
+     or has_function_privilege('authenticated', 'public.assistant_ai_class_data_as(uuid, uuid)', 'execute') then
+    raise exception 'TEST FAIL: service functions exposed';
+  end if;
+  if not exists (select 1 from cron.job where jobname = 'assistant-ai-weekly') then raise exception 'TEST FAIL: weekly cron missing'; end if;
+  if (public.assistant_ai_class_data_as('7e571000-0000-0000-0000-0000000000a1', '7e571000-0000-0000-0000-0000000c1a00')->'roster') is null then
+    raise exception 'TEST FAIL: class_data_as roster';
+  end if;
+
+  perform set_config('request.jwt.claims', '{"sub":"7e571000-0000-0000-0000-00000000000a","role":"authenticated"}', true);
+  perform public.save_assistant_settings('{"ai":{"weekly_digest":true}}');
+  if not (public.get_assistant_settings()#>>'{ai,weekly_digest}')::boolean then raise exception 'TEST FAIL: weekly_digest not saved'; end if;
+  begin
+    perform public.save_assistant_settings('{"ai":{"weekly_digest":"ya"}}');
+    raise exception 'TEST FAIL: invalid weekly_digest accepted';
+  exception when invalid_parameter_value then null;
+  end;
+  if jsonb_typeof(public.get_assistant_ai_evaluation(current_date - 30, current_date)->'peringatan') <> 'array' then
+    raise exception 'TEST FAIL: evaluation shape';
+  end if;
+
+  perform set_config('request.jwt.claims', '{"sub":"7e571000-0000-0000-0000-0000000000a1","role":"authenticated"}', true);
+  begin
+    perform public.get_assistant_ai_evaluation(current_date - 30, current_date);
+    raise exception 'TEST FAIL: guru read evaluation';
+  exception when insufficient_privilege then null;
+  end;
+  perform set_config('request.jwt.claims', '', true);
+end $$;
+
+select set_config('request.jwt.claims', '{"sub":"7e571000-0000-0000-0000-0000000000a1","role":"authenticated"}', true);
+set local role authenticated;
+do $$
+begin
+  if (select count(*) from public.assistant_ai_reports) <> 1 then raise exception 'TEST FAIL: guru sees other class reports'; end if;
+  if (select count(*) from public.assistant_ai_knowledge) <> 1 then raise exception 'TEST FAIL: guru sees inactive knowledge'; end if;
+  begin
+    insert into public.assistant_ai_knowledge (judul, isi) values ('Materi guru', 'Guru tidak boleh menulis.');
+    raise exception 'TEST FAIL: guru wrote knowledge';
+  exception when insufficient_privilege then null;
+  end;
+  insert into public.assistant_ai_feedback (user_id, jenis, target_id, nilai)
+  values ('7e571000-0000-0000-0000-0000000000a1', 'rapor', '7e571000-0000-0000-0000-00000000aa01', 1);
+  insert into public.assistant_ai_feedback (user_id, jenis, target_id, nilai)
+  values ('7e571000-0000-0000-0000-0000000000a1', 'rapor', '7e571000-0000-0000-0000-00000000aa01', -1)
+  on conflict (user_id, jenis, target_id) do update set nilai = excluded.nilai;
+  if (select nilai from public.assistant_ai_feedback) <> -1 then raise exception 'TEST FAIL: feedback upsert'; end if;
+  begin
+    insert into public.assistant_ai_feedback (user_id, jenis, target_id, nilai)
+    values ('7e571000-0000-0000-0000-0000000000b1', 'chat', '7e571000-0000-0000-0000-00000000aa01', 1);
+    raise exception 'TEST FAIL: feedback as another user';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+reset role;
+select set_config('request.jwt.claims', '{"sub":"7e571000-0000-0000-0000-0000000000b1","role":"authenticated"}', true);
+set local role authenticated;
+do $$
+begin
+  if exists (select 1 from public.assistant_ai_feedback) then raise exception 'TEST FAIL: other guru reads feedback'; end if;
+end $$;
+reset role;
+select set_config('request.jwt.claims', '{"sub":"7e571000-0000-0000-0000-00000000000a","role":"authenticated"}', true);
+set local role authenticated;
+do $$
+begin
+  if (select count(*) from public.assistant_ai_knowledge) <> 2 then raise exception 'TEST FAIL: admin knowledge list'; end if;
+  update public.assistant_ai_knowledge set aktif = true where id = '7e571000-0000-0000-0000-00000000ab02';
+  if (select count(*) from public.assistant_ai_feedback) <> 1 then raise exception 'TEST FAIL: admin cannot read feedback'; end if;
+end $$;
+reset role;
+select set_config('request.jwt.claims', '', true);
+
 select 'PASS: asisten tahap 1-3 (aturan, senyap, panel, koreksi, keputusan, RLS, hanya-tambah, telegram, ai)' as result;
 rollback;
