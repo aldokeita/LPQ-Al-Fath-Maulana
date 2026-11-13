@@ -46,59 +46,92 @@ const Signature = ({ guru, dark, label = 'Guru Pengajar' }) => (
   </div>
 );
 
+const BUILDING = '/institution/gedung-lpq.webp';
+
+// Foto gedung LPQ sebagai latar: diburamkan tipis lalu ditutup lapisan warna agar teks tetap kontras.
+const BuildingBackdrop = ({ overlay, blur = 3, position = 'center 40%' }) => (
+  <>
+    <img src={BUILDING} alt="" aria-hidden="true" crossOrigin="anonymous"
+      style={{ position: 'absolute', inset: -16, width: CARD_W + 32, height: CARD_H + 32, objectFit: 'cover', objectPosition: position,
+        filter: `blur(${blur}px) saturate(1.1)` }} />
+    <div aria-hidden="true" style={{ position: 'absolute', inset: 0, background: overlay }} />
+  </>
+);
+
+export const initialsOf = (name) => String(name || '?').trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() || '').join('') || '?';
+
+// Avatar bulat dengan cincin gradasi; tanpa foto memakai inisial.
+const Avatar = ({ src, name, size, ring = 'linear-gradient(135deg, #fde68a, #5eead4 50%, #a78bfa)', ringWidth = 5, glow }) => (
+  <div style={{ width: size, height: size, borderRadius: 9999, padding: ringWidth, background: ring, boxShadow: glow, boxSizing: 'border-box', flexShrink: 0 }}>
+    <div style={{ width: '100%', height: '100%', borderRadius: 9999, overflow: 'hidden', background: 'linear-gradient(135deg, #0d9488, #6366f1)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: 'inset 0 0 0 3px rgba(255,255,255,0.9)' }}>
+      {src
+        ? <img src={src} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        : <span style={{ fontFamily: SANS, fontWeight: 800, fontSize: size * 0.34, color: '#fff', letterSpacing: 1 }}>{initialsOf(name)}</span>}
+    </div>
+  </div>
+);
+
 // ===== Kartu apresiasi kenaikan jilid =====
 
-export const JilidCard = React.forwardRef(({ data, pesan, guru }, ref) => (
-  <div ref={ref} style={{ width: CARD_W, height: CARD_H, position: 'relative', overflow: 'hidden', borderRadius: 28,
-    background: 'linear-gradient(160deg, #052e36 0%, #0b3a52 48%, #1e1b4b 100%)', color: '#fff', fontFamily: SANS }}>
-    <Blob style={{ width: 340, height: 340, top: -120, right: -90, background: 'rgba(34,211,238,0.45)' }} />
-    <Blob style={{ width: 300, height: 300, bottom: -110, left: -100, background: 'rgba(139,92,246,0.45)' }} />
-    <Blob style={{ width: 220, height: 220, top: 250, left: 170, background: 'rgba(20,184,166,0.28)' }} />
-    <StarPattern id="star-jilid" color="#ffffff" opacity={0.06} />
+export const JilidCard = React.forwardRef(({ data, pesan, guru, avatar }, ref) => (
+  <div ref={ref} style={{ width: CARD_W, height: CARD_H, position: 'relative', overflow: 'hidden', borderRadius: 28, background: '#052e36', color: '#fff', fontFamily: SANS }}>
+    <BuildingBackdrop blur={3} position="center 45%"
+      overlay="linear-gradient(180deg, rgba(4,32,42,0.70) 0%, rgba(7,48,66,0.58) 34%, rgba(14,30,72,0.88) 66%, rgba(22,16,58,0.96) 100%)" />
+    <Blob style={{ width: 320, height: 320, top: 70, left: 110, background: 'rgba(45,212,191,0.32)' }} />
+    <Blob style={{ width: 260, height: 260, bottom: -90, right: -70, background: 'rgba(139,92,246,0.45)' }} />
+    <Blob style={{ width: 200, height: 200, top: -80, right: -40, background: 'rgba(251,191,36,0.22)' }} />
+    <StarPattern id="star-jilid" color="#ffffff" opacity={0.05} />
 
-    <div style={{ position: 'relative', height: '100%', padding: 40, display: 'flex', flexDirection: 'column' }}>
-      <Brand dark />
-
-      <div style={{ marginTop: 34, textAlign: 'center' }}>
-        <span style={{ display: 'inline-block', padding: '6px 14px', borderRadius: 9999, fontSize: 11, fontWeight: 700, letterSpacing: 2.6,
-          textTransform: 'uppercase', color: '#fde68a', background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.35)' }}>
+    <div style={{ position: 'relative', height: '100%', padding: '30px 34px 30px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+      <div style={{ alignSelf: 'stretch', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Brand dark />
+        <span style={{ padding: '6px 12px', borderRadius: 9999, fontSize: 10.5, fontWeight: 700, letterSpacing: 2.2, textTransform: 'uppercase',
+          color: '#fde68a', background: 'rgba(251,191,36,0.14)', border: '1px solid rgba(251,191,36,0.4)', backdropFilter: 'blur(6px)' }}>
           Kartu Apresiasi
         </span>
-        <div dir="rtl" lang="ar" style={{ fontFamily: ARABIC, fontSize: 52, lineHeight: 1.5, marginTop: 10, color: '#fcd34d',
-          textShadow: '0 4px 24px rgba(251,191,36,0.35)' }}>
-          مَا شَاءَ اللهُ
-        </div>
-        <div style={{ fontSize: 17, color: 'rgba(255,255,255,0.8)', marginTop: 2 }}>Selamat naik jilid,</div>
-        <div style={{ fontSize: 34, fontWeight: 800, lineHeight: 1.15, marginTop: 6, letterSpacing: -0.3,
-          display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-          {data.namaLengkap || data.panggilan}
-        </div>
       </div>
 
-      <div style={{ marginTop: 26, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14 }}>
-        {data.dari && (
-          <>
-            <span style={{ padding: '10px 18px', borderRadius: 16, fontSize: 18, fontWeight: 600, color: 'rgba(255,255,255,0.75)',
-              background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.18)' }}>{data.dari}</span>
-            <svg width="34" height="20" viewBox="0 0 34 20" aria-hidden="true">
-              <path d="M2 10h26M21 3l8 7-8 7" fill="none" stroke="#fcd34d" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </>
-        )}
-        <span style={{ padding: '12px 22px', borderRadius: 18, fontSize: 24, fontWeight: 800, color: '#06282f',
-          background: 'linear-gradient(135deg, #fde68a 0%, #5eead4 100%)', boxShadow: '0 10px 30px rgba(94,234,212,0.35)' }}>
-          {data.adaRiwayat ? data.ke : `Kini di ${data.ke}`}
+      <div dir="rtl" lang="ar" style={{ fontFamily: ARABIC, fontSize: 40, lineHeight: 1.35, marginTop: 10, color: '#fcd34d', textShadow: '0 4px 22px rgba(251,191,36,0.45)' }}>
+        مَا شَاءَ اللهُ
+      </div>
+
+      <div style={{ position: 'relative', marginTop: 6 }}>
+        <Avatar src={avatar} name={data.namaLengkap || data.panggilan} size={220} ringWidth={6}
+          glow="0 0 0 8px rgba(255,255,255,0.06), 0 18px 50px rgba(45,212,191,0.35)" />
+        <span style={{ position: 'absolute', left: '50%', bottom: -14, transform: 'translateX(-50%)', whiteSpace: 'nowrap',
+          padding: '7px 16px', borderRadius: 9999, fontSize: 15, fontWeight: 800, color: '#06282f',
+          background: 'linear-gradient(135deg, #fde68a 0%, #5eead4 100%)', boxShadow: '0 8px 22px rgba(0,0,0,0.3)', border: '2px solid rgba(255,255,255,0.85)' }}>
+          ★ {data.ke}
         </span>
       </div>
 
-      <p style={{ marginTop: 26, marginBottom: 0, fontSize: 15, lineHeight: 1.6, textAlign: 'center', color: 'rgba(255,255,255,0.88)',
-        padding: '0 8px', display: '-webkit-box', WebkitLineClamp: 5, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+      <div style={{ marginTop: 28, fontSize: 13, fontWeight: 600, letterSpacing: 2.4, textTransform: 'uppercase', color: 'rgba(255,255,255,0.7)' }}>Selamat naik jilid</div>
+      <div style={{ fontSize: 33, fontWeight: 800, lineHeight: 1.12, marginTop: 4, letterSpacing: -0.4, textAlign: 'center', maxWidth: '100%',
+        display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+        {data.namaLengkap || data.panggilan}
+      </div>
+
+      {data.dari && (
+        <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 10, padding: '6px 8px 6px 14px', borderRadius: 9999,
+          background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.16)' }}>
+          <span style={{ fontSize: 14, fontWeight: 600, color: 'rgba(255,255,255,0.72)' }}>{data.dari}</span>
+          <svg width="26" height="16" viewBox="0 0 34 20" aria-hidden="true">
+            <path d="M2 10h26M21 3l8 7-8 7" fill="none" stroke="#fcd34d" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          <span style={{ padding: '4px 12px', borderRadius: 9999, fontSize: 14, fontWeight: 800, color: '#06282f', background: '#fde68a' }}>{data.ke}</span>
+        </div>
+      )}
+
+      <p style={{ marginTop: 14, marginBottom: 0, fontSize: 14, lineHeight: 1.55, textAlign: 'center', color: 'rgba(255,255,255,0.9)', padding: '0 6px',
+        display: '-webkit-box', WebkitLineClamp: data.dari ? 3 : 4, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
         {fillPesan(pesan, { nama: data.panggilan, ke: data.ke })}
       </p>
 
-      <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16 }}>
+      <div style={{ alignSelf: 'stretch', marginTop: 'auto', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16,
+        paddingTop: 12 }}>
         <div>
-          <div style={{ fontSize: 11, letterSpacing: 1.6, textTransform: 'uppercase', color: 'rgba(255,255,255,0.6)' }}>{data.adaRiwayat ? 'Tanggal naik' : 'Tanggal'}</div>
+          <div style={{ fontSize: 10.5, letterSpacing: 1.6, textTransform: 'uppercase', color: 'rgba(255,255,255,0.6)' }}>{data.adaRiwayat ? 'Tanggal naik' : 'Tanggal'}</div>
           <div style={{ fontSize: 15, fontWeight: 700, marginTop: 2 }}>{data.tanggal}</div>
         </div>
         <Signature guru={guru} dark />
@@ -135,7 +168,7 @@ const Ring = ({ pct }) => {
 };
 
 const Panel = ({ title, children, style }) => (
-  <div style={{ background: 'rgba(255,255,255,0.86)', border: '1px solid #dbeaec', borderRadius: 20, padding: '14px 16px',
+  <div style={{ background: 'rgba(255,255,255,0.82)', border: '1px solid rgba(219,234,236,0.9)', borderRadius: 20, padding: '14px 16px',
     boxShadow: '0 8px 24px rgba(15,47,54,0.06)', ...style }}>
     <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.8, textTransform: 'uppercase', color: '#0f766e', marginBottom: 8 }}>{title}</div>
     {children}
@@ -150,14 +183,16 @@ const ScoreDots = ({ skor }) => (
   </span>
 );
 
-export const ProfilCard = React.forwardRef(({ data, pesan, guru }, ref) => {
+export const ProfilCard = React.forwardRef(({ data, pesan, guru, avatar }, ref) => {
   const { kehadiran: k, hafalan: h } = data;
-  const hafal = limitList(h.sudahHafal, 9);
-  const latih = limitList(h.dilatih, 4);
-  const belum = limitList(h.belumDinilaiList || [], Math.max(0, Math.min(5, 8 - hafal.shown.length - latih.shown.length)));
+  const hafal = limitList(h.sudahHafal, 8);
+  const latih = limitList(h.dilatih, 3);
+  const belum = limitList(h.belumDinilaiList || [], Math.max(0, Math.min(4, 7 - hafal.shown.length - latih.shown.length)));
   return (
     <div ref={ref} style={{ width: CARD_W, height: CARD_H, position: 'relative', overflow: 'hidden', borderRadius: 28,
-      background: 'linear-gradient(165deg, #f4fbfb 0%, #eef6fb 55%, #f3f0ff 100%)', color: '#0f2f36', fontFamily: SANS }}>
+      background: '#f4fbfb', color: '#0f2f36', fontFamily: SANS }}>
+      <BuildingBackdrop blur={4} position="center 40%"
+        overlay="linear-gradient(170deg, rgba(244,251,251,0.62) 0%, rgba(238,246,251,0.86) 32%, rgba(243,240,255,0.95) 100%)" />
       <Blob style={{ width: 300, height: 300, top: -140, right: -80, background: 'rgba(45,212,191,0.35)' }} />
       <Blob style={{ width: 260, height: 260, bottom: -120, left: -90, background: 'rgba(167,139,250,0.35)' }} />
       <StarPattern id="star-profil" color="#0f766e" opacity={0.05} />
@@ -170,13 +205,19 @@ export const ProfilCard = React.forwardRef(({ data, pesan, guru }, ref) => {
           </div>
         </div>
 
-        <div style={{ marginTop: 4 }}>
-          <div style={{ fontSize: 27, fontWeight: 800, lineHeight: 1.15, letterSpacing: -0.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {data.namaLengkap || data.panggilan}
-          </div>
-          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-            {data.jilid && <span style={{ padding: '5px 12px', borderRadius: 9999, fontSize: 12.5, fontWeight: 700, color: '#fff', background: 'linear-gradient(135deg, #0d9488, #0891b2)' }}>{data.jilid}</span>}
-            <span style={{ padding: '5px 12px', borderRadius: 9999, fontSize: 12.5, fontWeight: 700, color: '#92400e', background: '#fef3c7' }}>★ {data.poin.toLocaleString('id-ID', { maximumFractionDigits: 1 })} poin</span>
+        <div style={{ marginTop: 2, display: 'flex', alignItems: 'center', gap: 16 }}>
+          <Avatar src={avatar} name={data.namaLengkap || data.panggilan} size={104} ringWidth={4}
+            glow="0 12px 30px rgba(13,148,136,0.25)" />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: '#0f766e' }}>Santri</div>
+            <div style={{ fontSize: 26, fontWeight: 800, lineHeight: 1.12, letterSpacing: -0.3, marginTop: 2,
+              display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+              {data.namaLengkap || data.panggilan}
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+              {data.jilid && <span style={{ padding: '5px 12px', borderRadius: 9999, fontSize: 12.5, fontWeight: 700, color: '#fff', background: 'linear-gradient(135deg, #0d9488, #0891b2)' }}>{data.jilid}</span>}
+              <span style={{ padding: '5px 12px', borderRadius: 9999, fontSize: 12.5, fontWeight: 700, color: '#92400e', background: '#fef3c7' }}>★ {data.poin.toLocaleString('id-ID', { maximumFractionDigits: 1 })} poin</span>
+            </div>
           </div>
         </div>
 

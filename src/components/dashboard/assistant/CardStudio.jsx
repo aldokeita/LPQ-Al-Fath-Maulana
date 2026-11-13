@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from '@/components/ui/use-toast';
 import { cn } from '@/lib/utils';
 import { fetchSantriProfile, fetchSantriSnapshots, requestCardNote } from '@/lib/assistantAlertAdapters';
+import { resolveAvatarUrl } from '@/lib/storageAdapters';
 import { buildJilidCard, buildProfilCard, cardFileName, DEFAULT_PESAN } from '@/lib/santriCards';
 import { CARD_H, CARD_W, JilidCard, ProfilCard } from '@/components/dashboard/assistant/SantriCards';
 
@@ -52,12 +53,29 @@ const ScaledPreview = ({ children }) => {
   );
 };
 
+// Foto santri dibaca sebagai data URL agar ikut tergambar saat kartu diekspor ke PNG.
+const loadAvatar = async (santriId) => {
+  const url = await resolveAvatarUrl({ ownerType: 'santri', ownerId: santriId });
+  if (!url) return null;
+  const res = await fetch(url);
+  if (!res.ok) return null;
+  const blob = await res.blob();
+  if (!blob.type.startsWith('image/')) return null;
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => resolve(null);
+    reader.readAsDataURL(blob);
+  });
+};
+
 const CardStudio = ({ roster, guruName, aiEnabled = true, focusSantriId }) => {
   useArabicFont();
   const [santriId, setSantriId] = useState(focusSantriId && roster.some((r) => r.id === focusSantriId) ? focusSantriId : '');
   const [jenis, setJenis] = useState('jilid');
   const [profile, setProfile] = useState(null);
   const [snapshot, setSnapshot] = useState(null);
+  const [avatar, setAvatar] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [pesan, setPesan] = useState(DEFAULT_PESAN.jilid);
@@ -70,12 +88,14 @@ const CardStudio = ({ roster, guruName, aiEnabled = true, focusSantriId }) => {
     let active = true;
     setIsLoading(true);
     setError(null);
-    Promise.all([fetchSantriProfile(santriId), fetchSantriSnapshots([santriId])])
-      .then(([p, snaps]) => {
+    setAvatar(null);
+    Promise.all([fetchSantriProfile(santriId), fetchSantriSnapshots([santriId]), loadAvatar(santriId).catch(() => null)])
+      .then(([p, snaps, foto]) => {
         if (!active) return;
         if (!p) throw new Error('Data santri tidak tersedia (mode senyap aktif atau akses ditolak).');
         setProfile(p);
         setSnapshot(snaps?.[0] || null);
+        setAvatar(foto);
       })
       .catch((err) => { if (active) { setProfile(null); setError(err.message); } })
       .finally(() => { if (active) setIsLoading(false); });
@@ -185,6 +205,9 @@ const CardStudio = ({ roster, guruName, aiEnabled = true, focusSantriId }) => {
             </Button>
           </div>
         )}
+        {profile && !avatar && (
+          <p className="text-xs text-muted-foreground">Foto santri belum diunggah; kartu memakai inisial nama.</p>
+        )}
         {jenis === 'jilid' && jilidData && !jilidData.adaRiwayat && (
           <p className="text-xs text-amber-700 dark:text-amber-300">Riwayat kenaikan jilid belum tercatat; kartu menampilkan jilid saat ini.</p>
         )}
@@ -208,8 +231,8 @@ const CardStudio = ({ roster, guruName, aiEnabled = true, focusSantriId }) => {
         {santriId && !isLoading && profile && (
           <ScaledPreview>
             {jenis === 'jilid'
-              ? <JilidCard ref={cardRef} data={jilidData} pesan={pesan} guru={guruName} />
-              : <ProfilCard ref={cardRef} data={profilData} pesan={pesan} guru={guruName} />}
+              ? <JilidCard ref={cardRef} data={jilidData} pesan={pesan} guru={guruName} avatar={avatar} />
+              : <ProfilCard ref={cardRef} data={profilData} pesan={pesan} guru={guruName} avatar={avatar} />}
           </ScaledPreview>
         )}
       </div>
