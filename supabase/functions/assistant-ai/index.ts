@@ -20,7 +20,7 @@ import {
 import {
   buildClassContext, buildNameMasker, buildRecommendationInput,
   CLASS_PROMPT_VERSION, CLASS_RESULT_SCHEMA, CLASS_SYSTEM_PROMPT, formatWeeklyDigest, parseClassInsight,
-  CARD_NOTE_SYSTEM_PROMPT, parseCardNote, parseReport, REPORT_PROMPT_VERSION, REPORT_SCHEMA, REPORT_SYSTEM_PROMPT, selectKnowledge,
+  CARD_CAPTION_SYSTEM_PROMPT, CARD_NOTE_SYSTEM_PROMPT, parseCardCaption, parseCardNote, parseReport, REPORT_PROMPT_VERSION, REPORT_SCHEMA, REPORT_SYSTEM_PROMPT, selectKnowledge,
   withKnowledge,
 } from "../_shared/aiContext.js";
 import { generate, keyStatus, resolveProvider } from "../_shared/aiProviders.js";
@@ -260,6 +260,7 @@ Deno.serve(async (req) => {
   if (action === "card_note") {
     const santriId = String(body?.santri_id || "");
     const jenis = body?.jenis === "jilid" ? "jilid" : "profil";
+    const caption = body?.bagian === "caption";
     if (!UUID.test(santriId)) return fail(req, "INVALID_REQUEST", "Santri tidak valid.");
     const [{ data: profile, error: profileError }, { data: snapshots }] = await Promise.all([
       client.rpc("get_assistant_santri_profile", { p_santri_id: santriId }),
@@ -274,13 +275,18 @@ Deno.serve(async (req) => {
     const { perkara: _p, santri: _s, ...data } = buildRecommendationInput([], snapshot, profile, masker);
     const kenaikan = (profile.riwayat_jilid || [])[0] || null;
     const input = { jenis_kartu: jenis, jilid_sekarang: profile.jilid || null, kenaikan_terakhir: kenaikan, ...data };
-    const out = await callAi("kartu", santriId, {
-      system: withKnowledge(konteks, "", CARD_NOTE_SYSTEM_PROMPT),
-      messages: [{ role: "user", content: `Data santri (JSON):\n${JSON.stringify(input).replace(/\bS1\b/g, "{nama}")}\n\nTulis pesan kartu "${jenis}".` }],
+    const out = await callAi(caption ? "caption" : "kartu", santriId, {
+      system: withKnowledge(konteks, "", caption ? CARD_CAPTION_SYSTEM_PROMPT : CARD_NOTE_SYSTEM_PROMPT),
+      messages: [{
+        role: "user",
+        content: `Data santri (JSON):\n${JSON.stringify(input).replace(/\bS1\b/g, "{nama}")}\n\n${caption ? `Tulis caption untuk kartu "${jenis}".` : `Tulis pesan kartu "${jenis}".`}`,
+      }],
       json: false,
-    }, parseCardNote);
+    }, caption ? parseCardCaption : parseCardNote);
     if (out.error) return out.error;
-    return ok(req, { pesan: out.parsed, provider: provider.id, model: provider.model });
+    return ok(req, caption
+      ? { caption: out.parsed, provider: provider.id, model: provider.model }
+      : { pesan: out.parsed, provider: provider.id, model: provider.model });
   }
 
   // ===== Saran kelas =====

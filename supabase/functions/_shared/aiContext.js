@@ -381,6 +381,38 @@ Aturan:
 - Tanpa tanda kutip, tanpa emoji, tanpa salam pembuka, tanpa skor atau istilah teknis aplikasi.
 Balas hanya dengan teks pesannya.`;
 
+export const CARD_CAPTION_SYSTEM_PROMPT = `Anda membantu guru TPQ menulis caption media sosial (Instagram, status/grup WhatsApp) untuk kartu santri yang diposting.
+
+Aturan:
+- Sebut santri hanya dengan {nama} (nama panggilan); jangan menjelaskan placeholder ini, jangan menebak nama asli, dan jangan menyebut data pribadi lain (nama wali, alamat, nomor telepon).
+- Hanya hal yang membanggakan: jangan menyebut ketidakhadiran, keterlambatan, skor rendah, atau kekurangan santri.
+- Dua sampai tiga paragraf pendek, paling banyak 450 karakter, Bahasa Indonesia yang hangat dan bangga; boleh 1-3 emoji yang sopan.
+- Kartu "jilid": rayakan kenaikan ke jilid baru, hargai ketekunannya, ucapkan terima kasih kepada orang tua atas dukungannya, dan tutup dengan doa singkat.
+- Kartu "profil": sorot satu atau dua capaian baik yang spesifik dari data (kehadiran yang rajin atau hafalan tertentu yang sudah dikuasai), lalu ajakan semangat.
+- Jangan menulis tagar, akun media sosial, atau tanda tangan; itu ditambahkan aplikasi.
+- Tanpa tanda kutip pembungkus dan tanpa istilah teknis aplikasi.
+Balas hanya dengan teks captionnya.`;
+
+// Caption mempertahankan paragraf; tagar dan akun ditambahkan aplikasi, jadi yang ditulis AI dibuang.
+export const parseCardCaption = (text) => {
+  const clean = String(text || '')
+    .replace(/\r/g, '')
+    .replace(/\*\*/g, '')
+    .split('\n')
+    .filter((line) => !/^\s*(#\S+\s*)+$/.test(line))
+    .join('\n')
+    .replace(/(^|\s)#[\p{L}\p{N}_]+/gu, '$1')
+    .replace(/(^|\s)@[A-Za-z0-9_](?:[A-Za-z0-9_.]*[A-Za-z0-9_])?/g, '$1')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/ +([.,!?;:])/g, '$1')
+    .replace(/ *\n */g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .replace(/^["'“”\s]+|["'“”\s]+$/g, '')
+    .trim();
+  if (!clean) throw new Error('AI_EMPTY_RESPONSE');
+  return clean.slice(0, 700);
+};
+
 export const parseCardNote = (text) => {
   const clean = String(text || '').replace(/[\r\n]+/g, ' ').replace(/^["'“”\s]+|["'“”\s]+$/g, '').replace(/\*\*/g, '').replace(/\s+/g, ' ').trim();
   if (!clean) throw new Error('AI_EMPTY_RESPONSE');

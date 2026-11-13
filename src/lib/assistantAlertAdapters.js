@@ -212,3 +212,4 @@ export const fetchSantriProfile = (santriId) => rpc('get_assistant_santri_profil
 export const fetchSantriMonthAttendance = (santriId, month = null) => rpc('get_assistant_santri_month_attendance', { p_santri_id: santriId, p_month: month });
 
 export const requestCardNote = (santriId, jenis) => invokeAssistantAi({ action: 'card_note', santri_id: santriId, jenis });
+export const requestCardCaption = (santriId, jenis) => invokeAssistantAi({ action: 'card_note', santri_id: santriId, jenis, bagian: 'caption' });

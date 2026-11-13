@@ -95,3 +95,19 @@ test('kartu profil memakai kehadiran sebulan penuh bila tersedia', () => {
   assert.equal(card.kehadiran.persen, 75);
   assert.deepEqual(card.kehadiran.sesi.map((s) => [s.s, s.tgl]), [['hadir', 2], ['terlambat', 3], ['absen', 5], ['koreksi', 6]]);
 });
+
+test('caption kartu: placeholder diisi dan tagar lembaga ditambahkan', async () => {
+  const { fillCaption, CAPTION_FOOTER, DEFAULT_CAPTION } = await import('../src/lib/santriCards.js');
+  const out = fillCaption(DEFAULT_CAPTION.jilid, { nama: 'Rachel', ke: 'Jilid 1C' });
+  assert.match(out, /ananda Rachel yang telah naik ke Jilid 1C/);
+  assert.ok(out.endsWith(CAPTION_FOOTER));
+  assert.equal(fillCaption('  ', {}), CAPTION_FOOTER);
+});
+
+test('parseCardCaption menjaga paragraf dan membuang tagar serta akun dari AI', async () => {
+  const { parseCardCaption } = await import('../supabase/functions/_shared/aiContext.js');
+  const raw = '"Alhamdulillah, **{nama}** naik jilid! 🎉\r\n\r\n\r\nTerima kasih Ayah Bunda @lpq_alfathmaulana.\n#Ngaji #TPQ"';
+  assert.equal(parseCardCaption(raw), 'Alhamdulillah, {nama} naik jilid! 🎉\n\nTerima kasih Ayah Bunda.');
+  assert.throws(() => parseCardCaption('#a #b'), /AI_EMPTY_RESPONSE/);
+  assert.equal(parseCardCaption('x'.repeat(900)).length, 700);
+});

@@ -9,7 +9,7 @@ import { fetchAiEvaluation } from '@/lib/assistantAlertAdapters';
 
 const FITUR_LABELS = {
   rekomendasi: 'Saran per santri', kelas: 'Gambaran kelas', kelas_pekanan: 'Ringkasan pekanan', chat: 'Tanya asisten (dasbor)',
-  telegram: 'Tanya asisten (Telegram)', kartu: 'Pesan kartu santri',
+  telegram: 'Tanya asisten (Telegram)', kartu: 'Pesan kartu santri', caption: 'Caption kartu santri',
   rapor: 'Rapor wali', uji: 'Uji koneksi',
 };
 const JENIS_LABELS = { rekomendasi: 'Saran per santri', kelas: 'Gambaran kelas', chat: 'Jawaban chat', rapor: 'Rapor wali' };

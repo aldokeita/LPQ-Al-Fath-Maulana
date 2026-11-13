@@ -26,6 +26,24 @@ export const DEFAULT_PESAN = {
   profil: 'Terus semangat mengaji, {nama}! Pertahankan kehadiran dan ulangi hafalan bersama Ayah dan Bunda di rumah.',
 };
 
+// Caption siap posting (Instagram/WhatsApp). Isi bisa ditulis guru atau AI; tagar dan akun lembaga
+// selalu ditambahkan di akhir. Nama memakai panggilan agar data pribadi anak tidak tersebar.
+export const CAPTION_FOOTER = '#LPQAlFathMaulana #MetodeQiroati #BelajarAlQuran #Baturaja\n📍 LPQ Al-Fath Maulana · @lpq_alfathmaulana';
+
+export const DEFAULT_CAPTION = {
+  jilid: 'Alhamdulillah, selamat untuk ananda {nama} yang telah naik ke {ke}! 🎉\n\nTerima kasih atas ketekunannya, dan terima kasih Ayah Bunda atas dukungannya. Semoga Allah mudahkan langkah berikutnya dalam belajar Al-Qur\'an. 🤲',
+  profil: 'Perkembangan belajar ananda {nama} bulan {bulan} 📖\n\nTerus semangat mengaji, dan ulangi hafalan bersama Ayah dan Bunda di rumah. Semoga Allah mudahkan. 🤲',
+};
+
+export const fillCaption = (body, { nama, ke, bulan } = {}) => {
+  const text = String(body || '')
+    .replace(/\{nama\}/g, nama || 'Ananda')
+    .replace(/\{ke\}/g, ke || 'jilid berikutnya')
+    .replace(/\{bulan\}/g, bulan || '')
+    .trim();
+  return text ? `${text}\n\n${CAPTION_FOOTER}` : CAPTION_FOOTER;
+};
+
 const daysAgo = (today, days) => {
   const d = new Date(today);
   d.setDate(d.getDate() - (Number(days) || 0));

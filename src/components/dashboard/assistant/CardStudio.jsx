@@ -1,16 +1,16 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { toBlob } from 'html-to-image';
-import { AlertTriangle, Award, Download, Contact, Loader2, Share2, Sparkles } from 'lucide-react';
+import { AlertTriangle, Award, Check, Copy, Download, Contact, Loader2, Share2, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/components/ui/use-toast';
 import { cn } from '@/lib/utils';
-import { fetchSantriMonthAttendance, fetchSantriProfile, fetchSantriSnapshots, requestCardNote } from '@/lib/assistantAlertAdapters';
+import { fetchSantriMonthAttendance, fetchSantriProfile, fetchSantriSnapshots, requestCardCaption, requestCardNote } from '@/lib/assistantAlertAdapters';
 import { resolveAvatarUrl } from '@/lib/storageAdapters';
 import { getCardFontEmbedCSS } from '@/lib/cardFonts';
-import { buildJilidCard, buildProfilCard, cardFileName, DEFAULT_PESAN } from '@/lib/santriCards';
+import { buildJilidCard, buildProfilCard, cardFileName, DEFAULT_CAPTION, DEFAULT_PESAN, fillCaption } from '@/lib/santriCards';
 import { CARD_H, CARD_W, JilidCard, ProfilCard } from '@/components/dashboard/assistant/SantriCards';
 
 const JENIS = [
@@ -82,6 +82,25 @@ const decodeImages = (node) => Promise.all([...node.querySelectorAll('img')].map
   })
 )));
 
+// Salin teks ke papan klip; cadangan lewat textarea tersembunyi untuk browser lama.
+const copyText = async (text) => {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    const area = document.createElement('textarea');
+    area.value = text;
+    area.setAttribute('readonly', '');
+    area.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
+    document.body.appendChild(area);
+    area.select();
+    let done = false;
+    try { done = document.execCommand('copy'); } catch { done = false; }
+    area.remove();
+    return done;
+  }
+};
+
 const CardStudio = ({ roster, guruName, aiEnabled = true, focusSantriId }) => {
   useArabicFont();
   // Siapkan font tertanam sejak studio dibuka agar ekspor pertama tidak menunggu.
@@ -96,6 +115,9 @@ const CardStudio = ({ roster, guruName, aiEnabled = true, focusSantriId }) => {
   const [error, setError] = useState(null);
   const [pesan, setPesan] = useState(DEFAULT_PESAN.jilid);
   const [isWriting, setIsWriting] = useState(false);
+  const [caption, setCaption] = useState('');
+  const [isWritingCaption, setIsWritingCaption] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const cardRef = useRef(null);
 
@@ -129,6 +151,36 @@ const CardStudio = ({ roster, guruName, aiEnabled = true, focusSantriId }) => {
 
   const jilidData = profile ? buildJilidCard(profile) : null;
   const profilData = profile ? buildProfilCard(profile, snapshot, { bulanan }) : null;
+  const captionVars = { nama: jilidData?.panggilan, ke: jilidData?.ke, bulan: profilData?.bulan };
+
+  // Caption bawaan diisi ulang saat santri, jenis kartu, atau data berganti.
+  useEffect(() => {
+    if (!profile) { setCaption(''); return; }
+    setCaption(fillCaption(DEFAULT_CAPTION[jenis], captionVars));
+    setCopied(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jenis, profile, bulanan]);
+
+  const writeCaptionWithAi = async () => {
+    setIsWritingCaption(true);
+    try {
+      const res = await requestCardCaption(santriId, jenis);
+      setCaption(fillCaption(res.caption, captionVars));
+      setCopied(false);
+    } catch (err) {
+      toast({ title: 'AI belum bisa menulis caption', description: err.message, variant: 'destructive' });
+    } finally {
+      setIsWritingCaption(false);
+    }
+  };
+
+  const copyCaption = async () => {
+    const done = await copyText(caption);
+    setCopied(done);
+    toast(done
+      ? { title: 'Caption disalin', description: 'Tempel di Instagram atau WhatsApp saat memposting kartu.' }
+      : { title: 'Caption belum tersalin', description: 'Pilih teks caption lalu salin secara manual.', variant: 'destructive' });
+  };
   const nama = profile?.nama_lengkap || '';
 
   const writeWithAi = async () => {
@@ -161,6 +213,8 @@ const CardStudio = ({ roster, guruName, aiEnabled = true, focusSantriId }) => {
 
   const exportCard = async (mode) => {
     if (!cardRef.current) return;
+    // Salin caption lebih dulu, selagi masih dalam ketukan pengguna (syarat papan klip di Safari).
+    if (caption.trim()) copyText(caption).then((done) => setCopied(done));
     setIsExporting(true);
     try {
       const blob = await renderBlob();
@@ -169,7 +223,7 @@ const CardStudio = ({ roster, guruName, aiEnabled = true, focusSantriId }) => {
       const file = new File([blob], fileName, { type: 'image/png' });
       if (mode === 'share' && navigator.canShare?.({ files: [file] })) {
         try {
-          await navigator.share({ files: [file], title: jenis === 'jilid' ? 'Kartu apresiasi naik jilid' : 'Profil perkembangan santri' });
+          await navigator.share({ files: [file], text: caption || undefined, title: jenis === 'jilid' ? 'Kartu apresiasi naik jilid' : 'Profil perkembangan santri' });
           return;
         } catch (err) {
           // Safari menolak bagikan bila jeda sejak ketukan terlalu lama; jatuh ke unduhan.
@@ -229,6 +283,29 @@ const CardStudio = ({ roster, guruName, aiEnabled = true, focusSantriId }) => {
             </div>
             <Textarea id="card-pesan" rows={4} maxLength={240} value={pesan} onChange={(e) => setPesan(e.target.value)} className="text-sm leading-relaxed" />
             <p className="text-xs text-muted-foreground">{'{nama}'} diganti nama panggilan santri{jenis === 'jilid' ? ', {ke} diganti jilid baru' : ''}. Maksimal 240 karakter.</p>
+          </div>
+        )}
+
+        {santriId && profile && (
+          <div className="grid gap-1.5">
+            <div className="flex items-end justify-between gap-2">
+              <Label htmlFor="card-caption">Caption untuk posting</Label>
+              <div className="flex gap-2">
+                {aiEnabled && (
+                  <Button type="button" size="sm" variant="outline" className="h-8" onClick={writeCaptionWithAi} disabled={isWritingCaption}>
+                    {isWritingCaption ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <Sparkles className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />}
+                    Tulis dengan AI
+                  </Button>
+                )}
+                <Button type="button" size="sm" variant="outline" className="h-8" onClick={copyCaption} disabled={!caption.trim()}>
+                  {copied ? <Check className="mr-1.5 h-3.5 w-3.5 text-teal-600 dark:text-teal-300" aria-hidden="true" /> : <Copy className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />}
+                  {copied ? 'Tersalin' : 'Salin'}
+                </Button>
+              </div>
+            </div>
+            <Textarea id="card-caption" rows={6} maxLength={1200} value={caption}
+              onChange={(e) => { setCaption(e.target.value); setCopied(false); }} className="text-sm leading-relaxed" />
+            <p className="text-xs text-muted-foreground">Caption ikut tersalin saat menekan Bagikan atau Unduh; tinggal tempel di Instagram atau WhatsApp. Nama memakai panggilan santri.</p>
           </div>
         )}
 
