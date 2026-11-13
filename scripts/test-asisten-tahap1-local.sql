@@ -830,5 +830,66 @@ end $$;
 reset role;
 select set_config('request.jwt.claims', '', true);
 
+-- Data penelitian: sebelum/sesudah, ketepatan, waktu tanggap, penyamaran, dan akses admin saja.
+reset role;
+select set_config('request.jwt.claims', '', true);
+insert into public.assistant_alerts (id, santri_id, class_id, rule, tingkat, alasan, dedupe_key, episode_key, senyap, ref_date, created_at) values
+  ('7e571000-0000-0000-0000-0000000ee001', '7e571000-0000-0000-0000-000000000102', '7e571000-0000-0000-0000-0000000c1a00', 'absen_beruntun', 'sedang', 'uji riset 1', 'riset-1', 'riset-ep-1', true,  '2026-01-05', '2026-01-05 08:00+07'),
+  ('7e571000-0000-0000-0000-0000000ee002', '7e571000-0000-0000-0000-000000000102', '7e571000-0000-0000-0000-0000000c1a00', 'absen_beruntun', 'sedang', 'uji riset 2', 'riset-2', 'riset-ep-2', false, '2026-01-12', '2026-01-12 08:00+07'),
+  ('7e571000-0000-0000-0000-0000000ee003', '7e571000-0000-0000-0000-000000000102', '7e571000-0000-0000-0000-0000000c1a00', 'jilid_lama',     'rendah', 'uji riset 3', 'riset-3', 'riset-ep-3', false, '2026-01-13', '2026-01-13 08:00+07'),
+  ('7e571000-0000-0000-0000-0000000ee004', '7e571000-0000-0000-0000-000000000102', '7e571000-0000-0000-0000-0000000c1a00', 'kehadiran_bulanan', 'tinggi', 'uji riset 4', 'riset-4', 'riset-ep-4', false, '2026-01-14', '2026-01-14 08:00+07');
+insert into public.assistant_alert_decisions (alert_id, keputusan, catatan, diputuskan_oleh, created_at) values
+  ('7e571000-0000-0000-0000-0000000ee002', 'ditangani', null, '7e571000-0000-0000-0000-0000000000a1', '2026-01-12 14:00+07'),
+  ('7e571000-0000-0000-0000-0000000ee003', 'peringatan_keliru', null, '7e571000-0000-0000-0000-0000000000a1', '2026-01-15 08:00+07');
+insert into public.attendance_presence_corrections (santri_id, class_id, tanggal, alert_id, dikoreksi_oleh)
+values ('7e571000-0000-0000-0000-000000000102', '7e571000-0000-0000-0000-0000000c1a00', '2026-01-14', '7e571000-0000-0000-0000-0000000ee004', '7e571000-0000-0000-0000-0000000000a1');
+
+select set_config('request.jwt.claims', '{"sub":"7e571000-0000-0000-0000-00000000000a","role":"authenticated"}', true);
+set local role authenticated;
+do $$
+declare v jsonb; rows jsonb;
+begin
+  v := public.get_assistant_research_metrics('2026-01-01', '2026-01-31');
+  if (select (m->>'peringatan')::int from jsonb_array_elements(v->'masa') m where m->>'masa' = 'sebelum') <> 1
+     or (select (m->>'peringatan')::int from jsonb_array_elements(v->'masa') m where m->>'masa' = 'sesudah') <> 3 then
+    raise exception 'TEST FAIL: research masa %', v->'masa';
+  end if;
+  -- Dinilai: ee002 (ditangani), ee003 (keliru), ee004 (koreksi hadir) -> 3 dinilai, 2 keliru.
+  if (v#>>'{ketepatan,dinilai}')::int <> 3 or (v#>>'{ketepatan,keliru}')::int <> 2 or (v#>>'{ketepatan,presisi_persen}')::numeric <> 33.3 then
+    raise exception 'TEST FAIL: research ketepatan %', v->'ketepatan';
+  end if;
+  -- Tanggap: 6 jam dan 48 jam -> median 27 jam; satu dalam 24 jam, dua dalam 72 jam.
+  if (v#>>'{tanggap,diputuskan}')::int <> 2 or (v#>>'{tanggap,median_jam}')::numeric <> 27.0
+     or (v#>>'{tanggap,dalam_24_jam}')::int <> 1 or (v#>>'{tanggap,dalam_72_jam}')::int <> 2 then
+    raise exception 'TEST FAIL: research tanggap %', v->'tanggap';
+  end if;
+  rows := public.get_assistant_research_alerts('2026-01-01', '2026-01-31');
+  if jsonb_array_length(rows) <> 4 or rows->0 ? 'alert_id' or rows->0->>'kode_santri' !~ '^S[0-9A-F]{6}$'
+     or rows::text like '%7e571000%' or rows::text like '%TEST T1%' then
+    raise exception 'TEST FAIL: research rows not anonymized %', rows->0;
+  end if;
+  begin
+    perform public.get_assistant_research_metrics('2026-01-01', '2027-06-01');
+    raise exception 'TEST FAIL: research accepts huge range';
+  exception when invalid_parameter_value then null;
+  end;
+end $$;
+select set_config('request.jwt.claims', '{"sub":"7e571000-0000-0000-0000-0000000000a1","role":"authenticated"}', true);
+do $$
+begin
+  begin
+    perform public.get_assistant_research_metrics('2026-01-01', '2026-01-31');
+    raise exception 'TEST FAIL: guru reads research metrics';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    perform public.get_assistant_research_alerts('2026-01-01', '2026-01-31');
+    raise exception 'TEST FAIL: guru reads research rows';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+reset role;
+select set_config('request.jwt.claims', '', true);
+
 select 'PASS: asisten tahap 1-3 (aturan, senyap, panel, koreksi, keputusan, RLS, hanya-tambah, telegram, ai)' as result;
 rollback;

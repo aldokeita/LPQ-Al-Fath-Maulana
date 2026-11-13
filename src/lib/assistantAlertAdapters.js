@@ -205,6 +205,10 @@ export const deleteAiKnowledge = async (id) => {
 // ===== Evaluasi (admin) =====
 export const fetchAiEvaluation = (from, to) => rpc('get_assistant_ai_evaluation', { p_from: from, p_to: to });
 
+// Data penelitian (admin): ringkasan metrik dan baris per peringatan yang sudah disamarkan.
+export const fetchResearchMetrics = (from, to) => rpc('get_assistant_research_metrics', { p_from: from, p_to: to });
+export const fetchResearchAlerts = (from, to) => rpc('get_assistant_research_alerts', { p_from: from, p_to: to });
+
 // ===== Kartu santri =====
 export const fetchSantriProfile = (santriId) => rpc('get_assistant_santri_profile', { p_santri_id: santriId });
 
