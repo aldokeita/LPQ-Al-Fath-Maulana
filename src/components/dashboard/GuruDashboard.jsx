@@ -51,6 +51,7 @@ const ProfileConstellationScene = lazy(() => import('@/components/dashboard/sant
 // The face camera and its models load only when a guru opens their face registration.
 const GuruFaceEnrollmentDialog = lazy(() => import('@/components/dashboard/guru/GuruFaceEnrollmentDialog'));
 const AttentionPanel = lazy(() => import('@/components/dashboard/assistant/AttentionPanel'));
+const AiWorkspace = lazy(() => import('@/components/dashboard/assistant/AiWorkspace'));
 
 const jilidOptions = QIROATI_JILID_OPTIONS;
 
@@ -526,6 +527,7 @@ const GuruDashboard = () => {
           </section>
         )}
         <Suspense fallback={null}><AttentionPanel variant="guru" refreshKey={attentionRefreshKey} actions={attentionActions} guruName={guruData?.nama} /></Suspense>
+        <Suspense fallback={null}><AiWorkspace /></Suspense>
         <div className="space-y-8">
             {myClasses.map(cls => (
                 <Card key={cls.id} className="shadow-lg hover:shadow-xl transition-shadow duration-300 border-border/50">

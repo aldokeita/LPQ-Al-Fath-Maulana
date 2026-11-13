@@ -130,7 +130,9 @@ export const AI_PROVIDERS = Object.freeze([
 ]);
 
 const AI_SETTING_KEYS = ['enabled', 'provider', 'model', 'base_url', 'monthly_budget_usd',
-  'price_input_per_mtok', 'price_output_per_mtok', 'daily_limit_per_user'];
+  'price_input_per_mtok', 'price_output_per_mtok', 'daily_limit_per_user', 'konteks_lembaga'];
+
+export const AI_KONTEKS_MAX = 6000;
 
 export const validateAiSettings = (ai) => {
   if (!ai) return null;
@@ -147,6 +149,7 @@ export const validateAiSettings = (ai) => {
     const value = Number(ai[key]);
     if (!Number.isFinite(value) || value < 0 || value > max) return `${label} harus 0–${max}.`;
   }
+  if (String(ai.konteks_lembaga || '').length > AI_KONTEKS_MAX) return `Pengetahuan lembaga paling banyak ${AI_KONTEKS_MAX} karakter.`;
   const daily = Number(ai.daily_limit_per_user);
   if (!Number.isInteger(daily) || daily < 1 || daily > 500) return 'Batas harian per pengguna harus 1–500.';
   return null;

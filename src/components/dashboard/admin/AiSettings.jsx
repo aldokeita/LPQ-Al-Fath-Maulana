@@ -4,10 +4,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/components/ui/use-toast';
 import { cn } from '@/lib/utils';
-import { AI_PROVIDERS } from '@/lib/assistantAlerts';
+import { AI_KONTEKS_MAX, AI_PROVIDERS } from '@/lib/assistantAlerts';
 import { fetchAiStatus, testAiConnection } from '@/lib/assistantAlertAdapters';
 
 const usd = (value) => `$${Number(value || 0).toFixed(Number(value || 0) < 1 ? 4 : 2)}`;
@@ -110,6 +111,16 @@ const AiSettings = ({ ai, savedAi, onChange }) => {
             <span className="text-sm text-muted-foreground">saran/hari</span>
           </div>
         </div>
+      </div>
+
+      <div className="mt-4 grid gap-1.5">
+        <Label htmlFor="ai-konteks">Pengetahuan dasar lembaga untuk AI</Label>
+        <p className="text-xs text-muted-foreground">
+          Dibaca AI sebelum setiap saran dan jawaban: profil LPQ, metode Qiroati, aturan kenaikan jilid, dan gaya pembinaan. Jangan menulis nama santri di sini.
+        </p>
+        <Textarea id="ai-konteks" rows={8} maxLength={AI_KONTEKS_MAX} value={ai.konteks_lembaga || ''}
+          onChange={(e) => onChange('ai.konteks_lembaga', e.target.value)} className="text-sm leading-relaxed" />
+        <p className="text-right text-xs text-muted-foreground tabular-nums">{(ai.konteks_lembaga || '').length}/{AI_KONTEKS_MAX}</p>
       </div>
 
       <details className="mt-4 rounded-lg border border-border/60 p-3">

@@ -106,3 +106,39 @@ export const fetchLatestAiRecommendations = async (santriIds = []) => {
   for (const row of data || []) if (!latest[row.santri_id]) latest[row.santri_id] = row;
   return latest;
 };
+
+export const requestClassInsight = (classId, { refresh = false, onlyCached = false } = {}) =>
+  invokeAssistantAi({ action: 'class_insight', class_id: classId, refresh, only_cached: onlyCached });
+
+export const sendAiChat = ({ conversationId, classId, santriId, message }) => invokeAssistantAi({
+  action: 'chat', conversation_id: conversationId || null, class_id: classId, santri_id: santriId || null, message,
+});
+
+export const fetchAiClasses = async () => {
+  const data = await rpc('get_assistant_ai_classes');
+  return Array.isArray(data) ? data : [];
+};
+
+export const fetchAiClassRoster = async (classId) => {
+  const data = await rpc('get_assistant_class_roster', { p_class_id: classId });
+  return (Array.isArray(data) ? data : []).map((r) => ({ id: r.santri_id, nama: r.nama_lengkap, panggilan: r.nama_panggilan }));
+};
+
+export const fetchAiConversations = async () => {
+  const { data, error } = await supabase.from('assistant_ai_conversations')
+    .select('id, judul, class_id, santri_id, updated_at').order('updated_at', { ascending: false }).limit(20);
+  if (error) throw error;
+  return data || [];
+};
+
+export const fetchAiMessages = async (conversationId) => {
+  const { data, error } = await supabase.from('assistant_ai_messages')
+    .select('id, role, content, created_at').eq('conversation_id', conversationId).order('created_at', { ascending: true });
+  if (error) throw error;
+  return data || [];
+};
+
+export const deleteAiConversation = async (conversationId) => {
+  const { error } = await supabase.from('assistant_ai_conversations').delete().eq('id', conversationId);
+  if (error) throw error;
+};
