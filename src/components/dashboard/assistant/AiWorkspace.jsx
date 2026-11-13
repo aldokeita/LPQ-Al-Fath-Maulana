@@ -19,6 +19,8 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { generateWhatsAppLink } from '@/utils/whatsappMessages';
 import AiText from '@/components/dashboard/assistant/AiText';
 import AiFeedback from '@/components/dashboard/assistant/AiFeedback';
+import MicButton from '@/components/dashboard/assistant/MicButton';
+import { appendTranscript } from '@/lib/speechInput';
 import '@/styles/attention-panel.css';
 
 const ALL = '__semua__';
@@ -227,6 +229,7 @@ const AiChat = ({ classId, roster, focus }) => {
   const [messages, setMessages] = useState([]);
   const [draft, setDraft] = useState('');
   const [isSending, setIsSending] = useState(false);
+  const [heard, setHeard] = useState('');
   const [error, setError] = useState(null);
   const listRef = useRef(null);
 
@@ -398,6 +401,9 @@ const AiChat = ({ classId, roster, focus }) => {
         <p className="flex items-start gap-2 text-sm text-destructive" role="alert"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />{error}</p>
       )}
 
+      {heard && (
+        <p className="truncate text-xs italic text-foreground/60" role="status" aria-live="polite">Mendengarkan: {heard}…</p>
+      )}
       <form className="flex items-end gap-2" onSubmit={(e) => { e.preventDefault(); send(); }}>
         <Label htmlFor="ai-chat-input" className="sr-only">Pertanyaan untuk asisten</Label>
         <Textarea id="ai-chat-input" rows={2} maxLength={2000} value={draft} disabled={isSending}
@@ -405,6 +411,8 @@ const AiChat = ({ classId, roster, focus }) => {
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
           className="min-h-[44px] resize-none" />
+        <MicButton disabled={isSending} onInterim={setHeard}
+          onText={(t) => setDraft((d) => appendTranscript(d, t).slice(0, 2000))} />
         <Button type="submit" className="attention-action-primary h-11 shrink-0" disabled={isSending || !draft.trim()} aria-label="Kirim pertanyaan">
           <Send className="h-4 w-4" aria-hidden="true" />
         </Button>
@@ -445,6 +453,8 @@ const ReportPanel = ({ roster, guruName, focusSantriId }) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [heard, setHeard] = useState('');
+  const caretRef = useRef(null);
   const santri = roster.find((r) => r.id === santriId);
   const nama = santri ? (santri.panggilan || santri.nama.split(' ')[0]) : '';
 
@@ -467,6 +477,7 @@ const ReportPanel = ({ roster, guruName, focusSantriId }) => {
   }, [santriId]);
 
   useEffect(() => {
+    caretRef.current = null;
     if (report?.hasil) setText(composeReport(report.hasil, { nama, guru: guruName, bulan: report.bulan || currentMonth() }));
   }, [report, nama, guruName]);
 
@@ -480,6 +491,20 @@ const ReportPanel = ({ roster, guruName, focusSantriId }) => {
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  // Dikte disisipkan di posisi kursor (atau di akhir teks bila kolom belum pernah disentuh).
+  const latestText = useRef(text);
+  latestText.current = text;
+  const dictate = (spoken) => {
+    const current = latestText.current;
+    const at = Math.min(caretRef.current ?? current.length, current.length);
+    const before = appendTranscript(current.slice(0, at), spoken);
+    const after = current.slice(at);
+    const next = before + (after && !/^\s/.test(after) ? ' ' : '') + after;
+    caretRef.current = before.length;
+    latestText.current = next;
+    setText(next);
   };
 
   const copy = async () => {
@@ -534,8 +559,14 @@ const ReportPanel = ({ roster, guruName, focusSantriId }) => {
 
       {report?.hasil && !isGenerating && (
         <div className="space-y-2">
-          <Label htmlFor="ai-report-text">Draf rapor untuk wali {nama} (bisa disunting)</Label>
-          <Textarea id="ai-report-text" rows={14} value={text} onChange={(e) => setText(e.target.value)} className="text-sm leading-relaxed" />
+          <div className="flex items-end justify-between gap-2">
+            <Label htmlFor="ai-report-text">Draf rapor untuk wali {nama} (bisa disunting)</Label>
+            <MicButton size="sm" onInterim={setHeard} onText={dictate} />
+          </div>
+          {heard && <p className="truncate text-xs italic text-foreground/60" role="status" aria-live="polite">Mendengarkan: {heard}…</p>}
+          <Textarea id="ai-report-text" rows={14} value={text} onChange={(e) => setText(e.target.value)}
+            onSelect={(e) => { caretRef.current = e.target.selectionStart; }}
+            onBlur={(e) => { caretRef.current = e.target.selectionStart; }} className="text-sm leading-relaxed" />
           <div className="flex flex-wrap items-center gap-2">
             {phone ? (
               <Button asChild size="sm" variant="outline" className="h-9 border-emerald-300 text-emerald-800 hover:bg-emerald-50 dark:border-emerald-400/30 dark:text-emerald-200 dark:hover:bg-emerald-500/10">
