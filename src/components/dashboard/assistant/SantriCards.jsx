@@ -62,7 +62,7 @@ const ContactFooter = ({ dark }) => {
     OFFICIAL_CONTACT.instagram && { k: 'ig', icon: 'ig', label: `@${String(OFFICIAL_CONTACT.instagram).replace(/^@/, '')}` },
   ].filter(Boolean);
   return (
-    <div style={{ flexShrink: 0, alignSelf: 'stretch', marginTop: 12, paddingTop: 10, borderTop: `1px solid ${dark ? 'rgba(255,255,255,0.14)' : 'rgba(15,47,54,0.12)'}`,
+    <div style={{ flexShrink: 0, alignSelf: 'stretch', marginTop: 10, paddingTop: 8, borderTop: `1px solid ${dark ? 'rgba(255,255,255,0.14)' : 'rgba(15,47,54,0.12)'}`,
       fontFamily: SANS, fontSize: 10, lineHeight: 1.35, color: text, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 5, maxWidth: '100%', textAlign: 'center' }}>
         <ContactIcon name="pin" color={icon} />
@@ -204,16 +204,16 @@ const DOT = {
 };
 
 const Ring = ({ pct }) => {
-  const r = 34;
+  const r = 28;
   const c = 2 * Math.PI * r;
   const value = pct === null ? 0 : Math.max(0, Math.min(100, pct));
   const color = pct === null ? '#cbd5e1' : pct >= 75 ? '#0d9488' : '#f43f5e';
   return (
-    <svg width="88" height="88" viewBox="0 0 88 88" aria-hidden="true">
-      <circle cx="44" cy="44" r={r} fill="none" stroke="#e2eef0" strokeWidth="9" />
-      <circle cx="44" cy="44" r={r} fill="none" stroke={color} strokeWidth="9" strokeLinecap="round"
-        strokeDasharray={`${(value / 100) * c} ${c}`} transform="rotate(-90 44 44)" />
-      <text x="44" y="50" textAnchor="middle" fontFamily="Outfit, sans-serif" fontWeight="800" fontSize="19" fill="#0f2f36">
+    <svg width="72" height="72" viewBox="0 0 72 72" aria-hidden="true" style={{ flexShrink: 0 }}>
+      <circle cx="36" cy="36" r={r} fill="none" stroke="#e2eef0" strokeWidth="8" />
+      <circle cx="36" cy="36" r={r} fill="none" stroke={color} strokeWidth="8" strokeLinecap="round"
+        strokeDasharray={`${(value / 100) * c} ${c}`} transform="rotate(-90 36 36)" />
+      <text x="36" y="41.5" textAnchor="middle" fontFamily="Outfit, sans-serif" fontWeight="800" fontSize="16" fill="#0f2f36">
         {pct === null ? '–' : `${pct}%`}
       </text>
     </svg>
@@ -221,12 +221,22 @@ const Ring = ({ pct }) => {
 };
 
 const Panel = ({ title, children, style }) => (
-  <div style={{ background: 'rgba(255,255,255,0.82)', border: '1px solid rgba(219,234,236,0.9)', borderRadius: 20, padding: '14px 16px',
+  <div style={{ background: 'rgba(255,255,255,0.82)', border: '1px solid rgba(219,234,236,0.9)', borderRadius: 18, padding: '11px 14px',
     boxShadow: '0 8px 24px rgba(15,47,54,0.06)', ...style }}>
-    <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.8, textTransform: 'uppercase', color: '#0f766e', marginBottom: 8 }}>{title}</div>
+    <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.8, textTransform: 'uppercase', color: '#0f766e', marginBottom: 6 }}>{title}</div>
     {children}
   </div>
 );
+
+const CHIP_H = 26;
+const CHIP = { display: 'inline-flex', alignItems: 'center', height: CHIP_H, boxSizing: 'border-box', padding: '0 10px', borderRadius: 9999,
+  fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0 };
+const CHIP_TONE = {
+  hafal: { color: '#065f46', background: '#d1fae5' },
+  latih: { color: '#92400e', background: '#fef3c7' },
+  belum: { color: '#475569', background: '#f1f5f9', border: '1px solid #e2e8f0', fontWeight: 500 },
+  more: { color: '#64748b', background: 'transparent', fontWeight: 500 },
+};
 
 const ScoreDots = ({ skor }) => (
   <span style={{ display: 'inline-flex', gap: 3, marginLeft: 8, verticalAlign: 'middle' }}>
@@ -238,9 +248,14 @@ const ScoreDots = ({ skor }) => (
 
 export const ProfilCard = React.forwardRef(({ data, pesan, guru, avatar }, ref) => {
   const { kehadiran: k, hafalan: h } = data;
-  const hafal = limitList(h.sudahHafal, 8);
-  const latih = limitList(h.dilatih, 3);
-  const belum = limitList(h.belumDinilaiList || [], Math.max(0, Math.min(4, 7 - hafal.shown.length - latih.shown.length)));
+  const all = [
+    ...h.dilatih.map((d) => ({ key: `l-${d.materi}`, tone: 'latih', label: d.materi, skor: d.skor })),
+    ...h.sudahHafal.map((m) => ({ key: `h-${m}`, tone: 'hafal', label: m })),
+    ...(h.belumDinilaiList || []).map((m) => ({ key: `b-${m}`, tone: 'belum', label: m })),
+  ];
+  const { shown, more } = limitList(all, 8);
+  const chips = more > 0 ? [...shown, { key: 'more', tone: 'more', label: `+${more} lainnya` }] : shown;
+  const longName = isLongName(data.namaLengkap || data.panggilan);
   return (
     <div ref={ref} style={{ width: CARD_W, height: CARD_H, position: 'relative', overflow: 'hidden', borderRadius: 28,
       background: '#f4fbfb', color: '#0f2f36', fontFamily: SANS }}>
@@ -250,7 +265,7 @@ export const ProfilCard = React.forwardRef(({ data, pesan, guru, avatar }, ref) 
       <Blob style={{ width: 260, height: 260, bottom: -120, left: -90, background: 'rgba(167,139,250,0.35)' }} />
       <StarPattern id="star-profil" color="#0f766e" opacity={0.05} />
 
-      <div style={{ position: 'relative', height: '100%', padding: '24px 32px 18px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ position: 'relative', height: '100%', padding: '22px 30px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Brand />
           <div style={{ textAlign: 'right', fontSize: 10.5, fontWeight: 700, letterSpacing: 1.8, textTransform: 'uppercase', color: '#5b7479', lineHeight: 1.4 }}>
@@ -259,11 +274,11 @@ export const ProfilCard = React.forwardRef(({ data, pesan, guru, avatar }, ref) 
         </div>
 
         <div style={{ marginTop: 2, display: 'flex', alignItems: 'center', gap: 16 }}>
-          <Avatar src={avatar} name={data.namaLengkap || data.panggilan} size={104} ringWidth={4}
+          <Avatar src={avatar} name={data.namaLengkap || data.panggilan} size={88} ringWidth={4}
             glow="0 12px 30px rgba(13,148,136,0.25)" />
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: '#0f766e' }}>Santri</div>
-            <div style={{ fontSize: 26, fontWeight: 800, lineHeight: '34px', letterSpacing: -0.3, marginTop: 0,
+            <div style={{ fontSize: longName ? 21 : 25, fontWeight: 800, lineHeight: longName ? '27px' : '32px', letterSpacing: -0.3, marginTop: 0,
               display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
               {data.namaLengkap || data.panggilan}
             </div>
@@ -307,39 +322,23 @@ export const ProfilCard = React.forwardRef(({ data, pesan, guru, avatar }, ref) 
               </div>
             </div>
           )}
-          {hafal.shown.length === 0 && latih.shown.length === 0 ? (
-            <div style={{ fontSize: 13, color: '#5b7479' }}>Belum ada hafalan yang dinilai{h.belumDinilai ? `; ${h.belumDinilai} materi wajib menunggu dinilai.` : '.'}</div>
+          {chips.length === 0 ? (
+            <div style={{ fontSize: 13, color: '#5b7479' }}>Belum ada hafalan yang tercatat.</div>
           ) : (
             <>
-              {hafal.shown.length > 0 && (
-                <>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: '#047857', marginBottom: 6 }}>Sudah hafal</div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                    {hafal.shown.map((m) => <span key={m} style={{ padding: '4px 10px', borderRadius: 9999, fontSize: 12, fontWeight: 600, color: '#065f46', background: '#d1fae5' }}>✓ {m}</span>)}
-                    {hafal.more > 0 && <span style={{ whiteSpace: 'nowrap', flexShrink: 0, padding: '4px 10px', borderRadius: 9999, fontSize: 12, color: '#065f46', background: '#ecfdf5' }}>+{hafal.more} lainnya</span>}
-                  </div>
-                </>
-              )}
-              {latih.shown.length > 0 && (
-                <>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: '#b45309', margin: '10px 0 4px' }}>Sedang dilatih</div>
-                  {latih.shown.map((d) => (
-                    <div key={d.materi} style={{ fontSize: 12.5, lineHeight: 1.7 }}>{d.materi}<ScoreDots skor={d.skor} /></div>
-                  ))}
-                  {latih.more > 0 && <div style={{ fontSize: 11.5, color: '#5b7479' }}>+{latih.more} materi lainnya</div>}
-                </>
-              )}
-              {h.belumDinilai > 0 && (
-                <>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: '#475569', margin: '10px 0 6px' }}>Belum dinilai ({h.belumDinilai})</div>
-                  {belum.shown.length > 0 && (
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                      {belum.shown.map((m) => <span key={m} style={{ padding: '4px 10px', borderRadius: 9999, fontSize: 12, color: '#334155', background: '#f1f5f9', border: '1px solid #e2e8f0' }}>{m}</span>)}
-                      {belum.more > 0 && <span style={{ whiteSpace: 'nowrap', flexShrink: 0, padding: '4px 10px', fontSize: 12, color: '#64748b' }}>+{belum.more} lainnya</span>}
-                    </div>
-                  )}
-                </>
-              )}
+              <div style={{ display: 'flex', gap: 12, fontSize: 10.5, color: '#5b7479', marginBottom: 7, whiteSpace: 'nowrap' }}>
+                <span><span style={{ color: '#10b981' }}>●</span> Sudah hafal</span>
+                <span><span style={{ color: '#f59e0b' }}>●</span> Sedang dilatih</span>
+                {h.belumDinilai > 0 && <span><span style={{ color: '#94a3b8' }}>●</span> Belum dinilai ({h.belumDinilai})</span>}
+              </div>
+              {/* Tinggi dibatasi 3 baris chip utuh agar tidak pernah terpotong di tengah baris. */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, maxHeight: CHIP_H * 3 + 12, overflow: 'hidden' }}>
+                {chips.map((c) => (
+                  <span key={c.key} style={{ ...CHIP, ...CHIP_TONE[c.tone] }}>
+                    {c.tone === 'hafal' ? `✓ ${c.label}` : c.label}{c.tone === 'latih' && <ScoreDots skor={c.skor} />}
+                  </span>
+                ))}
+              </div>
             </>
           )}
         </Panel>
