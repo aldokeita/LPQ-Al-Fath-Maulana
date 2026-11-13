@@ -158,3 +158,9 @@ test('validasi & patch pengaturan AI di frontend, isi placeholder', () => {
   assert.deepEqual(patch.ai, { enabled: true, provider: 'anthropic' });
   assert.equal(fillAiPlaceholders('Sapa {nama}. Salam, {guru}', { nama: 'Bilal', guru: 'Ust. Aldo' }), 'Sapa Bilal. Salam, Ust. Aldo');
 });
+
+test('kunci API dibersihkan dari penanda bracketed paste dan karakter tak terlihat', async () => {
+  const { cleanApiKey } = await import('../supabase/functions/_shared/aiProviders.js');
+  assert.equal(cleanApiKey('\u001b[200~sk-abc123\r\n\u001b[201~'), 'sk-abc123');
+  assert.equal(resolveProvider({ provider: 'deepseek' }, () => ' sk-xyz\n').apiKey, 'sk-xyz');
+});

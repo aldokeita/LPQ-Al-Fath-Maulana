@@ -48,7 +48,13 @@ umask 077
 
 if [[ "$PROVIDER" != "lewati" ]]; then
   read -r -s -p "Tempel kunci API ${PROVIDER}: " API_KEY; echo
-  [[ ${#API_KEY} -ge 16 && "$API_KEY" != *[[:space:]]* ]] || { echo "Kunci tidak valid." >&2; exit 1; }
+  # Buang penanda bracketed paste (ESC[200~ / ESC[201~) dan karakter tak terlihat yang ikut tertempel.
+  API_KEY="$(printf '%s' "$API_KEY" | sed $'s/\x1b\\[20[01]~//g' | LC_ALL=C tr -cd '\041-\176')"
+  if [[ ${#API_KEY} -lt 16 || ! "$API_KEY" =~ ^[A-Za-z0-9._:-]+$ ]]; then
+    echo "Kunci tidak valid (panjang ${#API_KEY}). Salin ulang kunci dari dasbor penyedia." >&2
+    exit 1
+  fi
+  echo "Kunci diterima: ${API_KEY:0:3}…${API_KEY: -4} (${#API_KEY} karakter)."
   printf '%s=%s\n' "$KEY_ENV" "$API_KEY" > "$TMP/secrets.env"
   echo "Menyimpan ${KEY_ENV} sebagai secret Edge Function..."
   npx supabase secrets set --env-file "$TMP/secrets.env"

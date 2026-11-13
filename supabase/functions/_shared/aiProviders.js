@@ -55,6 +55,12 @@ export class AiProviderError extends Error {
   }
 }
 
+// Kunci yang ditempel lewat terminal kadang membawa penanda bracketed paste atau karakter tak
+// terlihat; header HTTP menolaknya ("failed to parse header value").
+export const cleanApiKey = (value) => String(value || '')
+  .replace(/\x1b\[20[01]~/g, '')
+  .replace(/[^\x21-\x7e]/g, '');
+
 // Gabungkan pengaturan admin dengan bawaan penyedia.
 export const resolveProvider = (ai = {}, getEnv = () => undefined) => {
   const id = PROVIDERS[ai.provider] ? ai.provider : 'mock';
@@ -66,7 +72,7 @@ export const resolveProvider = (ai = {}, getEnv = () => undefined) => {
   const price = priceIn || priceOut
     ? { input: priceIn, output: priceOut }
     : (def.price || FALLBACK_PRICE);
-  const apiKey = def.keyEnv ? (getEnv(def.keyEnv) || '') : '';
+  const apiKey = def.keyEnv ? cleanApiKey(getEnv(def.keyEnv)) : '';
   return { id, ...def, model, baseUrl: baseUrl.replace(/\/+$/, ''), price, apiKey, hasKey: !def.keyEnv || Boolean(apiKey) };
 };
 
