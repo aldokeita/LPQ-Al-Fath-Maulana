@@ -25,3 +25,34 @@ test('rejects a duplicate name in the same category, case-insensitively', () => 
 test('treats the same name as unchanged', () => {
   assert.equal(validateHafalanItemRename({ item: items[0], nextName: 'Doa Sebelum Makan', items }).unchanged, true);
 });
+
+import { formatHafalanItemName, toHafalanTitleCase } from '../src/lib/hafalanItemName.js';
+
+test('title-cases Doa and Sholat names and spells Doa as Do\'a', () => {
+  const cases = {
+    'Doa sebelum makan': "Do'a Sebelum Makan",
+    'Doa memohon ampun untuk kedua orang tua': "Do'a Memohon Ampun untuk Kedua Orang Tua",
+    'Istighfar / doa memohon ampun': "Istighfar / Do'a Memohon Ampun",
+    'Doa masuk kamar kecil / WC': "Do'a Masuk Kamar Kecil / WC",
+    'Ucapan ketika berjanji: Insyaallah': 'Ucapan Ketika Berjanji: Insyaallah',
+    'Bacaan i‘tidal': 'Bacaan I‘tidal',
+    'Bacaan Al-Fatihah': 'Bacaan Al-Fatihah',
+    'Ta’awwudz / Isti’adzah': 'Ta’awwudz / Isti’adzah',
+    'Doa ketika mengalami, melihat, atau mendengar musibah': "Do'a Ketika Mengalami, Melihat, atau Mendengar Musibah",
+    "Do'a qunut": "Do'a Qunut",
+    'doa agar tetap istiqamah dalam agama dan kebenaran': "Do'a agar Tetap Istiqamah dalam Agama dan Kebenaran",
+  };
+  for (const [input, expected] of Object.entries(cases)) {
+    assert.equal(toHafalanTitleCase(input), expected, input);
+  }
+});
+
+test('does not touch words that only contain "doa" inside them', () => {
+  assert.equal(toHafalanTitleCase('mendoakan orang tua'), 'Mendoakan Orang Tua');
+});
+
+test('only TPQ Doa and Sholat are formatted; Surat keeps its casing', () => {
+  assert.equal(formatHafalanItemName('doa iftitah', { category: 'Sholat' }), "Do'a Iftitah");
+  assert.equal(formatHafalanItemName('Al-‘Ashr', { category: 'Surat' }), 'Al-‘Ashr');
+  assert.equal(formatHafalanItemName('doa harian', { category: 'Doa', programScope: 'PTPT' }), 'doa harian');
+});
