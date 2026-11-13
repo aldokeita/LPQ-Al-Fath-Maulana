@@ -232,6 +232,15 @@ const AiChat = ({ classId, roster, focus }) => {
   const [heard, setHeard] = useState('');
   const [error, setError] = useState(null);
   const listRef = useRef(null);
+  const inputRef = useRef(null);
+
+  // Kolom satu baris setinggi tombol; memanjang otomatis mengikuti isi (maksimal 10rem).
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = '';
+    if (draft) el.style.height = `${Math.min(el.scrollHeight + 2, 160)}px`;
+  }, [draft]);
 
   const loadConversations = useCallback(async () => {
     try {
@@ -406,11 +415,11 @@ const AiChat = ({ classId, roster, focus }) => {
       )}
       <form className="flex items-end gap-2" onSubmit={(e) => { e.preventDefault(); send(); }}>
         <Label htmlFor="ai-chat-input" className="sr-only">Pertanyaan untuk asisten</Label>
-        <Textarea id="ai-chat-input" rows={2} maxLength={2000} value={draft} disabled={isSending}
-          placeholder="Contoh: Hafalan apa yang sebaiknya dilatih Bilal pekan ini?"
+        <Textarea ref={inputRef} id="ai-chat-input" rows={1} maxLength={2000} value={draft} disabled={isSending}
+          placeholder="Tulis pertanyaan…"
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
-          className="min-h-[44px] resize-none" />
+          className="h-11 max-h-40 min-h-[44px] resize-none overflow-y-auto py-2.5 leading-5" />
         <MicButton disabled={isSending} onInterim={setHeard}
           onText={(t) => setDraft((d) => appendTranscript(d, t).slice(0, 2000))} />
         <Button type="submit" className="attention-action-primary h-11 shrink-0" disabled={isSending || !draft.trim()} aria-label="Kirim pertanyaan">
