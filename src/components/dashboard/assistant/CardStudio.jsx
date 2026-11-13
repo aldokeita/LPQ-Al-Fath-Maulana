@@ -70,6 +70,18 @@ const loadAvatar = async (santriId) => {
   });
 };
 
+// Safari dan semua browser di iPad/iPhone (WebKit) sering menggambar SVG foreignObject sebelum gambar di
+// dalamnya siap, sehingga render pertama kehilangan logo, foto, dan latar. Render diulang dan hasil terakhir dipakai.
+const isWebKit = () => typeof navigator !== 'undefined'
+  && /AppleWebKit/i.test(navigator.userAgent) && !/Chrome\/|Chromium|Edg\/|Android/i.test(navigator.userAgent);
+
+const decodeImages = (node) => Promise.all([...node.querySelectorAll('img')].map((img) => (
+  img.complete && img.naturalWidth ? img.decode?.().catch(() => {}) : new Promise((resolve) => {
+    img.addEventListener('load', resolve, { once: true });
+    img.addEventListener('error', resolve, { once: true });
+  })
+)));
+
 const CardStudio = ({ roster, guruName, aiEnabled = true, focusSantriId }) => {
   useArabicFont();
   // Siapkan font tertanam sejak studio dibuka agar ekspor pertama tidak menunggu.
@@ -133,11 +145,18 @@ const CardStudio = ({ roster, guruName, aiEnabled = true, focusSantriId }) => {
 
   const renderBlob = async () => {
     await document.fonts?.ready;
+    await decodeImages(cardRef.current);
     const fontEmbedCSS = await getCardFontEmbedCSS();
-    return toBlob(cardRef.current, {
-      pixelRatio: 2, cacheBust: true, width: CARD_W, height: CARD_H, backgroundColor: 'transparent',
+    const options = {
+      pixelRatio: 2, width: CARD_W, height: CARD_H, backgroundColor: 'transparent',
       ...(fontEmbedCSS ? { fontEmbedCSS } : {}),
-    });
+    };
+    if (isWebKit()) {
+      // Dua render pemanasan agar gambar tertanam ikut tergambar pada render ketiga.
+      await toBlob(cardRef.current, options);
+      await toBlob(cardRef.current, options);
+    }
+    return toBlob(cardRef.current, options);
   };
 
   const exportCard = async (mode) => {
@@ -149,8 +168,13 @@ const CardStudio = ({ roster, guruName, aiEnabled = true, focusSantriId }) => {
       const fileName = cardFileName(jenis, nama);
       const file = new File([blob], fileName, { type: 'image/png' });
       if (mode === 'share' && navigator.canShare?.({ files: [file] })) {
-        await navigator.share({ files: [file], title: jenis === 'jilid' ? 'Kartu apresiasi naik jilid' : 'Profil perkembangan santri' });
-        return;
+        try {
+          await navigator.share({ files: [file], title: jenis === 'jilid' ? 'Kartu apresiasi naik jilid' : 'Profil perkembangan santri' });
+          return;
+        } catch (err) {
+          // Safari menolak bagikan bila jeda sejak ketukan terlalu lama; jatuh ke unduhan.
+          if (err?.name !== 'NotAllowedError') throw err;
+        }
       }
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');

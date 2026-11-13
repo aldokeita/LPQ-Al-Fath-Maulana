@@ -24,7 +24,11 @@ const StarPattern = ({ id, color, opacity }) => (
   </svg>
 );
 
-const Blob = ({ style }) => <div aria-hidden="true" style={{ position: 'absolute', borderRadius: '9999px', filter: 'blur(60px)', ...style }} />;
+// Cahaya aurora sebagai gradien radial (tanpa filter blur, agar sama di semua browser saat diekspor).
+const Blob = ({ style }) => {
+  const { background, ...rest } = style;
+  return <div aria-hidden="true" style={{ position: 'absolute', borderRadius: '9999px', ...rest, background: `radial-gradient(circle, ${background} 0%, transparent 70%)` }} />;
+};
 
 const Brand = ({ dark }) => (
   <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -89,14 +93,14 @@ const Signature = ({ guru, dark, label = 'Guru Pengajar' }) => (
   </div>
 );
 
-const BUILDING = '/institution/gedung-lpq.webp';
+// Blur sudah dibakar ke file: filter CSS tidak andal saat diekspor di Safari/iPad (WebKit).
+const BUILDING = '/institution/gedung-lpq-blur.webp';
 
 // Foto gedung LPQ sebagai latar: diburamkan tipis lalu ditutup lapisan warna agar teks tetap kontras.
-const BuildingBackdrop = ({ overlay, blur = 3, position = 'center 40%' }) => (
+const BuildingBackdrop = ({ overlay, position = 'center 40%' }) => (
   <>
     <img src={BUILDING} alt="" aria-hidden="true" crossOrigin="anonymous"
-      style={{ position: 'absolute', inset: -16, width: CARD_W + 32, height: CARD_H + 32, objectFit: 'cover', objectPosition: position,
-        filter: `blur(${blur}px) saturate(1.1)` }} />
+      style={{ position: 'absolute', inset: 0, width: CARD_W, height: CARD_H, objectFit: 'cover', objectPosition: position }} />
     <div aria-hidden="true" style={{ position: 'absolute', inset: 0, background: overlay }} />
   </>
 );
@@ -127,7 +131,7 @@ export const JilidCard = React.forwardRef(({ data, pesan, guru, avatar }, ref) =
   const longName = isLongName(data.namaLengkap || data.panggilan);
   return (
   <div ref={ref} style={{ width: CARD_W, height: CARD_H, position: 'relative', overflow: 'hidden', borderRadius: 28, background: '#052e36', color: '#fff', fontFamily: SANS }}>
-    <BuildingBackdrop blur={3} position="center 45%"
+    <BuildingBackdrop position="center 45%"
       overlay="linear-gradient(180deg, rgba(4,32,42,0.70) 0%, rgba(7,48,66,0.58) 34%, rgba(14,30,72,0.88) 66%, rgba(22,16,58,0.96) 100%)" />
     <Blob style={{ width: 320, height: 320, top: 70, left: 110, background: 'rgba(45,212,191,0.32)' }} />
     <Blob style={{ width: 260, height: 260, bottom: -90, right: -70, background: 'rgba(139,92,246,0.45)' }} />
@@ -292,7 +296,8 @@ export const ProfilCard = React.forwardRef(({ data, pesan, guru, avatar }, ref) 
   const chipBoxRef = useRef(null);
   const msgRef = useRef(null);
   useLayoutEffect(() => {
-    const free = spacerRef.current?.clientHeight ?? 0;
+    // Sisa ruang dibagi dua celah yang sama besar (di atas dan di bawah panel hafalan).
+    const free = (spacerRef.current?.clientHeight ?? 0) * 2;
     const chipBox = chipBoxRef.current;
     const msg = msgRef.current;
     const column = columnRef.current;
@@ -301,8 +306,10 @@ export const ProfilCard = React.forwardRef(({ data, pesan, guru, avatar }, ref) 
       // Isi melebihi kartu: kurangi baris chip dulu, lalu baris pesan, sampai batas minimum.
       if (chipRows > 2) next = { rows: chipRows - 1, lines: msgLines };
       else if (msgLines > 3) next = { rows: chipRows, lines: msgLines - 1 };
-    } else if (msg && msg.scrollHeight > msg.clientHeight + 1 && free >= MSG_LINE && msgLines < MSG_MAX_LINES) {
-      next = { rows: chipRows, lines: msgLines + 1 };
+    } else if (msg && msg.scrollHeight > msg.clientHeight + 1 && msgLines < MSG_MAX_LINES) {
+      // Pesan guru didahulukan: pakai ruang kosong, atau kurangi satu baris chip bila ruang belum cukup.
+      if (free >= MSG_LINE) next = { rows: chipRows, lines: msgLines + 1 };
+      else if (chipRows > 1) next = { rows: chipRows - 1, lines: msgLines };
     } else if (chipBox && chipBox.scrollHeight > chipBox.clientHeight + 1 && free >= CHIP_H + CHIP_GAP && chipRows < CHIP_MAX_ROWS) {
       next = { rows: chipRows + 1, lines: msgLines };
     }
@@ -315,7 +322,7 @@ export const ProfilCard = React.forwardRef(({ data, pesan, guru, avatar }, ref) 
   return (
     <div ref={ref} style={{ width: CARD_W, height: CARD_H, position: 'relative', overflow: 'hidden', borderRadius: 28,
       background: '#f4fbfb', color: '#0f2f36', fontFamily: SANS }}>
-      <BuildingBackdrop blur={4} position="center 40%"
+      <BuildingBackdrop position="center 40%"
         overlay="linear-gradient(170deg, rgba(244,251,251,0.62) 0%, rgba(238,246,251,0.86) 32%, rgba(243,240,255,0.95) 100%)" />
       <Blob style={{ width: 300, height: 300, top: -140, right: -80, background: 'rgba(45,212,191,0.35)' }} />
       <Blob style={{ width: 260, height: 260, bottom: -120, left: -90, background: 'rgba(167,139,250,0.35)' }} />
@@ -375,6 +382,7 @@ export const ProfilCard = React.forwardRef(({ data, pesan, guru, avatar }, ref) 
           </div>
         </Panel>
 
+        <div aria-hidden="true" style={{ flex: '1 1 0', minHeight: 0 }} />
         <Panel title="Hafalan" style={{ flexShrink: 0 }}>
           {h.wajibTotal > 0 && (
             <div style={{ marginBottom: 10 }}>
