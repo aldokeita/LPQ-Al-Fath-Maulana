@@ -1,5 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
 import { ArrowLeft, Sun, Moon, ScanFace, Fingerprint, ThumbsUp, Zap } from 'lucide-react';
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
@@ -36,10 +36,13 @@ const MAX_CARDS = 3;
 const depthStyle = depth => ({ opacity: depth === 0 ? 1 : depth === 1 ? 0.9 : 0.75, y: 0, scale: 1 });
 // ?debug-kinerja shows a timing panel; ?ukuran-deteksi=320 tries a smaller detector size on site.
 // ?backend=wasm|webgl|auto is remembered on this device (the kiosk PC), before the camera loads the models.
-const kioskParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
-if (kioskParams.has('backend')) saveBackendPreference(kioskParams.get('backend'));
-const perfMeter = kioskParams.has('debug-kinerja') ? createPerfMeter() : noopPerf;
-const detectorSize = parseDetectorSize(kioskParams.get('ukuran-deteksi'));
+// Read from the URL on each visit: a module-level read would keep the panel on for the whole tab
+// after one ?debug-kinerja visit, even on a later plain /absensi-wajah.
+const readKioskOptions = search => {
+  const params = new URLSearchParams(search);
+  if (params.has('backend')) saveBackendPreference(params.get('backend'));
+  return { perfMeter: params.has('debug-kinerja') ? createPerfMeter() : noopPerf, detectorSize: parseDetectorSize(params.get('ukuran-deteksi')) };
+};
 const loadLevelConfig = () => supabase.from('website_content').select('content').eq('key','level_config').maybeSingle()
   .then(({ data, error }) => { if (error) throw error; return data?.content; });
 // Per-device kiosk preference; storage may be unavailable (private mode), so fall back silently.
@@ -48,6 +51,8 @@ const readMode = () => { try { return localStorage.getItem(MODE_STORAGE_KEY) ===
 export default function FaceAttendancePage() {
   const { isDark, toggleTheme } = useTheme();
   const { sessionTimes } = useAttendanceSessionConfiguration();
+  const { search } = useLocation();
+  const { perfMeter, detectorSize } = useMemo(() => readKioskOptions(search), [search]);
   const [mode, setMode] = useState(readMode);
   const chooseMode = value => { setMode(value); try { localStorage.setItem(MODE_STORAGE_KEY, value); } catch { /* preference only */ } };
   const [cards, setCards] = useState([]); const [notice, setNotice] = useState('');
