@@ -30,8 +30,14 @@ export const saveBackendPreference = value => {
   try { if (value === 'auto') localStorage.removeItem(BACKEND_STORAGE_KEY); else localStorage.setItem(BACKEND_STORAGE_KEY, value); } catch { /* preference only */ }
 };
 export const isSoftwareRenderer = renderer => /swiftshader|llvmpipe|softpipe|software|basic render/i.test(renderer || '');
+// Safari reports its GPU only as "Apple GPU". On an iPad its WebGL never finished a single detection (the
+// kiosk sat at 0 FPS showing "0 SUBJEK"), so auto mode runs Safari on WASM.
+export const isSafariWebgl = renderer => /^apple gpu$/i.test((renderer || '').trim());
 export const chooseBackend = (preference, renderer) => (preference === 'webgl' || preference === 'wasm' ? preference
-  : !renderer || isSoftwareRenderer(renderer) ? 'wasm' : 'webgl');
+  : !renderer || isSoftwareRenderer(renderer) || isSafariWebgl(renderer) ? 'wasm' : 'webgl');
+// Auto mode also gives WebGL one small upload-and-readback before loading the models; a GPU that cannot
+// finish it in time would freeze the kiosk the same way, so the device moves to WASM instead.
+export const WEBGL_PROBE_TIMEOUT_MS = 5000;
 // iPad/iPhone Safari (every iOS browser) runs WebGL models in float16: detector scores fall below the kiosk
 // gates and descriptors drift from templates made in float32. Auto mode moves such devices to WASM.
 export const keepWebgl = (preference, float32) => preference === 'webgl' || float32;
@@ -83,13 +89,24 @@ async function prepareWasm(api) {
   return { file, simd, threads };
 }
 
+// Uploads a tiny canvas and reads a sum back: the same path every detection takes.
+async function webglResponds(api) {
+  const probe = (async () => {
+    const canvas = document.createElement('canvas'); canvas.width = 8; canvas.height = 8;
+    const pixels = api.tf.browser.fromPixels(canvas); const total = pixels.sum();
+    try { await total.data(); return true; } finally { pixels.dispose(); total.dispose(); }
+  })().catch(() => false);
+  return Promise.race([probe, new Promise(resolve => setTimeout(() => resolve(false), WEBGL_PROBE_TIMEOUT_MS))]);
+}
+
 async function selectBackend(api, preference) {
   const renderer = webglRenderer();
   const wanted = chooseBackend(preference, renderer);
   if (wanted === 'webgl' && await api.tf.setBackend('webgl').catch(() => false)) {
     await api.tf.ready();
     const float32 = api.tf.env().getBool('WEBGL_RENDER_FLOAT32_CAPABLE');
-    if (keepWebgl(preference, float32)) return { backend: 'webgl', renderer, preference, float32 };
+    const responds = preference === 'webgl' || await webglResponds(api);
+    if (responds && keepWebgl(preference, float32)) return { backend: 'webgl', renderer, preference, float32 };
   }
   const wasm = await prepareWasm(api);
   if (!await api.tf.setBackend('wasm')) throw new Error('MODEL_UNAVAILABLE');

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createChallengeCache } from '../src/lib/faceChallengeCache.js';
 import { createPerfMeter, noopPerf } from '../src/lib/kioskPerf.js';
 import { framesReady, recentFrontal, wantsDescriptor, FRAME_MAX_AGE_MS } from '../src/lib/faceKiosk.js';
-import { chooseBackend, ENROLL_DETECTOR_SIZE, isSoftwareRenderer, keepWebgl, KIOSK_DETECTOR_SIZE, parseDetectorSize, readBackendPreference } from '../src/lib/faceCameraEngine.js';
+import { chooseBackend, ENROLL_DETECTOR_SIZE, isSafariWebgl, isSoftwareRenderer, keepWebgl, KIOSK_DETECTOR_SIZE, parseDetectorSize, readBackendPreference } from '../src/lib/faceCameraEngine.js';
 import { PASSIVE_MIN_SPAN_MS } from '../supabase/functions/_shared/faceCapture.js';
 
 const clock = () => { let time = 0; return { now: () => time, advance: ms => { time += ms; } }; };
@@ -108,4 +108,11 @@ test('auto mode leaves half-precision WebGL (iPad/iPhone Safari) for WASM', () =
   assert.equal(keepWebgl('auto', true), true);
   assert.equal(keepWebgl('auto', false), false, 'float16 WebGL falls back to WASM');
   assert.equal(keepWebgl('webgl', false), true, 'an explicit webgl choice is kept');
+});
+
+test('auto mode runs Safari (renderer "Apple GPU") on WASM', () => {
+  assert.equal(isSafariWebgl('Apple GPU'), true);
+  assert.equal(isSafariWebgl('ANGLE (Apple, ANGLE Metal Renderer: Apple M2, Unspecified Version)'), false, 'Chrome on a Mac keeps WebGL');
+  assert.equal(chooseBackend('auto', 'Apple GPU'), 'wasm');
+  assert.equal(chooseBackend('webgl', 'Apple GPU'), 'webgl', 'an explicit webgl choice is kept');
 });
