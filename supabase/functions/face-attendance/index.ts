@@ -95,6 +95,11 @@ Deno.serve(async (req) => {
       }
       return ok(req, await operation('challenge', payload));
     }
+    // Session times do not depend on who was matched, so they load while the face is being matched.
+    const settingsLoad = ['recognize', 'retry', 'rfid'].includes(payload.action)
+      ? admin.from('website_content').select('content').eq('key', 'attendance_session_config').maybeSingle()
+        .then(result => result, error => ({ data: null, error }))
+      : null;
     let santriId; let receiptId; let source;
     if (['enroll', 'self_enroll', 'guru_enroll', 'recognize'].includes(payload.action)) {
       if (!uuid(payload.challengeId)) throw new Error('INVALID_REQUEST');
@@ -127,22 +132,24 @@ Deno.serve(async (req) => {
       if (error || !data) throw new Error('ACTIVE_SANTRI_REQUIRED');
       santriId = data.id; receiptId = payload.receiptId; source = 'rfid';
     } else throw new Error('INVALID_CAPTURE');
-    const { data: santri, error: studentError } = await client.from('santri')
-      .select('id,kategori,sesi_mengaji,current_class_id,class:current_class_id(sesi)')
-      .eq('id', santriId).maybeSingle();
-    if (studentError || !santri) throw new Error('ACTIVE_SANTRI_REQUIRED');
-    const { data: settings, error: settingsError } = await admin.from('website_content').select('content')
-      .eq('key', 'attendance_session_config').maybeSingle();
-    if (settingsError) throw new Error('BACKEND_ERROR');
     const timestamp = new Date(); const dateStr = getJakartaDateString(timestamp);
+    // These three reads are independent; running them together saves two database round trips.
+    // The profile fields go back with the result so the kiosk card needs no second query.
+    const [{ data: santri, error: studentError }, { data: settings, error: settingsError }, { data: existing, error: existingError }] = await Promise.all([
+      client.from('santri')
+        .select('id,nama_lengkap,jilid,jenis_kelamin,kategori,avatar_path,foto_url,sesi_mengaji,current_class_id,class:current_class_id(sesi,nama_kelas)')
+        .eq('id', santriId).maybeSingle(),
+      settingsLoad,
+      // Existing valid attendance must be returned even outside the current session window.
+      client.from('attendance').select('status,sesi,attended_session')
+        .eq('user_id', santriId).eq('attendance_date', dateStr)
+        .order('check_in_timestamp', { ascending: true, nullsFirst: false }).order('created_at').limit(1).maybeSingle(),
+    ]);
+    if (studentError || !santri) throw new Error('ACTIVE_SANTRI_REQUIRED');
+    if (settingsError || existingError) throw new Error('BACKEND_ERROR');
     const sessionTimes = getAttendanceSessionTimes(settings?.content);
     const assigned = santri.sesi_mengaji || santri.class?.sesi || 'Pagi';
     const window = resolveSantriAttendanceSession({ timestamp, dateStr, assignedSession: assigned, sessionTimes });
-    // Existing valid attendance must be returned even outside the current session window.
-    const { data: existing, error: existingError } = await client.from('attendance').select('status,sesi,attended_session')
-      .eq('user_id', santriId).eq('attendance_date', dateStr)
-      .order('check_in_timestamp', { ascending: true, nullsFirst: false }).order('created_at').limit(1).maybeSingle();
-    if (existingError) throw new Error('BACKEND_ERROR');
     if (!window.can && (!existing || ['tidak hadir','alpha','ghaib','absen'].includes(existing.status.toLowerCase()))) {
       return ok(req, { state: 'outside_session', message: window.message });
     }
@@ -156,7 +163,9 @@ Deno.serve(async (req) => {
       p_actual: actual, p_award: award,
     });
     if (error) throw new Error(messages[error.message] ? error.message : 'BACKEND_ERROR');
-    return ok(req, { state: result.created ? 'saved' : 'already_recorded', santriId, ...result });
+    const student = { id: santri.id, nama_lengkap: santri.nama_lengkap, jilid: santri.jilid, jenis_kelamin: santri.jenis_kelamin,
+      kategori: santri.kategori, avatar_path: santri.avatar_path, foto_url: santri.foto_url, class: { nama_kelas: santri.class?.nama_kelas ?? null } };
+    return ok(req, { state: result.created ? 'saved' : 'already_recorded', santriId, ...result, student });
   } catch (error) {
     const code = error instanceof Error ? error.message : 'BACKEND_ERROR';
     return fail(req, messages[code] ? code : 'BACKEND_ERROR', messages[code] || 'Proses belum berhasil dikonfirmasi. Coba lagi atau gunakan RFID.', code === 'FORBIDDEN' ? 403 : 400);

@@ -41,3 +41,15 @@ test('only a thumb confirms; the peace sign and other hand shapes do not', () =>
   assert.deepEqual(assignGesturesToFaces([hand('Thumb_Up')], faces).get(0), { handIndex: 0, gesture: 'Thumb_Up' });
   for (const gesture of ['Victory', 'Open_Palm', 'Closed_Fist', 'Pointing_Up', 'ILoveYou', 'None']) assert.equal(assignGesturesToFaces([hand(gesture)], faces).size, 0, gesture);
 });
+
+test('a just-recorded face is remembered for a while, then forgotten and zeroed', async () => {
+  const { createRecentFaces } = await import('../src/lib/faceKiosk.js');
+  let clock = 0; const distance = (a, b) => Math.abs(a[0] - b[0]);
+  const recent = createRecentFaces(distance, { ttlMs: 1000, maxDistance: 0.4, now: () => clock });
+  const source = [1, 0];
+  recent.add(source, 'Ahmad'); source[0] = 0;
+  assert.equal(recent.find([1.2, 0])?.name, 'Ahmad');
+  assert.equal(recent.find([2, 0]), null);
+  clock = 1000;
+  assert.equal(recent.find([1, 0]), null);
+});

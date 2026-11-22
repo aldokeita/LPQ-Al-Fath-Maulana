@@ -43,6 +43,7 @@ const readKioskOptions = search => {
   if (params.has('backend')) saveBackendPreference(params.get('backend'));
   return { perfMeter: params.has('debug-kinerja') ? createPerfMeter() : noopPerf, detectorSize: parseDetectorSize(params.get('ukuran-deteksi')) };
 };
+const STUDENT_FIELDS = 'id,nama_lengkap,jilid,jenis_kelamin,kategori,avatar_path,foto_url,class:current_class_id(nama_kelas)';
 const loadLevelConfig = () => supabase.from('website_content').select('content').eq('key','level_config').maybeSingle()
   .then(({ data, error }) => { if (error) throw error; return data?.content; });
 // Per-device kiosk preference; storage may be unavailable (private mode), so fall back silently.
@@ -115,8 +116,10 @@ export default function FaceAttendancePage() {
     if (result.state === 'guru_matched') return captureGuru(result.guruId, began);
     if (!['saved','already_recorded'].includes(result.state)) return { success: false, message: rejectionMessages[result.state] || result.message || 'Absensi belum dicatat.' };
     try {
+      // A newer face-attendance function returns the profile with the result; an older one needs a second query.
       const [{ data: student, error }, config] = await Promise.all([
-        supabase.from('santri').select('id,nama_lengkap,jilid,jenis_kelamin,kategori,avatar_path,foto_url,class:current_class_id(nama_kelas)').eq('id',result.santriId).single(),
+        result.student?.id === result.santriId ? { data: result.student, error: null }
+          : supabase.from('santri').select(STUDENT_FIELDS).eq('id',result.santriId).single(),
         getLevelConfig(),
       ]);
       if (error) throw error;
