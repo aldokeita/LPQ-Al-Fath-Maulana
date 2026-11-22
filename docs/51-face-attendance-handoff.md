@@ -182,10 +182,16 @@ Pencocokan di database **bukan** hambatan. Untuk ratusan santri (5 sampel per or
 5. **Tantangan disiapkan lebih awal** untuk kedua mode (`src/lib/faceChallengeCache.js`). Tantangan dipakai maksimal 30 detik setelah diterbitkan. Setelah gagal, jeda 5 detik sebelum mencoba lagi. Waktu `evidence` mode Otomatis kini relatif terhadap frame pertama, sama seperti mode Gesture.
 6. **Profile Card bertahap.** Kartu tampil setelah `recognize` + 1 query `santri`. Foto, statistik bulanan, dan hafalan menyusul. `level_config` dimuat sekali per halaman.
 7. **Panel `?debug-kinerja`**: FPS, rata-rata `deteksi` / `deskriptor` / `tangan` / `tantangan` / `konfirmasi` / `recognize` / `kartu pertama` / `kartu lengkap`, waktu muat model, sumber model (`cache` / `validasi ulang` / `unduh`), dan tombol **Uji kesetaraan deskriptor** untuk frame kamera saat ini.
+8. **Backend WASM (CPU)** untuk perangkat yang WebGL-nya lambat. Di PC LPQ, waktu `deteksi` 849 ms dengan WebGL, padahal laptop pengembang 30 ms.
+   - Binary `@tensorflow/tfjs-backend-wasm` 4.22.0 (versi yang sama dengan tfjs di dalam face-api) disimpan di `public/tfjs-wasm/4.22.0/` beserta `integrity.json`. Hanya binary yang dipakai browser yang diunduh, lalu hash-nya dicek sebelum dijalankan.
+   - Pilihan per perangkat lewat `?backend=wasm|webgl|auto`. Pilihan ini disimpan di `localStorage` (`lpq-face-backend`) dan berlaku juga untuk registrasi di perangkat yang sama. `auto` (bawaan) memakai WASM kalau renderer WebGL berupa software (SwiftShader, Microsoft Basic Render Driver) atau kalau WebGL gagal.
+   - `/absensi-wajah` mendapat header `Cross-Origin-Opener-Policy: same-origin` dan `Cross-Origin-Embedder-Policy: credentialless`, supaya WASM bisa memakai banyak thread. Isolasi ini hanya aktif kalau kiosk dibuka langsung lewat URL, bukan lewat navigasi dari halaman lain. Tanpa isolasi, WASM tetap jalan dengan satu thread.
+   - Deskriptor WASM dan WebGL identik pada sampel (jarak 0,00000), jadi template lama tetap cocok.
+   - Uji lokal: `deteksi` 51 ms (WASM satu thread) dan 38 ms (WASM + thread). Panel menampilkan `backend` dan `GPU`.
 
 ### Operasional
 - **Untuk antrean ratusan santri, pakai mode Otomatis** (satu orang per giliran, tanpa model tangan). Mode Gesture lebih berat dan lebih cocok untuk suasana santai.
-- **Kiosk sebaiknya perangkat khusus.** Di PC LPQ, `chrome://gpu` harus menunjukkan *WebGL: Hardware accelerated*. Kalau tertulis *Software only*, aktifkan akselerasi hardware di pengaturan Chrome atau perbarui driver GPU. HP pribadi hanya untuk uji.
+- **Kiosk sebaiknya perangkat khusus.** Di PC LPQ, `chrome://gpu` harus menunjukkan *WebGL: Hardware accelerated*. Kalau tertulis *Software only*, aktifkan akselerasi hardware di pengaturan Chrome atau perbarui driver GPU. Kalau GPU-nya tetap lambat, buka sekali `/absensi-wajah?debug-kinerja&backend=wasm`, lalu bandingkan `deteksi` dengan `?backend=webgl`, dan biarkan pilihan yang lebih cepat tersimpan. HP pribadi hanya untuk uji.
 - **Kapasitas:** perkiraan setelah perbaikan, satu kiosk melayani satu santri per 2–4 detik, atau sekitar 15–30 santri per menit. Kalau ratusan santri datang dalam waktu singkat, siapkan **2 kiosk** atau tetap buka **RFID berdampingan**.
 
 ### Selesai kalau

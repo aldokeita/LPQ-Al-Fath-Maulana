@@ -1,0 +1,4 @@
+TensorFlow.js WebAssembly backend binaries, @tensorflow/tfjs-backend-wasm 4.22.0.
+Source: https://registry.npmjs.org/@tensorflow/tfjs-backend-wasm/-/tfjs-backend-wasm-4.22.0.tgz
+Copyright Google LLC. Licensed under the Apache License, Version 2.0:
+https://www.apache.org/licenses/LICENSE-2.0
