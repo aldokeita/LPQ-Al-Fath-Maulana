@@ -62,3 +62,12 @@ verify_jwt = false
 
 [functions.face-attendance]
 verify_jwt = true
+
+[functions.telegram-webhook]
+verify_jwt = false
+
+[functions.telegram-dispatch]
+verify_jwt = false
+
+[functions.assistant-ai]
+verify_jwt = false

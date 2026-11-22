@@ -177,6 +177,33 @@ export const updateHafalanItem = async (id, updates) => {
     if (error) throw error;
 };
 
+// Renames a curriculum item in place. Progress rows keep pointing at the same
+// item_id, so santri scores survive; their denormalized item_name is synced, and
+// legacy rows matched only by category + name are renamed so lookups still hit.
+export const renameHafalanItem = async ({ id, category, oldName, newName }) => {
+    const itemName = String(newName || '').trim();
+    if (!id || !itemName) throw new Error('Nama hafalan tidak boleh kosong.');
+
+    const { error } = await supabase.from('hafalan_items').update({ item_name: itemName }).eq('id', id);
+    if (error) throw error;
+
+    const { error: syncError } = await supabase
+        .from('hafalan_progress')
+        .update({ item_name: itemName })
+        .eq('item_id', id);
+    if (syncError) throw syncError;
+
+    if (category && oldName && oldName !== itemName) {
+        const { error: legacyError } = await supabase
+            .from('hafalan_progress')
+            .update({ item_name: itemName })
+            .is('item_id', null)
+            .eq('category', category)
+            .eq('item_name', oldName);
+        if (legacyError) throw legacyError;
+    }
+};
+
 export const deactivateHafalanItem = async (id) => {
     const { error } = await supabase.from('hafalan_items').update({ is_active: false }).eq('id', id);
     if (error) throw error;

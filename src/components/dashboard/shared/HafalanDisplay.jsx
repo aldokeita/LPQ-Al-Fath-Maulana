@@ -14,6 +14,8 @@ const HafalanDisplay = ({
     isDraggable = false,
     onItemDrop,
     onDeleteItem,
+    onRenameItem = null,
+    onReorderItem = null,
     progressData = null, // Optional: { [itemName]: boolean }
     scoreData = null, // Optional: { [itemName]: 1 | 2 | 3 | 4 }
     onScoreChange = null,
@@ -23,15 +25,18 @@ const HafalanDisplay = ({
 }) => {
     const [{ isOver }, drop] = useDrop(() => ({
         accept: 'HAFALAN_ITEM',
-        drop: (item) => {
-            if (item.jilid !== jilid && onItemDrop) {
+        drop: (item, monitor) => {
+            if (monitor.didDrop()) return;
+            if (onReorderItem) {
+                onReorderItem(item.id, jilid, null);
+            } else if (item.jilid !== jilid && onItemDrop) {
                 onItemDrop(item.id, jilid);
             }
         },
         collect: (monitor) => ({
             isOver: !!monitor.isOver(),
         }),
-    }), [jilid, onItemDrop]);
+    }), [jilid, onItemDrop, onReorderItem]);
 
     const displayItems = items || [];
     // progressData is expected to be an object where keys are item names and values are booleans (hafal status)
@@ -118,8 +123,11 @@ const HafalanDisplay = ({
                                     ) : (
                                         <HafalanItemDraggable
                                             item={item}
+                                            jilid={jilid}
                                             isDraggable={isDraggable}
                                             onDelete={onDeleteItem}
+                                            onRename={onRenameItem}
+                                            onReorder={onReorderItem}
                                         />
                                     )}
                                 </div>

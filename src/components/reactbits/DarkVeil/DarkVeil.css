@@ -3,3 +3,22 @@
   height: 100%;
   display: block;
 }
+
+/* Static backdrop when WebGL is unavailable */
+.darkveil-fallback {
+  width: 100%;
+  height: 100%;
+  background:
+    radial-gradient(ellipse at 28% 30%, rgba(20, 184, 166, 0.28), transparent 55%),
+    radial-gradient(ellipse at 74% 68%, rgba(59, 130, 246, 0.24), transparent 55%),
+    radial-gradient(ellipse at 60% 20%, rgba(139, 92, 246, 0.16), transparent 50%),
+    #0a0a0f;
+}
+
+.darkveil-fallback--light {
+  background:
+    radial-gradient(ellipse at 28% 30%, rgba(20, 184, 166, 0.16), transparent 55%),
+    radial-gradient(ellipse at 74% 68%, rgba(59, 130, 246, 0.14), transparent 55%),
+    radial-gradient(ellipse at 60% 20%, rgba(139, 92, 246, 0.1), transparent 50%),
+    #f4f6f5;
+}

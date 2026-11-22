@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
-import { Users, DollarSign, BookOpen, TrendingDown, BookUser, Fingerprint, LogIn, FileText, CalendarCheck, Tv, Gamepad2, PieChart, Settings, GraduationCap, Briefcase, Calendar, Calculator, Shuffle, Database, Library, FileSpreadsheet, CreditCard } from 'lucide-react';
+import { Users, DollarSign, BookOpen, TrendingDown, BookUser, Fingerprint, LogIn, FileText, CalendarCheck, Tv, Gamepad2, PieChart, Settings, GraduationCap, Briefcase, Calendar, Calculator, Shuffle, Database, Library, FileSpreadsheet, CreditCard, BellRing } from 'lucide-react';
 import SantriManagement from './admin/SantriManagement';
 import SantriDewasaManagement from './admin/SantriDewasaManagement';
 import GuruManagement from './admin/GuruManagement';
@@ -20,6 +20,7 @@ import GameConfiguration from './admin/GameConfiguration';
 import CalendarManagement from './admin/CalendarManagement';
 import SalaryCalculation from './admin/SalaryCalculation';
 import BackupRestoreManagement from './admin/BackupRestoreManagement';
+import AssistantSettings from './admin/AssistantSettings';
 import MMQManagement from './admin/MMQManagement';
 import { supabase } from '@/lib/customSupabaseClient';
 import { enableBackupRestore, enableGameFeatures } from '@/lib/featureFlags';
@@ -163,6 +164,7 @@ const AdminDashboard = () => {
     { value: 'mmq', label: 'MMQ', icon: Library, group: 'akademik' },
     { value: 'salary', label: 'Bisyaroh', icon: Calculator, group: 'akademik' },
     { value: 'academic-calendar', label: 'Kalender', icon: Calendar, group: 'akademik' },
+    { value: 'asisten', label: 'Asisten', icon: BellRing, group: 'akademik' },
     { value: 'payment', label: 'Pembayaran', icon: DollarSign, group: 'keuangan' },
     { value: 'recap', label: 'Rekap SPP', icon: PieChart, group: 'keuangan' },
     { value: 'history', label: 'Riwayat Bayar', icon: FileText, group: 'keuangan' },
@@ -344,6 +346,7 @@ const AdminDashboard = () => {
             <TabsContent value="tv-settings"><TvDisplaySettings /></TabsContent>
             <TabsContent value="game-config"><GameConfiguration /></TabsContent>
             <TabsContent value="backup"><BackupRestoreManagement /></TabsContent>
+            <TabsContent value="asisten"><AssistantSettings /></TabsContent>
             <TabsContent value="history"><PaymentHistory /></TabsContent>
             <TabsContent value="recap"><PaymentRecap /></TabsContent>
             <TabsContent value="content"><ContentManagement /></TabsContent>

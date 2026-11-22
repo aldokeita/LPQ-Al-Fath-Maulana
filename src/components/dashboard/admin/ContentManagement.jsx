@@ -10,10 +10,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
-import { RotateCcw, ClipboardList, GripVertical, PlusCircle, MinusCircle, ArrowUp, ArrowDown } from 'lucide-react';
+import { RotateCcw, ClipboardList, GripVertical, PlusCircle, MinusCircle, ArrowUp, ArrowDown, CaseSensitive, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import HafalanDisplay from '@/components/dashboard/shared/HafalanDisplay';
-import { createHafalanItem, deactivateHafalanItem, fetchHafalanItems, getAcademicErrorMessage, updateHafalanItem } from '@/lib/academicAdapters';
+import { createHafalanItem, deactivateHafalanItem, fetchHafalanItems, getAcademicErrorMessage, renameHafalanItem, updateHafalanItem } from '@/lib/academicAdapters';
+import { formatHafalanItemName, usesHafalanTitleCase, validateHafalanItemRename } from '@/lib/hafalanItemName';
+import { groupItemsByLevel, moveHafalanItem } from '@/lib/hafalanItemOrder';
 import { getStorageErrorMessage, uploadWebsiteAsset } from '@/lib/storageAdapters';
 import { createDefaultEnrollmentData, prepareEnrollmentDataForSave } from '@/lib/enrollmentContent';
 import { defaultContent, mergeHomepageContent } from '@/components/public/home/homeUtils';
@@ -47,6 +49,10 @@ const HafalanItemManager = ({
   const [newItemName, setNewItemName] = useState('');
   const [targetJilid, setTargetJilid] = useState(String(levels[0]));
   const [isLoading, setIsLoading] = useState(false);
+  const [isTidying, setIsTidying] = useState(false);
+  const formatName = (value) => formatHafalanItemName(value, { category, programScope });
+  const untidyItems = items.filter((item) => formatName(item.item_name) !== item.item_name);
+  const canTidyNames = usesHafalanTitleCase({ category, programScope });
 
   useEffect(() => {
     fetchItems();
@@ -64,13 +70,14 @@ const HafalanItemManager = ({
   };
 
   const handleAddItem = async () => {
-    if (!newItemName.trim()) return;
+    const itemName = formatName(newItemName);
+    if (!itemName) return;
     try {
       await createHafalanItem({
         category,
         programScope,
-        itemName: newItemName,
-        itemOrder: items.length + 1,
+        itemName,
+        itemOrder: items.reduce((max, item) => Math.max(max, Number(item.item_order) || 0), 0) + 1,
         jilid: targetJilid
       });
       setNewItemName('');
@@ -92,27 +99,70 @@ const HafalanItemManager = ({
     }
   };
 
-  const handleItemDrop = async (itemId, newJilid) => {
-    // Optimistic update
-    setItems(prev => prev.map(item => item.id === itemId ? { ...item, jilid: newJilid } : item));
+  const handleRenameItem = async (item, nextName) => {
+    const result = validateHafalanItemRename({ item, nextName, items, format: formatName });
+    if (result.error) {
+      toast({ title: "Nama belum bisa disimpan", description: result.error, variant: "destructive" });
+      return false;
+    }
+    if (result.unchanged) return true;
 
     try {
-        await updateHafalanItem(itemId, { jilid: newJilid });
-      toast({ title: "Berhasil", description: `Item dipindahkan ke ${[levelPrefix, newJilid].filter(Boolean).join(' ')}` });
+      await renameHafalanItem({ id: item.id, category: item.category || category, oldName: item.item_name, newName: result.name });
+      setItems(prev => prev.map(row => row.id === item.id ? { ...row, item_name: result.name } : row));
+      toast({ title: "Berhasil", description: `Nama diubah menjadi "${result.name}". Nilai santri tetap tersimpan.` });
+      return true;
     } catch (error) {
-        toast({ title: "Gagal memindahkan item", description: getAcademicErrorMessage(error), variant: "destructive" });
-        fetchItems(); // Revert on error
+      toast({ title: "Gagal mengubah nama", description: getAcademicErrorMessage(error), variant: "destructive" });
+      fetchItems();
+      return false;
     }
   };
 
-  // Group items by Jilid for display
-  const itemsByJilid = Object.fromEntries(levels.map((level, index) => [
-    String(level),
-    items.filter((item) => {
-      const itemLevel = String(item.jilid || '');
-      return itemLevel === String(level) || (index === 0 && !itemLevel);
-    })
-  ]));
+  // Renames only item_name (never jilid or item_order), so the admin's ordering stays intact.
+  const handleTidyNames = async () => {
+    if (!untidyItems.length) return;
+    if (!window.confirm(`Rapikan ${untidyItems.length} nama ${title} ke Title Case? Urutan dan nilai santri tidak berubah.`)) return;
+    setIsTidying(true);
+    let done = 0;
+    try {
+      for (const item of untidyItems) {
+        const newName = formatName(item.item_name);
+        await renameHafalanItem({ id: item.id, category: item.category || category, oldName: item.item_name, newName });
+        setItems(prev => prev.map(row => row.id === item.id ? { ...row, item_name: newName } : row));
+        done += 1;
+      }
+      toast({ title: "Berhasil", description: `${done} nama ${title} sudah dirapikan.` });
+    } catch (error) {
+      toast({ title: `Baru ${done} nama dirapikan`, description: getAcademicErrorMessage(error), variant: "destructive" });
+      fetchItems();
+    }
+    setIsTidying(false);
+  };
+
+  const handleItemReorder = async (draggedId, targetJilid, targetId = null, position = 'before') => {
+    const previousItems = items;
+    const { items: nextItems, updates } = moveHafalanItem({ items, levels, draggedId, targetJilid, targetId, position });
+    if (!updates.length) return;
+
+    setItems(nextItems);
+    try {
+      await Promise.all(updates.map(({ id, ...changes }) => updateHafalanItem(id, changes)));
+      const moved = updates.find((update) => update.id === draggedId && update.jilid);
+      toast({
+        title: "Berhasil",
+        description: moved
+          ? `Item dipindahkan ke ${[levelPrefix, targetJilid].filter(Boolean).join(' ')}`
+          : "Urutan hafalan disimpan."
+      });
+    } catch (error) {
+      setItems(previousItems);
+      toast({ title: "Gagal menyimpan urutan", description: getAcademicErrorMessage(error), variant: "destructive" });
+      fetchItems();
+    }
+  };
+
+  const itemsByJilid = groupItemsByLevel(items, levels);
 
   return (
     <section className="space-y-6 rounded-lg border bg-muted/20 p-4 sm:p-6" aria-labelledby={`hafalan-${programScope}-${category}`}>
@@ -139,6 +189,12 @@ const HafalanItemManager = ({
             <Input placeholder="Nama hafalan baru..." value={newItemName} onChange={e => setNewItemName(e.target.value)} className="min-w-[200px] flex-1 bg-background" />
             <Button onClick={handleAddItem}><Plus className="w-4 h-4 mr-2"/> Tambah</Button>
           </div>
+          {canTidyNames && untidyItems.length > 0 && (
+            <Button type="button" variant="outline" onClick={handleTidyNames} disabled={isTidying} className="w-full bg-background md:w-auto">
+              {isTidying ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CaseSensitive className="mr-2 h-4 w-4" />}
+              Rapikan {untidyItems.length} Nama
+            </Button>
+          )}
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
@@ -149,15 +205,16 @@ const HafalanItemManager = ({
                   titlePrefix={levelPrefix}
                   items={itemsByJilid[jilid]}
                   isDraggable={true}
-                  onItemDrop={handleItemDrop}
                   onDeleteItem={handleDeleteItem}
+                  onRenameItem={handleRenameItem}
+                  onReorderItem={handleItemReorder}
                   isLoading={isLoading}
               />
           ))}
       </div>
 
       <p className="text-xs text-muted-foreground text-center pt-2">
-          Tarik dan lepas item hafalan untuk memindahkannya ke target lain.
+          Tarik item untuk mengubah urutan di kolomnya atau memindahkannya ke jilid lain. Klik ikon pensil untuk mengubah nama tanpa menghapus nilai santri.
       </p>
     </section>
   );
