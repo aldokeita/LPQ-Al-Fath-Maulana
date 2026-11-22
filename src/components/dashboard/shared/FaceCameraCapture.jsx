@@ -19,8 +19,8 @@ const stateIcons = { idle: Camera, permission: Loader2, loading: Loader2, active
 const spinningStates = ['permission', 'loading', 'recognizing'];
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 const requestAttendanceChallenge = () => faceAttendanceRequest({ action: 'challenge', purpose: 'attendance' });
-const describeBackend = ({ backend, preference, simd, threads }) => (backend === 'wasm'
-  ? `wasm${simd ? ' SIMD' : ''}${threads ? ' + thread' : ''}` : backend) + ` (pilihan: ${preference})`;
+const describeBackend = ({ backend, preference, simd, threads, float32 }) => (backend === 'wasm'
+  ? `wasm${simd ? ' SIMD' : ''}${threads ? ' + thread' : ''}` : `webgl${float32 ? '' : ' float16'}`) + ` (pilihan: ${preference})`;
 // Kiosk evidence times are relative to the first frame; the server checks order, span and the 40 s ceiling.
 const kioskEvidence = frames => frames.map(frame => ({ pose: 'center', elapsedMs: frame.at - frames[0].at + 1, faceCount: 1, quality: true }));
 // An unrecognized santri who stays in front of the camera gets another attempt after this delay.
@@ -41,7 +41,15 @@ export default function FaceCameraCapture({ purpose = 'attendance', mode = 'pass
   // Both kiosk modes draw the HUD overlay; only enrollment keeps the head-turn guide ring.
   const hudMode = purpose === 'attendance';
   const overlay = useRef(null);
-  const video = useRef(null); const stream = useRef(null); const generation = useRef(0);
+  const video = useRef(null); const stream = useRef(null); const generation = useRef(0); const frame = useRef(null);
+  // Safari (every iPad/iPhone browser) can hand WebGL an empty texture from a live <video>, so the face
+  // models read a 2D-canvas copy of the frame; detection and descriptors in one pass share that copy.
+  const snapshot = () => {
+    const source = video.current; const canvas = frame.current || (frame.current = document.createElement('canvas'));
+    if (canvas.width !== source.videoWidth || canvas.height !== source.videoHeight) { canvas.width = source.videoWidth; canvas.height = source.videoHeight; }
+    canvas.getContext('2d').drawImage(source, 0, 0, canvas.width, canvas.height);
+    return canvas;
+  };
   const callback = useRef(onCapture); callback.current = onCapture;
   const [state, setState] = useState('idle');
   const [message, setMessage] = useState(alwaysOn ? 'Menyiapkan kamera...' : 'Kamera hanya aktif setelah Anda menekan Mulai kamera.');
@@ -54,6 +62,7 @@ export default function FaceCameraCapture({ purpose = 'attendance', mode = 'pass
     generation.current++; clearTimeout(retryTimer.current);
     wakeLock.current?.release().catch(() => {}); wakeLock.current = null;
     stream.current?.getTracks().forEach(track => track.stop()); stream.current = null;
+    if (frame.current) { frame.current.width = 0; frame.current.height = 0; }
     if (video.current) video.current.srcObject = null;
     overlay.current?.getContext('2d')?.clearRect(0, 0, overlay.current.width, overlay.current.height);
   };
@@ -69,7 +78,7 @@ export default function FaceCameraCapture({ purpose = 'attendance', mode = 'pass
   // ?debug-kinerja: compare the kiosk descriptor with the enrollment pipeline on the current frame.
   const runSelfCheck = async engine => {
     if (!perf.takeSelfCheckRequest()) return;
-    try { perf.note('kesetaraan', await engine.compareDescriptorPaths(video.current, detectorSize)); }
+    try { perf.note('kesetaraan', await engine.compareDescriptorPaths(snapshot(), detectorSize)); }
     catch (error) { perf.note('kesetaraan', { state: 'error', message: error.message }); }
   };
   useEffect(() => {
@@ -130,7 +139,7 @@ export default function FaceCameraCapture({ purpose = 'attendance', mode = 'pass
       const canvas = document.createElement('canvas');
       setState('active'); setMessage('Kamera aktif. Posisikan satu wajah pada panduan.');
       while (ticket === generation.current && stream.current?.active) {
-        const results = await engine.detect(video.current);
+        const results = await engine.detect(snapshot());
         if (ticket !== generation.current) break;
         if (waitForExit) {
           if (Date.now() >= waitingUntil && results.length) {
@@ -247,7 +256,7 @@ export default function FaceCameraCapture({ purpose = 'attendance', mode = 'pass
     };
     const clearFrames = () => { frames.forEach(frame => frame.descriptor.fill(0)); frames = []; };
     const describeOne = async results => {
-      const [raw] = await timed('deskriptor', () => engine.describe(video.current, results));
+      const [raw] = await timed('deskriptor', () => engine.describe(frame.current, results));
       const descriptor = Array.from(raw); raw.fill(0);
       return descriptor;
     };
@@ -262,7 +271,7 @@ export default function FaceCameraCapture({ purpose = 'attendance', mode = 'pass
       while (ticket === generation.current && stream.current?.active) {
         perf.loop(); await runSelfCheck(engine); challenges.prefetch();
         // Boxes and landmarks only; a descriptor is computed just for frames that can count.
-        const results = await timed('deteksi', () => engine.detectFaces(video.current, detectorSize));
+        const results = await timed('deteksi', () => engine.detectFaces(snapshot(), detectorSize));
         if (ticket !== generation.current) break;
         const now = performance.now(); syncHud(results, now);
         if (now < cooldownUntil) { await pause(160); continue; }
@@ -357,7 +366,7 @@ export default function FaceCameraCapture({ purpose = 'attendance', mode = 'pass
       setState('active'); setMessage(gestureReadyMessage);
       while (ticket === generation.current && stream.current?.active) {
         perf.loop(); await runSelfCheck(engine); challenges.prefetch();
-        const faces = await timed('deteksi', () => engine.detectFaces(video.current, detectorSize));
+        const faces = await timed('deteksi', () => engine.detectFaces(snapshot(), detectorSize));
         if (ticket !== generation.current) break;
         const now = performance.now();
         // The hand model skips passes; in between, the last hands stay on the HUD and streaks hold.
@@ -391,7 +400,7 @@ export default function FaceCameraCapture({ purpose = 'attendance', mode = 'pass
           if (track.status === 'watching' && wantsDescriptor(track, frontal)) describing.push([index, track]);
         }
         if (describing.length) {
-          const descriptors = await timed('deskriptor', () => engine.describe(video.current, describing.map(([index]) => faces[index])));
+          const descriptors = await timed('deskriptor', () => engine.describe(frame.current, describing.map(([index]) => faces[index])));
           if (ticket !== generation.current) break;
           describing.forEach(([, track], i) => {
             const descriptor = Array.from(descriptors[i]); descriptors[i].fill(0);

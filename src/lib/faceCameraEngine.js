@@ -32,6 +32,9 @@ export const saveBackendPreference = value => {
 export const isSoftwareRenderer = renderer => /swiftshader|llvmpipe|softpipe|software|basic render/i.test(renderer || '');
 export const chooseBackend = (preference, renderer) => (preference === 'webgl' || preference === 'wasm' ? preference
   : !renderer || isSoftwareRenderer(renderer) ? 'wasm' : 'webgl');
+// iPad/iPhone Safari (every iOS browser) runs WebGL models in float16: detector scores fall below the kiosk
+// gates and descriptors drift from templates made in float32. Auto mode moves such devices to WASM.
+export const keepWebgl = (preference, float32) => preference === 'webgl' || float32;
 
 const WASM_BASE = '/tfjs-wasm/4.22.0/';
 const WASM_VERSION = 'tfjs-backend-wasm-4.22.0';
@@ -85,7 +88,8 @@ async function selectBackend(api, preference) {
   const wanted = chooseBackend(preference, renderer);
   if (wanted === 'webgl' && await api.tf.setBackend('webgl').catch(() => false)) {
     await api.tf.ready();
-    return { backend: 'webgl', renderer, preference };
+    const float32 = api.tf.env().getBool('WEBGL_RENDER_FLOAT32_CAPABLE');
+    if (keepWebgl(preference, float32)) return { backend: 'webgl', renderer, preference, float32 };
   }
   const wasm = await prepareWasm(api);
   if (!await api.tf.setBackend('wasm')) throw new Error('MODEL_UNAVAILABLE');
