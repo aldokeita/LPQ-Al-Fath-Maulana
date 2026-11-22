@@ -63,7 +63,7 @@
   .face-page__results { position: sticky; top: 1rem; }
 }
 @media (orientation: portrait) and (min-width: 700px) {
-  .face-page__main, .face-page__header { width: min(100% - 3rem, 1100px); }
+  .face-page__main, .face-page__header { width: min(100% - 3rem, 1400px); }
 }
 
 .face-page__modes {
@@ -97,15 +97,47 @@
   .face-page__stack-item.is-depth-0 { grid-column: 1 / -1; }
   .face-page__stack-item.is-depth-1, .face-page__stack-item.is-depth-2 { zoom: 0.48; }
 }
-@media (orientation: portrait) and (min-width: 900px) {
-  /* Vertical kiosk monitor: the newest card fills the left, older cards stack small on the right,
-     so all three fit below the camera without scrolling. */
-  .face-page__stack { grid-template-columns: minmax(0, 1fr) 300px; }
-  .face-page__stack-item.is-depth-0 { grid-column: 1; grid-row: 1 / span 2; zoom: 1.1; }
-  .face-page__stack-item.is-depth-0:only-child { grid-column: 1 / -1; }
-  .face-page__stack-item.is-depth-1 { grid-column: 2; grid-row: 1; zoom: 0.55; }
-  .face-page__stack-item.is-depth-2 { grid-column: 2; grid-row: 2; zoom: 0.55; }
+/* ---------- Vertical kiosk monitor ----------
+   The page fills the screen without scrolling: a compact camera on top, then the cards take the rest.
+   The newest card spans the full width (photo left, details right); up to two older ones share a row
+   below it. FitToBox scales each card to its cell, so the whole profile stays visible at any size. */
+.fit-to-box { position: relative; width: 100%; height: 100%; min-height: 0; }
+.fit-to-box__inner { position: absolute; left: 50%; top: 50%; transform-origin: center; }
+@media (orientation: portrait) and (min-width: 700px) {
+  .face-page { height: 100dvh; }
+  .face-page__header { padding: 0.6rem 0; }
+  .face-page__main { flex: 1; min-height: 0; display: flex; flex-direction: column; padding-bottom: 1rem; }
+  .face-page__stage { flex: 1; min-height: 0; grid-template-rows: auto minmax(0, 1fr); align-items: stretch; gap: 1rem; }
+  .face-page .face-camera { gap: 0.5rem; }
+  .face-page .face-camera__viewport { max-height: 28dvh; margin-inline: auto; }
+  .face-page .face-camera__privacy { font-size: 0.72rem; line-height: 1.35; }
+  .face-page__results { min-height: 0; display: flex; flex-direction: column; gap: 0.75rem; }
+  .face-page__results > .face-page__empty { flex: 1; align-content: center; }
+  .face-page__stack {
+    flex: 1; min-height: 0; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: minmax(0, 1fr);
+    gap: 1rem; justify-items: stretch; align-items: stretch;
+  }
+  .face-page__stack.has-history { grid-template-rows: minmax(0, 1.8fr) minmax(0, 1fr); }
+  .face-page__stack-item, .face-page__stack-item.is-depth-1, .face-page__stack-item.is-depth-2 { zoom: 1; height: 100%; min-height: 0; }
+  .face-page__stack-item.is-depth-0 { grid-column: 1 / -1; grid-row: 1; }
+  .face-page__stack-item.is-depth-1 { grid-column: 1; grid-row: 2; }
+  .face-page__stack-item.is-depth-1:last-child { grid-column: 1 / -1; }
+  .face-page__stack-item.is-depth-2 { grid-column: 2; grid-row: 2; }
 }
+
+/* Wide Profile Card for the vertical kiosk: photo on the left, all details on the right. */
+.attendance-profile-card.attendance-profile-card--wide {
+  max-width: none; display: grid; grid-template-columns: minmax(0, 0.46fr) minmax(0, 0.54fr);
+  column-gap: 2.25rem; align-items: center; text-align: left; padding: 2rem 2.25rem;
+}
+.attendance-profile-card--wide .attendance-profile-card__avatar-wrap { margin: 0; width: 100%; }
+.attendance-profile-card--wide .attendance-profile-card__body { display: flex; flex-direction: column; align-items: stretch; min-width: 0; }
+.attendance-profile-card.attendance-profile-card--wide .attendance-profile-card__identity-row .attendance-profile-card__name { font-size: 1.95rem; overflow-wrap: break-word; text-wrap: balance; }
+.attendance-profile-card--wide .attendance-profile-card__identity-row,
+.attendance-profile-card--wide .attendance-profile-card__status-row { justify-content: flex-start; }
+.attendance-profile-card--wide .attendance-profile-card__details { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-bottom: 1rem; }
+.attendance-profile-card--wide .attendance-profile-card__attendance-summary { grid-column: span 2; }
+.attendance-profile-card--wide .attendance-profile-card__message { justify-content: flex-start; text-align: left; }
 
 /* ---------- Shared glass surface ---------- */
 .face-camera__frame,

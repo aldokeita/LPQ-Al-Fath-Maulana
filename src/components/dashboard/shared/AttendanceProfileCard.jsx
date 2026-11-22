@@ -48,7 +48,9 @@ const AttendanceProfileCard = ({
   message,
   showSuccessBadge = false,
   isPentashih = false,
+  layout = 'stacked',
 }) => {
+  const wide = layout === 'wide';
   const isTeacher = variant === 'teacher';
 
   const {
@@ -108,51 +110,9 @@ const AttendanceProfileCard = ({
         color: statusConfig.color,
       };
 
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 24 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
-      className={`attendance-profile-card attendance-profile-card--white-glass ${isTeacher ? 'attendance-profile-card--teacher' : 'attendance-profile-card--student'} ${pointAccent ? 'attendance-profile-card--point-glow' : ''}`}
-      style={cardStyle}
-      role="region"
-      aria-label={`Profil ${isTeacher ? 'Guru' : 'Santri'}: ${name}`}
-    >
-      {/* Avatar — large, centered, top anchor */}
-      <div className="attendance-profile-card__avatar-wrap">
-          <Avatar
-            className="attendance-profile-card__avatar"
-            style={{
-              width: '100%',
-              height: '100%',
-            }}
-          >
-          <AvatarImage src={photo} alt={name} loading="eager" fetchPriority="high" decoding="async" className="object-cover" />
-          <AvatarFallback className="attendance-profile-card__avatar-fallback">
-            {name?.[0]?.toUpperCase() || '?'}
-          </AvatarFallback>
-        </Avatar>
-
-        {showSuccessBadge && (
-          <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ delay: 0.3, type: 'spring', stiffness: 260, damping: 20 }}
-            className="attendance-profile-card__success-badge"
-          >
-            <CheckCircle className="w-5 h-5" />
-          </motion.div>
-        )}
-
-        {/* Role badge for teachers */}
-        {isTeacher && (
-          <div className="attendance-profile-card__role-badge">
-            <GraduationCap className="w-3.5 h-3.5" />
-            <span>{isPentashih ? 'Pentashih' : 'Guru'}</span>
-          </div>
-        )}
-
-      </div>
+  // Wide layout (portrait kiosk): photo on the left, everything else in one column on the right.
+  const details = (
+    <>
 
       {isTeacher ? (
         <h2
@@ -289,6 +249,55 @@ const AttendanceProfileCard = ({
           <p>&ldquo;{quote}&rdquo;</p>
         </motion.div>
       )}
+    </>
+  );
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 24 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
+      className={`attendance-profile-card attendance-profile-card--white-glass ${isTeacher ? 'attendance-profile-card--teacher' : 'attendance-profile-card--student'} ${pointAccent ? 'attendance-profile-card--point-glow' : ''}${wide ? ' attendance-profile-card--wide' : ''}`}
+      style={cardStyle}
+      role="region"
+      aria-label={`Profil ${isTeacher ? 'Guru' : 'Santri'}: ${name}`}
+    >
+      {/* Avatar — large, centered, top anchor */}
+      <div className="attendance-profile-card__avatar-wrap">
+          <Avatar
+            className="attendance-profile-card__avatar"
+            style={{
+              width: '100%',
+              height: '100%',
+            }}
+          >
+          <AvatarImage src={photo} alt={name} loading="eager" fetchPriority="high" decoding="async" className="object-cover" />
+          <AvatarFallback className="attendance-profile-card__avatar-fallback">
+            {name?.[0]?.toUpperCase() || '?'}
+          </AvatarFallback>
+        </Avatar>
+
+        {showSuccessBadge && (
+          <motion.div
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ delay: 0.3, type: 'spring', stiffness: 260, damping: 20 }}
+            className="attendance-profile-card__success-badge"
+          >
+            <CheckCircle className="w-5 h-5" />
+          </motion.div>
+        )}
+
+        {/* Role badge for teachers */}
+        {isTeacher && (
+          <div className="attendance-profile-card__role-badge">
+            <GraduationCap className="w-3.5 h-3.5" />
+            <span>{isPentashih ? 'Pentashih' : 'Guru'}</span>
+          </div>
+        )}
+
+      </div>
+      {wide ? <div className="attendance-profile-card__body">{details}</div> : details}
     </motion.div>
   );
 };
