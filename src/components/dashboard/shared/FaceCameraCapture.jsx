@@ -1,11 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { AlertTriangle, ArrowLeft, ArrowRight, Camera, CheckCircle2, Circle, Loader2, RefreshCw, ScanFace, ShieldCheck, Square } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { loadFaceEngine, frameQuality, facePose, FACE_LOSS_GRACE_MS, FACE_MODEL_URLS, KIOSK_DETECTOR_SIZE, mirroredPose } from '@/lib/faceCameraEngine';
+import { loadFaceEngine, frameQuality, frameIssue, frameHint, facePose, FACE_LOSS_GRACE_MS, FACE_MODEL_URLS, KIOSK_DETECTOR_SIZE, mirroredPose } from '@/lib/faceCameraEngine';
 import { faceAttendanceRequest } from '@/lib/faceAttendanceApi';
 import { createChallengeCache } from '@/lib/faceChallengeCache';
 import { loadGestureEngine } from '@/lib/gestureEngine';
-import { assignGesturesToFaces, CONFIRM_GESTURES, CONFIRM_PENDING_MS, createRecentFaces, FRAME_MAX_AGE_MS, framesReady, GESTURE_CONFIRM_FRAMES, HAND_DETECT_EVERY, matchTracks, MIN_FACE_RATIO, plainBox, recentFrontal, TRACK_TTL_MS, wantsDescriptor } from '@/lib/faceKiosk';
+import { assignGesturesToFaces, CONFIRM_GESTURES, createRecentFaces, framesReady, GESTURE_CONFIRM_FRAMES, HAND_DETECT_EVERY, kioskWindows, matchTracks, MIN_FACE_RATIO, plainBox, recentFrontal, TRACK_TTL_MS, wantsDescriptor } from '@/lib/faceKiosk';
 import { drawKioskOverlay } from '@/lib/kioskOverlay';
 import { noopPerf, resourceSource } from '@/lib/kioskPerf';
 import { captureSteps, descriptorDistance, FACE_MODEL_VERSION, getCameraErrorMessage, PASSIVE_MIN_SPAN_MS } from '../../../../supabase/functions/_shared/faceCapture.js';
@@ -324,8 +324,9 @@ export default function FaceCameraCapture({ purpose = 'attendance', mode = 'pass
           await pause(160); continue;
         }
         const face = results[0]; const hud = hudTracks[0];
-        if (!frameQuality(video.current, face, canvas, { centered: false, minRatio: PASSIVE_MIN_FACE_RATIO }) || facePose(face) !== 'center') {
-          clearFrames(); hud.progress = 0; setState('detected'); setMessage('Hadapkan wajah lurus ke kamera dan mendekat sedikit.');
+        const issue = frameIssue(video.current, face, canvas, { centered: false, minRatio: PASSIVE_MIN_FACE_RATIO }); const pose = facePose(face);
+        if (issue || pose !== 'center') {
+          clearFrames(); hud.progress = 0; setState('detected'); setMessage(frameHint(issue, pose));
           await pause(120); continue;
         }
         const descriptor = await describeOne(results);
@@ -363,6 +364,8 @@ export default function FaceCameraCapture({ purpose = 'attendance', mode = 'pass
     const canvas = document.createElement('canvas');
     const challenges = createChallengeCache(requestAttendanceChallenge);
     let tracks = []; let nextId = 1; let inFlight = false; let resultUntil = 0; let pass = 0;
+    // Smoothed time of one pass; on slow devices the frame and confirmation windows stretch to match.
+    let lastPassAt = 0; let passMs = 0;
     const recent = createRecentFaces(descriptorDistance);
     const dropFrames = track => { track.frames.forEach(frame => frame.descriptor.fill(0)); track.frames = []; };
     const confirm = async track => {
@@ -390,6 +393,9 @@ export default function FaceCameraCapture({ purpose = 'attendance', mode = 'pass
       setState('active'); setMessage(gestureReadyMessage);
       while (ticket === generation.current && stream.current?.active) {
         perf.loop(); await runSelfCheck(engine); challenges.prefetch();
+        const passStart = performance.now();
+        if (lastPassAt) passMs = passMs ? passMs * 0.8 + (passStart - lastPassAt) * 0.2 : passStart - lastPassAt;
+        lastPassAt = passStart; const windows = kioskWindows(passMs);
         const faces = await timed('deteksi', () => engine.detectFaces(snapshot(), detectorSize));
         if (ticket !== generation.current) break;
         const now = performance.now();
@@ -410,9 +416,10 @@ export default function FaceCameraCapture({ purpose = 'attendance', mode = 'pass
         const describing = [];
         for (const [index, track] of seen) {
           const face = faces[index]; track.box = boxes[index]; track.lastSeen = now;
-          track.frames = track.frames.filter(frame => { const fresh = now - frame.at <= FRAME_MAX_AGE_MS; if (!fresh) frame.descriptor.fill(0); return fresh; });
-          const frontal = frameQuality(video.current, face, canvas, { centered: false, minRatio: MIN_FACE_RATIO }) && facePose(face) === 'center';
-          track.frontalTimes = recentFrontal(track.frontalTimes, now, frontal);
+          track.frames = track.frames.filter(frame => { const fresh = now - frame.at <= windows.frameMaxAge; if (!fresh) frame.descriptor.fill(0); return fresh; });
+          track.issue = frameIssue(video.current, face, canvas, { centered: false, minRatio: MIN_FACE_RATIO }); track.pose = facePose(face);
+          const frontal = !track.issue && track.pose === 'center';
+          track.frontalTimes = recentFrontal(track.frontalTimes, now, frontal, windows.frameMaxAge);
           if (owners) {
             const owner = owners.get(index);
             track.gestureStreak = owner && owner.gesture === track.handGesture ? track.gestureStreak + 1 : owner ? 1 : 0;
@@ -437,7 +444,7 @@ export default function FaceCameraCapture({ purpose = 'attendance', mode = 'pass
           if (track.status !== 'watching') continue;
           const confirmedBy = track.gestureStreak >= GESTURE_CONFIRM_FRAMES ? CONFIRM_GESTURES[track.handGesture].symbol : null;
           // A confirmation that arrives before five descriptor frames waits briefly for them.
-          if (confirmedBy && !track.pendingBy) { track.pendingBy = confirmedBy; track.pendingUntil = now + CONFIRM_PENDING_MS; }
+          if (confirmedBy && !track.pendingBy) { track.pendingBy = confirmedBy; track.pendingUntil = now + windows.confirmPending; }
           if (!inFlight && track.pendingBy && framesReady(track.frames, PASSIVE_MIN_SPAN_MS)) {
             // A face recorded moments ago (stepped out and back in) is not sent again.
             const done = recent.find(track.frames[track.frames.length - 1].descriptor);
@@ -458,6 +465,8 @@ export default function FaceCameraCapture({ purpose = 'attendance', mode = 'pass
           const visible = tracks.filter(track => track.lastSeen === now);
           if (inFlight) { setState('recognizing'); setMessage('Mengonfirmasi kehadiran...'); }
           else if (!visible.length) { setState('active'); setMessage(gestureReadyMessage); }
+          // One face that cannot count yet gets the reason, so a thumb held up does not wait in silence.
+          else if (visible.length === 1 && (visible[0].issue || visible[0].pose !== 'center')) { setState('detected'); setMessage(frameHint(visible[0].issue, visible[0].pose)); }
           else { setState('detected'); setMessage(`${visible.length} wajah terdeteksi. Acungkan jempol 👍 untuk absen.`); }
         }
         await pause(60);

@@ -116,3 +116,13 @@ test('auto mode runs Safari (renderer "Apple GPU") on WASM', () => {
   assert.equal(chooseBackend('auto', 'Apple GPU'), 'wasm');
   assert.equal(chooseBackend('webgl', 'Apple GPU'), 'webgl', 'an explicit webgl choice is kept');
 });
+
+test('frame and confirmation windows stretch on a slow device so five frames still fit', async () => {
+  const { kioskWindows, CONFIRM_PENDING_MS } = await import('../src/lib/faceKiosk.js');
+  assert.deepEqual(kioskWindows(0), { frameMaxAge: FRAME_MAX_AGE_MS, confirmPending: CONFIRM_PENDING_MS });
+  assert.deepEqual(kioskWindows(60), { frameMaxAge: FRAME_MAX_AGE_MS, confirmPending: CONFIRM_PENDING_MS });
+  // An old phone GPU at ~2.4 passes per second: five frames span ~1.7 s, which the fixed 1.5 s window never held.
+  const slow = kioskWindows(420);
+  assert.ok(slow.frameMaxAge >= 5 * 420 && slow.confirmPending > slow.frameMaxAge);
+  assert.equal(recentFrontal([0, 420, 840, 1260], 1680, true, slow.frameMaxAge).length, 5);
+});

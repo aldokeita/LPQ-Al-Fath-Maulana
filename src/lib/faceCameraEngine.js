@@ -169,11 +169,16 @@ async function initialize(preference) {
 }
 
 // Defaults suit the single-face guide; the multi-face kiosk passes centered:false and a smaller minimum size.
-export function frameQuality(video, result, canvas, { centered = true, minRatio = 0.2 } = {}) {
+// Why a frame cannot be used, or null when it can. The kiosk turns the reason into a hint
+// ("mundur sedikit" vs "mendekat"), since a phone held close fails for the opposite reason of one far away.
+export const FACE_MAX_RATIO = 0.7;
+export function frameIssue(video, result, canvas, { centered = true, minRatio = 0.2 } = {}) {
   const { box, score } = result.detection;
   const ratio = box.width / video.videoWidth;
-  if (score < 0.85 || ratio < minRatio || ratio > 0.7
-    || (centered && Math.abs((box.x + box.width / 2) / video.videoWidth - 0.5) > 0.22)) return false;
+  if (ratio > FACE_MAX_RATIO) return 'close';
+  if (ratio < minRatio) return 'far';
+  if (centered && Math.abs((box.x + box.width / 2) / video.videoWidth - 0.5) > 0.22) return 'offcenter';
+  if (score < 0.85) return 'unclear';
   canvas.width = 48; canvas.height = 48;
   const context = canvas.getContext('2d', { willReadFrequently: true });
   context.drawImage(video, box.x, box.y, box.width, box.height, 0, 0, 48, 48);
@@ -187,8 +192,22 @@ export function frameQuality(video, result, canvas, { centered = true, minRatio 
     sharpness += (grey[i - 1] + grey[i + 1] + grey[i - 48] + grey[i + 48] - 4 * grey[i]) ** 2;
   }
   context.clearRect(0, 0, 48, 48);
-  return brightness >= 45 && brightness <= 220 && sharpness / (46 * 46) >= 60;
+  if (brightness < 45) return 'dark';
+  if (brightness > 220) return 'bright';
+  return sharpness / (46 * 46) >= 60 ? null : 'unclear';
 }
+
+export const frameQuality = (video, result, canvas, options) => frameIssue(video, result, canvas, options) === null;
+
+// Kiosk hint for a single face that cannot be used yet; pose comes from facePose.
+export const frameHint = (issue, pose) => ({
+  close: 'Terlalu dekat. Mundur sedikit dari kamera.',
+  far: 'Mendekat sedikit ke kamera.',
+  offcenter: 'Geser wajah ke tengah kamera.',
+  dark: 'Wajah terlalu gelap. Cari tempat yang lebih terang.',
+  bright: 'Terlalu silau. Hindari cahaya langsung dari belakang kamera.',
+  unclear: 'Tahan diam sebentar agar wajah terlihat jelas.',
+})[issue] || (pose && pose !== 'center' ? 'Hadapkan wajah lurus ke kamera.' : 'Hadapkan wajah lurus ke kamera dan mendekat sedikit.');
 
 export function facePose(result) {
   const left = result.landmarks.getLeftEye(); const right = result.landmarks.getRightEye();
