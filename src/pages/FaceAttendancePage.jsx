@@ -17,6 +17,7 @@ import { createPerfMeter, noopPerf } from '@/lib/kioskPerf';
 import FaceCameraCapture from '@/components/dashboard/shared/FaceCameraCapture';
 import AttendanceProfileCard from '@/components/dashboard/shared/AttendanceProfileCard';
 import KioskPerfPanel from '@/components/dashboard/shared/KioskPerfPanel';
+import FitToBox from '@/components/dashboard/shared/FitToBox';
 import '@/styles/admin-dashboard.css';
 import '@/styles/face-attendance.css';
 
@@ -47,12 +48,26 @@ const STUDENT_FIELDS = 'id,nama_lengkap,jilid,jenis_kelamin,kategori,avatar_path
 const loadLevelConfig = () => supabase.from('website_content').select('content').eq('key','level_config').maybeSingle()
   .then(({ data, error }) => { if (error) throw error; return data?.content; });
 // Per-device kiosk preference; storage may be unavailable (private mode), so fall back silently.
+// A vertical kiosk monitor: the page fills the screen and cards scale to the space left under the camera.
+const PORTRAIT_KIOSK = '(orientation: portrait) and (min-width: 700px)';
+// Design widths: with older cards below, the newest is wide and short; alone it can be narrower and so larger.
+const CARD_DESIGN_WIDTH = 900; const SOLO_CARD_DESIGN_WIDTH = 760;
+function useMatchMedia(query) {
+  const [matches, setMatches] = useState(() => typeof window !== 'undefined' && window.matchMedia(query).matches);
+  useEffect(() => {
+    const list = window.matchMedia(query); const update = () => setMatches(list.matches);
+    update(); list.addEventListener('change', update);
+    return () => list.removeEventListener('change', update);
+  }, [query]);
+  return matches;
+}
 const readMode = () => { try { return localStorage.getItem(MODE_STORAGE_KEY) === 'passive' ? 'passive' : 'gesture'; } catch { return 'gesture'; } };
 
 export default function FaceAttendancePage() {
   const { isDark, toggleTheme } = useTheme();
   const { sessionTimes } = useAttendanceSessionConfiguration();
   const { search } = useLocation();
+  const portrait = useMatchMedia(PORTRAIT_KIOSK);
   const { perfMeter, detectorSize } = useMemo(() => readKioskOptions(search), [search]);
   const [mode, setMode] = useState(readMode);
   const chooseMode = value => { setMode(value); try { localStorage.setItem(MODE_STORAGE_KEY, value); } catch { /* preference only */ } };
@@ -169,12 +184,14 @@ export default function FaceAttendancePage() {
           {perfMeter.enabled && facePilotEnabled && <KioskPerfPanel meter={perfMeter} />}
           {notice &&<p className="face-page__notice" role="status">{notice}</p>}
           <p className="sr-only" aria-live="polite">{latest ? `${latest.props.name}${latest.props.status ? ' hadir.' : '.'} ${latest.props.message || ''}` : ''}</p>
-          {cards.length ? <MotionConfig reducedMotion="user"><div className="face-page__stack">
+          {cards.length ? <MotionConfig reducedMotion="user"><div className={`face-page__stack${cards.length > 1 ? ' has-history' : ''}`}>
             <AnimatePresence initial={false}>
               {cards.map((entry, depth) => <motion.div key={entry.id} layout className={`face-page__stack-item is-depth-${depth}`}
                 initial={{ opacity:0, y:-28, scale:0.96 }} animate={depthStyle(depth)} exit={{ opacity:0, scale:0.9, transition:{ duration:0.25 } }}
                 transition={{ type:'spring', stiffness:260, damping:30 }}>
-                <AttendanceProfileCard {...entry.props} showSuccessBadge={depth === 0 && entry.props.showSuccessBadge !== false} />
+                {portrait
+                  ? <FitToBox width={cards.length > 1 ? CARD_DESIGN_WIDTH : SOLO_CARD_DESIGN_WIDTH}><AttendanceProfileCard {...entry.props} layout="wide" showSuccessBadge={depth === 0 && entry.props.showSuccessBadge !== false} /></FitToBox>
+                  : <AttendanceProfileCard {...entry.props} showSuccessBadge={depth === 0 && entry.props.showSuccessBadge !== false} />}
               </motion.div>)}
             </AnimatePresence>
           </div></MotionConfig>
