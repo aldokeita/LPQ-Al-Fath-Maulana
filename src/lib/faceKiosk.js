@@ -14,10 +14,17 @@ export const HAND_DETECT_EVERY = 2;
 // A confirmed gesture may wait this long for its five descriptor frames before it lapses.
 export const CONFIRM_PENDING_MS = 2000;
 
+// A slow device (old phone GPU) needs longer than these to gather five frames, so both windows grow
+// with the measured time of one scanning pass: frames stay fresh for about seven passes.
+export const kioskWindows = passMs => {
+  const pass = Number.isFinite(passMs) && passMs > 0 ? passMs : 0;
+  return { frameMaxAge: Math.max(FRAME_MAX_AGE_MS, Math.round(pass * 7)), confirmPending: Math.max(CONFIRM_PENDING_MS, Math.round(pass * 8)) };
+};
+
 // Descriptors are only computed for faces that are frontal and starting to confirm, or already confirmed.
 export const wantsDescriptor = (track, frontal) => frontal && (track.gestureStreak > 0 || Boolean(track.pendingBy));
 // Timestamps of recent frontal passes (at most five), so the HUD can show a face as ready without descriptors.
-export const recentFrontal = (times, now, frontal) => [...times.filter(time => now - time <= FRAME_MAX_AGE_MS), ...(frontal ? [now] : [])].slice(-5);
+export const recentFrontal = (times, now, frontal, maxAge = FRAME_MAX_AGE_MS) => [...times.filter(time => now - time <= maxAge), ...(frontal ? [now] : [])].slice(-5);
 // Five frames spanning the server's minimum interval are enough to send.
 export const framesReady = (frames, minSpanMs) => frames.length === 5 && frames[4].at - frames[0].at >= minSpanMs;
 

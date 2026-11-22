@@ -15,3 +15,14 @@ test('mirrored preview swaps side labels without changing the raw capture order'
 test('a brief slip out of the guide is tolerated for a bounded time', () => {
   assert.ok(FACE_LOSS_GRACE_MS >= 1000 && FACE_LOSS_GRACE_MS <= 5000);
 });
+
+test('a face too close or too far gets the matching hint before any pixels are read', async () => {
+  const { frameIssue, frameHint } = await import('../src/lib/faceCameraEngine.js');
+  const video = { videoWidth: 480 };
+  const face = width => ({ detection: { score: 0.95, box: { x: 0, y: 0, width, height: width } } });
+  assert.equal(frameIssue(video, face(420), null, { centered: false, minRatio: 0.12 }), 'close');
+  assert.equal(frameIssue(video, face(30), null, { centered: false, minRatio: 0.12 }), 'far');
+  assert.match(frameHint('close', 'center'), /Mundur/);
+  assert.match(frameHint('far', 'center'), /Mendekat/);
+  assert.match(frameHint(null, 'left'), /lurus/);
+});
