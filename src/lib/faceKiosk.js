@@ -21,6 +21,20 @@ export const recentFrontal = (times, now, frontal) => [...times.filter(time => n
 // Five frames spanning the server's minimum interval are enough to send.
 export const framesReady = (frames, minSpanMs) => frames.length === 5 && frames[4].at - frames[0].at >= minSpanMs;
 
+// A face whose attendance was just saved is not sent again for this long, even if it steps out and back in.
+export const RECENT_DONE_MS = 10000;
+// Remembers just-recorded faces on this kiosk only; descriptors are zeroed when they expire.
+export function createRecentFaces(distance, { ttlMs = RECENT_DONE_MS, maxDistance = 0.45, now = () => performance.now() } = {}) {
+  let entries = [];
+  const prune = () => { entries = entries.filter(entry => { const alive = now() < entry.until; if (!alive) entry.descriptor.fill(0); return alive; }); };
+  return {
+    add(descriptor, name = '') { prune(); entries.push({ descriptor: descriptor.slice(), name, until: now() + ttlMs }); },
+    // The matching entry, so the kiosk can say whose attendance is already in.
+    find(descriptor) { prune(); return entries.find(entry => distance(descriptor, entry.descriptor) <= maxDistance) || null; },
+    clear() { entries.forEach(entry => entry.descriptor.fill(0)); entries = []; },
+  };
+}
+
 // face-api boxes expose x/y/width/height as prototype getters, which object spread drops; copy them explicitly.
 export const plainBox = box => ({ x: box.x, y: box.y, width: box.width, height: box.height });
 
