@@ -57,7 +57,8 @@ const SantriAchievementBadge = ({ badge, size = 'sm', className }) => {
           height: dims.height,
           paddingLeft: dims.star * 0.5,
           paddingRight: dims.pad + 6,
-          borderRadius: 9999,
+          // Sisi kiri lurus dan bersembunyi di balik logo; sisi kanan tetap melengkung.
+          borderRadius: '0 9999px 9999px 0',
           border: '2px solid transparent',
           // Lapisan putih buram di bawah rona tipis, agar warna bingkai tidak tembus ke isi plakat.
           background: `linear-gradient(180deg, #ffffff 30%, ${withAlpha(badge.from, 0.1)} 100%) padding-box, linear-gradient(#ffffff, #ffffff) padding-box, linear-gradient(120deg, ${badge.from}, ${badge.to}) border-box`,
