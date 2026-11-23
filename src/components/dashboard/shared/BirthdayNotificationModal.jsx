@@ -1,13 +1,21 @@
-import React, { useMemo } from 'react';
+import React, { lazy, Suspense, useEffect, useMemo, useState } from 'react';
+import { Loader2 } from 'lucide-react';
 import { Cake, MessageCircle, PartyPopper } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { buildBirthdayWhatsappUrl, getBirthdaysThisMonth } from '@/lib/birthdayUtils';
+import { cn } from '@/lib/utils';
 
-const BirthdayNotificationModal = ({ isOpen, onClose, students = [], audience = 'santri' }) => {
+const BirthdayCardMaker = lazy(() => import('@/components/dashboard/shared/BirthdayCardMaker'));
+
+const BirthdayNotificationModal = ({ isOpen, onClose, students = [], audience = 'santri', senderName }) => {
   const birthdaysThisMonth = useMemo(() => getBirthdaysThisMonth(students), [students]);
+  const [cardFor, setCardFor] = useState(null);
+  const makesCards = audience === 'santri';
+
+  useEffect(() => { if (!isOpen) setCardFor(null); }, [isOpen]);
 
   const openWhatsappGreeting = (student) => {
     const url = buildBirthdayWhatsappUrl(student, audience);
@@ -16,7 +24,7 @@ const BirthdayNotificationModal = ({ isOpen, onClose, students = [], audience = 
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="lpq-dialog-surface max-h-[88vh] max-w-2xl overflow-hidden border-slate-200/90 bg-slate-50/[0.97] p-0 shadow-[0_28px_90px_rgba(15,23,42,0.2)] backdrop-blur-2xl dark:border-white/10 dark:bg-slate-950/[0.94]">
+      <DialogContent className={cn('lpq-dialog-surface max-h-[88vh] overflow-hidden', cardFor ? 'max-w-4xl' : 'max-w-2xl', ' border-slate-200/90 bg-slate-50/[0.97] p-0 shadow-[0_28px_90px_rgba(15,23,42,0.2)] backdrop-blur-2xl dark:border-white/10 dark:bg-slate-950/[0.94]')}>
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(244,63,94,0.1),transparent_38%),radial-gradient(circle_at_bottom_left,rgba(14,165,233,0.08),transparent_42%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(244,63,94,0.14),transparent_38%),radial-gradient(circle_at_bottom_left,rgba(14,165,233,0.12),transparent_42%)]" />
         <DialogHeader className="relative border-b border-slate-200/80 px-6 pb-5 pt-6 text-left dark:border-white/10 sm:px-8 sm:pt-8">
           <DialogTitle className="flex items-center gap-2 text-2xl font-black text-slate-900 dark:text-white">
@@ -26,14 +34,20 @@ const BirthdayNotificationModal = ({ isOpen, onClose, students = [], audience = 
             {audience === 'guru' ? 'Ulang Tahun Guru Bulan Ini' : 'Ulang Tahun Santri Bulan Ini'}
           </DialogTitle>
           <DialogDescription className="text-slate-600 dark:text-slate-300">
-            {audience === 'guru' ? 'Daftar pengajar yang berulang tahun pada bulan berjalan.' : 'Daftar santri yang berulang tahun pada bulan berjalan.'}
+            {audience === 'guru'
+              ? 'Daftar pengajar yang berulang tahun pada bulan berjalan.'
+              : cardFor ? 'Buat kartu ucapan lalu kirim ke wali santri.' : 'Daftar santri yang berulang tahun pada bulan berjalan. Tekan Ucapkan untuk membuat kartu ucapan.'}
           </DialogDescription>
         </DialogHeader>
 
-        {birthdaysThisMonth.length > 0 ? (
+        {cardFor ? (
+          <Suspense fallback={<p className="flex items-center gap-2 px-8 py-10 text-sm text-muted-foreground" role="status"><Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> Menyiapkan kartu…</p>}>
+            <BirthdayCardMaker santri={cardFor} senderName={cardFor.class?.guru?.nama || senderName} onBack={() => setCardFor(null)} />
+          </Suspense>
+        ) : birthdaysThisMonth.length > 0 ? (
           <div className="relative grid max-h-[62vh] gap-3 overflow-y-auto px-6 py-5 sm:grid-cols-2 sm:px-8">
             {birthdaysThisMonth.map((student) => {
-              const hasWhatsapp = student.isBirthdayToday && Boolean(buildBirthdayWhatsappUrl(student, audience));
+              const hasWhatsapp = Boolean(buildBirthdayWhatsappUrl(student, audience));
               return (
                 <article key={student.id} className="group flex flex-col gap-4 rounded-xl border border-slate-200/90 bg-white/[0.92] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_12px_34px_rgba(15,23,42,0.07)] backdrop-blur-xl transition-all hover:-translate-y-0.5 hover:border-rose-200 hover:bg-white hover:shadow-[0_18px_42px_rgba(190,24,93,0.12)] dark:border-white/10 dark:bg-white/[0.045] dark:hover:border-rose-400/30 dark:hover:bg-white/[0.075]">
                   <div className="flex min-w-0 flex-1 items-center gap-3">
@@ -58,10 +72,10 @@ const BirthdayNotificationModal = ({ isOpen, onClose, students = [], audience = 
                   <Button
                     type="button"
                     size="sm"
-                    onClick={() => openWhatsappGreeting(student)}
-                    disabled={!hasWhatsapp}
+                    onClick={() => (makesCards ? setCardFor(student) : openWhatsappGreeting(student))}
+                    disabled={!makesCards && !hasWhatsapp}
                     className="w-full bg-emerald-600 text-white hover:bg-emerald-500"
-                    title={hasWhatsapp ? `Kirim ucapan untuk ${student.nama_lengkap}` : student.isBirthdayToday ? 'Nomor WhatsApp belum tersedia' : 'Ucapan WhatsApp aktif pada hari ulang tahun'}
+                    title={makesCards ? `Buat kartu ucapan untuk ${student.nama_lengkap}` : hasWhatsapp ? `Kirim ucapan untuk ${student.nama_lengkap}` : 'Nomor WhatsApp belum tersedia'}
                   >
                     <MessageCircle className="mr-2 h-4 w-4" /> Ucapkan
                   </Button>

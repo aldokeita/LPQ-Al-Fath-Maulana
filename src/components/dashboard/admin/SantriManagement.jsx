@@ -141,7 +141,7 @@ const SantriManagement = ({ subCategory = 'tpq' }) => {
         supabase.from('classes').select('id, nama_kelas, guru:id_guru(nama)'),
         supabase
           .from('santri')
-          .select('id, nama_lengkap, tanggal_lahir, no_hp_ortu, foto_url, avatar_path')
+          .select('id, nama_lengkap, nama_panggilan, jenis_kelamin, tanggal_lahir, no_hp_ortu, foto_url, avatar_path, class:current_class_id(nama_kelas, guru:id_guru(nama))')
           .is('deleted_at', null)
           .or('status.is.null,status.ilike.aktif,status.ilike.active')
       ]);

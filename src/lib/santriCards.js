@@ -144,6 +144,31 @@ export const upcomingBirthday = (profile, today = new Date()) => {
   return { hariLagi, usia: Number.isInteger(usia) && usia > 0 ? usia : null, tanggal: formatTanggal(new Date(y, m - 1, d)) };
 };
 
+// Profil ulang tahun dari baris santri biasa (tanpa RPC asisten): usia sekarang, ulang tahun berikutnya
+// (hari ini terhitung), dan usia pada hari itu. 29 Februari jatuh pada 28 Februari di tahun biasa.
+export const birthdayProfileFromSantri = (santri, today = new Date()) => {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(santri?.tanggal_lahir || ''));
+  const base = {
+    nama_lengkap: santri?.nama_lengkap || santri?.nama || '',
+    nama_panggilan: santri?.nama_panggilan || '',
+    jenis_kelamin: santri?.jenis_kelamin || '',
+  };
+  if (!match) return { ...base, usia: null, ultah_berikut: null, usia_ultah_berikut: null };
+  const [by, bm, bd] = match.slice(1).map(Number);
+  const onYear = (year) => new Date(year, bm - 1, Math.min(bd, new Date(year, bm, 0).getDate()));
+  const t = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  let next = onYear(t.getFullYear());
+  if (next < t) next = onYear(t.getFullYear() + 1);
+  const usiaBerikut = next.getFullYear() - by;
+  const pad = (n) => String(n).padStart(2, '0');
+  return {
+    ...base,
+    usia: next.getTime() === t.getTime() ? usiaBerikut : usiaBerikut - 1,
+    ultah_berikut: `${next.getFullYear()}-${pad(next.getMonth() + 1)}-${pad(next.getDate())}`,
+    usia_ultah_berikut: usiaBerikut,
+  };
+};
+
 // Kartu boleh dikirim sebelum hari H: bila ulang tahun tinggal ≤ 60 hari, pakai usia yang akan dicapai.
 export const ULTAH_EARLY_DAYS = 60;
 export const defaultUltahUsia = (profile, today = new Date()) => {

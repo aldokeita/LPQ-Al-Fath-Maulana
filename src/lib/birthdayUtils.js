@@ -60,7 +60,10 @@ export const buildBirthdayWhatsappUrl = (person, audience = 'santri') => {
   const phone = normalizeIndonesianPhone(person?.no_hp_ortu || person?.no_hp);
   if (!phone) return '';
   const name = String(person?.nama_lengkap || person?.nama || 'Ananda').trim();
-  const ageText = Number.isFinite(Number(person?.age)) ? ` yang hari ini berusia ${person.age} tahun` : '';
+  const age = Number(person?.age);
+  const hasAge = person?.age !== null && person?.age !== undefined && person?.age !== '' && Number.isFinite(age) && age > 0;
+  // "hari ini berusia" hanya pada hari ulang tahunnya; ucapan yang dikirim lebih awal/terlambat tetap wajar.
+  const ageText = !hasAge ? '' : person?.isBirthdayToday === false ? ` yang genap berusia ${age} tahun` : ` yang hari ini berusia ${age} tahun`;
   const message = audience === 'guru'
     ? `Assalamu'alaikum ${name}. Barakallah fii umrik${ageText}. Semoga Allah memberi kesehatan, keberkahan usia, dan kemudahan dalam mendampingi para santri belajar Al-Qur'an. Aamiin.`
     : `Assalamu'alaikum Bapak/Ibu wali ${name}. Barakallah fii umrik untuk ${name}${ageText}. Semoga Allah memberi kesehatan, keberkahan usia, serta memudahkan dan mengistiqamahkan Ananda dalam belajar Al-Qur'an. Aamiin.`;

@@ -3,14 +3,25 @@ import { ArrowUpRight, Eye, RefreshCw, Star, Trophy, Users } from 'lucide-react'
 import { useNavigate } from 'react-router-dom';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import {
+  fetchGlobalLeaderboardPage,
   fetchLeaderboardPage,
   getLeaderboardRank,
 } from '@/lib/leaderboardAdapters';
 
 const PREVIEW_PAGE_SIZE = 5;
+const SCOPE_KEY = 'lpq.guru-leaderboard.scope';
+const SCOPES = [
+  { id: 'kelas', label: 'Kelas saya' },
+  { id: 'global', label: 'Semua santri' },
+];
+const readScope = () => {
+  try { return window.localStorage.getItem(SCOPE_KEY) === 'global' ? 'global' : 'kelas'; } catch { return 'kelas'; }
+};
 
 const getLeaderboardErrorMessage = (error) => {
+  if (error?.code === 'GLOBAL_LEADERBOARD_UNAVAILABLE') return error.message;
   if (error?.message?.toLowerCase().includes('row-level security')) {
     return 'Akun ini belum memiliki akses baca leaderboard.';
   }
@@ -23,13 +34,20 @@ const GuruLeaderboardPanel = () => {
   const [totalStudents, setTotalStudents] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+  const [scope, setScope] = useState(readScope);
+
+  const chooseScope = (next) => {
+    setScope(next);
+    try { window.localStorage.setItem(SCOPE_KEY, next); } catch { /* penyimpanan lokal tidak tersedia */ }
+  };
 
   const loadLeaderboard = useCallback(async () => {
     setIsLoading(true);
     setError('');
 
     try {
-      const result = await fetchLeaderboardPage({ page: 1, pageSize: PREVIEW_PAGE_SIZE });
+      const fetchPage = scope === 'global' ? fetchGlobalLeaderboardPage : fetchLeaderboardPage;
+      const result = await fetchPage({ page: 1, pageSize: PREVIEW_PAGE_SIZE });
       setStudents(result.students);
       setTotalStudents(result.totalStudents);
     } catch (loadError) {
@@ -40,7 +58,7 @@ const GuruLeaderboardPanel = () => {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [scope]);
 
   useEffect(() => {
     loadLeaderboard();
@@ -55,7 +73,7 @@ const GuruLeaderboardPanel = () => {
           <div>
             <p className="guru-leaderboard-panel__eyebrow">Prestasi santri</p>
             <h2 id="guru-leaderboard-title">Leaderboard poin</h2>
-            <p>Urutan mengikuti data poin dan scope kelas yang dapat Anda akses.</p>
+            <p>{scope === 'global' ? 'Peringkat poin seluruh santri LPQ.' : 'Peringkat poin santri di kelas yang Anda ampu.'}</p>
           </div>
         </div>
         <Button
@@ -67,6 +85,18 @@ const GuruLeaderboardPanel = () => {
           Lihat semua <ArrowUpRight aria-hidden="true" />
         </Button>
       </header>
+
+      <div className="relative px-3 pt-3">
+      <div className="inline-flex rounded-full border border-border bg-background/70 p-1" role="radiogroup" aria-label="Cakupan leaderboard">
+        {SCOPES.map(({ id, label }) => (
+          <button key={id} type="button" role="radio" aria-checked={scope === id} onClick={() => chooseScope(id)}
+            className={cn('min-h-[36px] rounded-full px-4 text-sm font-semibold transition active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              scope === id ? 'bg-teal-600 text-white shadow-sm' : 'text-foreground/70 hover:bg-muted')}>
+            {label}
+          </button>
+        ))}
+      </div>
+      </div>
 
       <div className="guru-leaderboard-panel__body">
         {isLoading && (

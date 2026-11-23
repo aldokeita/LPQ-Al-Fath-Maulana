@@ -751,9 +751,11 @@ export const UltahCardKue = React.forwardRef(({ data, pesan, guru, avatar }, ref
   const longName = isLongName(name);
   return (
     <div ref={ref} style={{ width: CARD_W, height: CARD_H, position: 'relative', overflow: 'hidden', borderRadius: 28, color: '#5b2a12', fontFamily: SANS,
-      background: 'linear-gradient(180deg, #fff7ed 0%, #ffe4e6 100%)' }}>
-      <DotPattern id="dots-ultah-kue" color="#fb7185" opacity={0.2} gap={24} r={2} />
-      <Blob style={{ width: 420, height: 420, top: 40, left: 60, background: 'rgba(255,255,255,0.95)' }} />
+      background: '#fff7ed' }}>
+      <BuildingBackdrop position="center 45%"
+        overlay="linear-gradient(180deg, rgba(255,247,237,0.70) 0%, rgba(255,241,242,0.62) 40%, rgba(255,228,230,0.80) 70%, rgba(255,228,230,0.92) 100%)" />
+      <DotPattern id="dots-ultah-kue" color="#fb7185" opacity={0.16} gap={24} r={2} />
+      <Blob style={{ width: 360, height: 300, top: 60, left: 90, background: 'rgba(255,255,255,0.55)' }} />
       <Balloon x={30} y={150} size={44} color="#fb7185" string="rgba(124,45,18,0.35)" tilt={-10} />
       <Balloon x={72} y={196} size={30} color="#38bdf8" string="rgba(124,45,18,0.35)" tilt={6} />
       <Balloon x={462} y={140} size={42} color="#facc15" string="rgba(124,45,18,0.35)" tilt={10} />
@@ -799,8 +801,10 @@ export const UltahCardPolaroid = React.forwardRef(({ data, pesan, guru, avatar }
   const longName = isLongName(name);
   return (
     <div ref={ref} style={{ width: CARD_W, height: CARD_H, position: 'relative', overflow: 'hidden', borderRadius: 28, color: '#0f3d35', fontFamily: SANS,
-      background: 'linear-gradient(160deg, #e3f6ef 0%, #d6eef6 100%)' }}>
-      <DotPattern id="dots-ultah-polaroid" color="#0f766e" opacity={0.22} gap={18} r={1.3} />
+      background: '#e3f6ef' }}>
+      <BuildingBackdrop position="center 50%"
+        overlay="linear-gradient(160deg, rgba(227,246,239,0.70) 0%, rgba(220,242,245,0.66) 45%, rgba(214,238,246,0.84) 100%)" />
+      <DotPattern id="dots-ultah-polaroid" color="#0f766e" opacity={0.18} gap={18} r={1.3} />
       <Confetti dots={[[256, 92, 7, '#fb7185', 45], [500, 250, 6, '#facc15', 'round'], [26, 380, 6, '#fb7185', 'round'], [505, 380, 7, '#14b8a6', 20]]} />
 
       <div style={{ position: 'relative', height: '100%', padding: '30px 34px 20px', display: 'flex', flexDirection: 'column' }}>
@@ -863,8 +867,13 @@ export const UltahCardKado = React.forwardRef(({ data, pesan, guru, avatar }, re
   const ribbon = { position: 'absolute', background: 'linear-gradient(90deg, #e11d48, #f43f5e 50%, #e11d48)' };
   return (
     <div ref={ref} style={{ width: CARD_W, height: CARD_H, position: 'relative', overflow: 'hidden', borderRadius: 28, color: '#3b1d0a', fontFamily: SANS,
-      background: 'linear-gradient(160deg, #fde047 0%, #fbbf24 60%, #f59e0b 100%)' }}>
-      <svg width={CARD_W} height={CARD_H} style={{ position: 'absolute', inset: 0, opacity: 0.45 }} aria-hidden="true">
+      background: '#fbbf24' }}>
+      {/* Gedung hanya di pita atas yang tidak tertutup label kado, agar fasadnya terlihat. */}
+      <div aria-hidden="true" style={{ position: 'absolute', left: 0, top: 0, width: CARD_W, height: 230, overflow: 'hidden' }}>
+        <BuildingBackdrop height={230} position="center 58%"
+          overlay="linear-gradient(180deg, rgba(253,200,60,0.62) 0%, rgba(251,180,36,0.70) 70%, rgba(251,191,36,1) 100%)" />
+      </div>
+      <svg width={CARD_W} height={CARD_H} style={{ position: 'absolute', inset: 0, opacity: 0.35 }} aria-hidden="true">
         <defs>
           <pattern id="wrap-ultah-kado" width="48" height="48" patternUnits="userSpaceOnUse">
             <path d="M12 5l2.2 5.3 5.3 2.2-5.3 2.2L12 20l-2.2-5.3-5.3-2.2 5.3-2.2z" fill="#fff" />
