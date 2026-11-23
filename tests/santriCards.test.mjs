@@ -127,3 +127,17 @@ test('builds a birthday card with gender-aware wording and an overridable age', 
   assert.equal(buildUltahCard({ nama_lengkap: 'X', usia: null }).usia, null);
   assert.match(cardFileName('ultah', 'Ahmad'), /^kartu-ulang-tahun-ahmad/);
 });
+
+test('birthday cards sent early use the upcoming age', async () => {
+  const { buildUltahCard, defaultUltahUsia, upcomingBirthday } = await import('../src/lib/santriCards.js');
+  const today = new Date(2026, 10, 23);
+  const soon = { nama_lengkap: 'Aira', usia: 7, ultah_berikut: '2026-11-26', usia_ultah_berikut: 8 };
+  assert.deepEqual(upcomingBirthday(soon, today), { hariLagi: 3, usia: 8, tanggal: '26 November 2026' });
+  assert.equal(defaultUltahUsia(soon, today), 8);
+  assert.equal(buildUltahCard(soon, { today }).usia, 8);
+  assert.equal(buildUltahCard(soon, { today, usia: 7 }).usia, 7, 'manual override wins');
+  const passed = { usia: 8, ultah_berikut: '2027-11-20', usia_ultah_berikut: 9 };
+  assert.equal(defaultUltahUsia(passed, today), 8, 'birthday just passed keeps the current age');
+  assert.equal(defaultUltahUsia({ usia: 6 }, today), 6, 'older backend without ultah_berikut');
+  assert.equal(defaultUltahUsia({}, today), null);
+});
