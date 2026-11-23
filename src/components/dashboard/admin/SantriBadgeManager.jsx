@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, Award, Check, Loader2, RotateCcw, Save, Sparkles } from 'lucide-react';
+import { AlertTriangle, Award, Check, Loader2, Printer, RotateCcw, Save, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -12,9 +12,29 @@ import {
   resolveSantriBadgeSession, SANTRI_BADGES, SANTRI_BADGES_KEY, setBadgeWinner,
 } from '@/lib/santriBadges';
 import SantriAchievementBadge from '@/components/dashboard/shared/SantriAchievementBadge';
+import { buildBadgePosterHtml, collectPosterPages } from '@/lib/santriBadgePoster';
+import { OFFICIAL_CONTACT } from '@/lib/institutionContent';
+import { loadAvatar } from '@/components/dashboard/assistant/cardExport';
 import { DISCIPLINE_MIN_RATE, DISCIPLINE_WINDOW_DAYS, rankDiscipline, rankHafalan } from '@/lib/santriBadgeRecommendations';
 
 const NONE = '__none__';
+
+// Gambar ditanam sebagai data URL agar berkas HTML cetak tetap lengkap saat disimpan dan dibuka tanpa internet.
+const toDataUrl = async (url) => {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    return await new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
+};
 
 const loadBadgeData = async () => {
   const [santriResult, configResult] = await Promise.all([
@@ -81,6 +101,7 @@ const SantriBadgeManager = () => {
   const [error, setError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [recs, setRecs] = useState({ status: 'idle', terdisiplin: {}, hafalan: {} });
+  const [isPrinting, setIsPrinting] = useState(false);
 
   const loadRecommendations = async (santriList) => {
     setRecs((current) => ({ ...current, status: 'loading' }));
@@ -130,6 +151,37 @@ const SantriBadgeManager = () => {
   }, [santri, sesi]);
 
   const isDirty = JSON.stringify(draft) !== JSON.stringify(saved);
+  const posterPages = useMemo(() => collectPosterPages({ config: saved, sessions, santriById: byId }), [saved, sessions, byId]);
+
+  // Membuka tab baru berisi halaman A4 per sesi untuk santri yang sudah disimpan sebagai pemenang badge.
+  const printPoster = async () => {
+    if (!posterPages.length) return;
+    const win = window.open('', '_blank');
+    if (!win) {
+      toast({ title: 'Tab cetak diblokir', description: 'Izinkan pop-up untuk situs ini, lalu tekan Cetak A4 lagi.', variant: 'destructive' });
+      return;
+    }
+    win.document.write('<p style="font-family:system-ui,sans-serif;padding:32px;color:#0f2f36">Menyiapkan halaman cetak…</p>');
+    setIsPrinting(true);
+    try {
+      const ids = [...new Set(posterPages.flatMap((page) => page.badges.flatMap((entry) => entry.winners.map((w) => w.santri.id))))];
+      const [logo, building, ...photoList] = await Promise.all([
+        toDataUrl('/logo-lpq-al-fath-maulana.webp'),
+        toDataUrl('/institution/gedung-lpq-blur.webp'),
+        ...ids.map((id) => loadAvatar(id).catch(() => null)),
+      ]);
+      const photos = new Map(ids.map((id, index) => [id, photoList[index]]).filter(([, url]) => url));
+      const html = buildBadgePosterHtml({ pages: posterPages, photos, assets: { logo, building }, address: OFFICIAL_CONTACT.address });
+      win.document.open();
+      win.document.write(html);
+      win.document.close();
+    } catch (printError) {
+      win.close();
+      toast({ title: 'Halaman cetak gagal dibuat', description: printError.message, variant: 'destructive' });
+    } finally {
+      setIsPrinting(false);
+    }
+  };
   const filledCount = SANTRI_BADGES.reduce((total, badge) => total + BADGE_GENDERS
     .filter((gender) => getBadgeWinner(draft, { badgeId: badge.id, sesi, gender: gender.id })).length, 0);
 
@@ -161,7 +213,12 @@ const SantriBadgeManager = () => {
             Tiap sesi, setiap badge diberikan kepada satu santri putra dan satu santri putri. Badge tampil di profil absensi santri saat tap RFID atau absen wajah.
           </p>
         </div>
-        <div className="flex shrink-0 gap-2">
+        <div className="flex shrink-0 flex-wrap gap-2">
+          <Button type="button" variant="outline" onClick={printPoster} disabled={status !== 'ready' || isPrinting || posterPages.length === 0}
+            title={posterPages.length === 0 ? 'Simpan pemenang badge terlebih dahulu' : isDirty ? 'Mencetak badge yang sudah disimpan; perubahan yang belum disimpan tidak ikut' : 'Cetak santri berprestasi per sesi dalam ukuran A4'}>
+            {isPrinting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> : <Printer className="mr-2 h-4 w-4" aria-hidden="true" />}
+            Cetak A4
+          </Button>
           <Button type="button" variant="outline" onClick={() => setDraft(saved)} disabled={!isDirty || isSaving}>
             <RotateCcw className="mr-2 h-4 w-4" aria-hidden="true" /> Batalkan
           </Button>
