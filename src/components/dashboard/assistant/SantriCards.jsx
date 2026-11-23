@@ -227,14 +227,16 @@ export const JilidCardBiru = React.forwardRef(({ data, pesan, guru, avatar }, re
   const mark = jilidMark(data.ke);
   return (
     <div ref={ref} style={{ width: CARD_W, height: CARD_H, position: 'relative', overflow: 'hidden', borderRadius: 28, background: '#f8fbff', color: '#0b1f4d', fontFamily: SANS }}>
-      <div aria-hidden="true" style={{ position: 'absolute', left: 0, top: 0, width: CARD_W, height: 318,
-        background: 'linear-gradient(155deg, #0b1f4d 0%, #1d4ed8 52%, #38bdf8 100%)' }} />
+      <div aria-hidden="true" style={{ position: 'absolute', left: 0, top: 0, width: CARD_W, height: 318, overflow: 'hidden' }}>
+        <BuildingBackdrop position="center 42%"
+          overlay="linear-gradient(155deg, rgba(11,31,77,0.82) 0%, rgba(29,78,216,0.62) 52%, rgba(56,189,248,0.52) 100%)" />
+      </div>
       <Blob style={{ width: 300, height: 300, top: -110, left: -90, background: 'rgba(125,211,252,0.45)' }} />
       <Blob style={{ width: 240, height: 240, top: 120, right: -80, background: 'rgba(99,102,241,0.5)' }} />
       <div aria-hidden="true" style={{ position: 'absolute', left: 0, top: 0, width: CARD_W, height: 318, overflow: 'hidden' }}>
         <StarPattern id="star-jilid-biru" color="#ffffff" opacity={0.07} />
-        <div style={{ position: 'absolute', right: -6, top: 40, fontFamily: SANS, fontWeight: 900, lineHeight: 0.8, letterSpacing: -8,
-          fontSize: mark.length > 3 ? 120 : mark.length > 1 ? 200 : 250, color: 'transparent', WebkitTextStroke: '2px rgba(255,255,255,0.28)' }}>
+        <div style={{ position: 'absolute', right: 26, top: 74, fontFamily: SANS, fontWeight: 900, lineHeight: 1, letterSpacing: 0,
+          fontSize: mark.length > 3 ? 92 : mark.length > 1 ? 150 : 190, color: 'rgba(255,255,255,0.30)', textShadow: '0 6px 24px rgba(11,31,77,0.35)' }}>
           {mark}
         </div>
       </div>
@@ -325,7 +327,9 @@ export const JilidCardPink = React.forwardRef(({ data, pesan, guru, avatar }, re
   const longName = isLongName(name);
   return (
     <div ref={ref} style={{ width: CARD_W, height: CARD_H, position: 'relative', overflow: 'hidden', borderRadius: 28, color: '#4a1238', fontFamily: SANS,
-      background: 'linear-gradient(170deg, #fff7fa 0%, #ffe4ef 48%, #fbcfe8 100%)' }}>
+      background: '#fff1f6' }}>
+      <BuildingBackdrop position="center 40%"
+        overlay="linear-gradient(170deg, rgba(255,247,250,0.84) 0%, rgba(255,228,239,0.80) 48%, rgba(251,207,232,0.86) 100%)" />
       <Blob style={{ width: 340, height: 340, top: -120, right: -120, background: 'rgba(244,114,182,0.45)' }} />
       <Blob style={{ width: 300, height: 300, bottom: -130, left: -110, background: 'rgba(192,132,252,0.35)' }} />
       <Blob style={{ width: 220, height: 220, top: 210, left: -90, background: 'rgba(251,191,36,0.22)' }} />
