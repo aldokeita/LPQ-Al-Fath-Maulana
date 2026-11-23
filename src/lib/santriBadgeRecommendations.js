@@ -1,4 +1,4 @@
-import { normalizeBadgeGender, resolveSantriBadgeSession } from './santriBadges.js';
+import { normalizeBadgeGender, normalizeBadgeSession, resolveSantriBadgeSession } from './santriBadges.js';
 
 // Rekomendasi badge dihitung dari data yang sudah ada, tanpa tabel baru:
 // - Terdisiplin: urutan datang sendiri (tap RFID / wajah) yang konsisten paling awal di sesinya.
@@ -61,11 +61,13 @@ export const rankDiscipline = ({ attendance = [], santri = [], limit = 3 } = {})
   const groups = new Map();
   const sessionDays = new Map();
 
-  attendance.forEach((row) => {
-    if (!row?.sesi || !row.attendance_date) return;
-    const days = sessionDays.get(row.sesi) || new Set();
+  attendance.forEach((source) => {
+    const sesi = normalizeBadgeSession(source?.sesi);
+    if (!sesi || !source.attendance_date) return;
+    const row = { ...source, sesi };
+    const days = sessionDays.get(sesi) || new Set();
     days.add(row.attendance_date);
-    sessionDays.set(row.sesi, days);
+    sessionDays.set(sesi, days);
     if (!known.has(row.user_id) || !row.check_in_timestamp) return;
     if (!SELF_CHECK_IN.has(String(row.source || '').toLowerCase())) return;
     if (!PRESENT.has(String(row.status || '').trim().toLowerCase())) return;

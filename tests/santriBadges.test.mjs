@@ -43,3 +43,8 @@ test('orders sesi Pagi, Siang, Sore, Malam, then others', () => {
   const santri = [{ sesi_mengaji: 'Sore' }, { class: { sesi: 'Pagi' } }, { sesi_mengaji: 'Khusus' }, { sesi_mengaji: 'Sore' }, {}];
   assert.deepEqual(listBadgeSessions(santri), ['Pagi', 'Sore', 'Khusus']);
 });
+
+test('merges numeric sesi codes with their names', () => {
+  const santri = [{ sesi_mengaji: '0' }, { sesi_mengaji: 'Pagi' }, { class: { sesi: '2' } }, { sesi_mengaji: '3' }];
+  assert.deepEqual(listBadgeSessions(santri), ['Pagi', 'Siang', 'Sore']);
+});
