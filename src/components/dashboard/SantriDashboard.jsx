@@ -14,6 +14,9 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import BirthdayGreeting from '@/components/BirthdayGreeting';
+import SantriAchievementBadge from '@/components/dashboard/shared/SantriAchievementBadge';
+import { getSantriBadgeById } from '@/lib/santriBadges';
+import { getSantriBadgeIds } from '@/lib/attendanceProfileData';
 import HafalanDisplay from '@/components/dashboard/shared/HafalanDisplay';
 import SantriAbsensiRecap from '@/components/dashboard/santri/SantriAbsensiRecap';
 import SantriPaymentHistory from '@/components/dashboard/santri/SantriPaymentHistory';
@@ -397,6 +400,16 @@ const SantriDashboard = ({ isAdult = false }) => {
   const [dailyAttendance, setDailyAttendance] = useState([]);
   const [classmates, setClassmates] = useState([]);
   const [classmatesAttendance, setClassmatesAttendance] = useState([]);
+  const [badgeIds, setBadgeIds] = useState([]);
+
+  useEffect(() => {
+    if (!santriData?.id) return undefined;
+    let active = true;
+    getSantriBadgeIds(santriData.id)
+      .then((ids) => { if (active) setBadgeIds(ids); })
+      .catch(() => { if (active) setBadgeIds([]); });
+    return () => { active = false; };
+  }, [santriData?.id]);
 
   // Own Attendance modal state
   const [myAttendanceRecord, setMyAttendanceRecord] = useState(null);
@@ -546,6 +559,14 @@ const SantriDashboard = ({ isAdult = false }) => {
                   </div>
                 ))}
               </div>
+              {badgeIds.length > 0 && (
+                <div className="mt-5">
+                  <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">Badge prestasi</p>
+                  <div role="list" aria-label="Badge prestasi santri" className="flex flex-wrap justify-center gap-x-4 gap-y-3 lg:justify-start">
+                    {badgeIds.map(getSantriBadgeById).filter(Boolean).map((badge) => <SantriAchievementBadge key={badge.id} badge={badge} size="sm" />)}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="grid gap-2 sm:grid-cols-2 lg:min-w-[190px] lg:grid-cols-1">
