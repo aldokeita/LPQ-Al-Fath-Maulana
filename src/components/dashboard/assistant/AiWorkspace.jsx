@@ -1,6 +1,6 @@
 import React, { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import {
-  AlertTriangle, Award, Bot, Check, Copy, FileText, Contact, Loader2, MessageCircle, MessageSquarePlus, StickyNote, RefreshCw, Send,
+  AlertTriangle, Award, Bot, Check, ChevronDown, Copy, FileText, Contact, Loader2, MessageCircle, MessageSquarePlus, StickyNote, RefreshCw, Send,
   Sparkles, Target, Trash2, Users,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -608,8 +608,19 @@ const ReportPanel = ({ roster, guruName, focusSantriId }) => {
 // ===== Ruang kerja =====
 
 // Tampil hanya bila admin menyalakan AI dan pengguna punya kelas TPQ anak (kosong bagi guru saat mode senyap).
+const OPEN_KEY = 'lpq.ai-workspace.open';
+// Panel tertutup secara default; pilihan guru diingat per perangkat.
+const readOpen = () => {
+  try { return window.localStorage.getItem(OPEN_KEY) === '1'; } catch { return false; }
+};
+const writeOpen = (open) => {
+  try { window.localStorage.setItem(OPEN_KEY, open ? '1' : '0'); } catch { /* penyimpanan lokal tidak tersedia */ }
+};
+
 const AiWorkspace = ({ className, guruName }) => {
   const sectionRef = useRef(null);
+  const [open, setOpen] = useState(readOpen);
+  const toggle = () => setOpen((prev) => { writeOpen(!prev); return !prev; });
   const [focus, setFocus] = useState(null);
   const [enabled, setEnabled] = useState(false);
   const [classes, setClasses] = useState([]);
@@ -650,6 +661,8 @@ const AiWorkspace = ({ className, guruName }) => {
       setClassId(cls);
       setTab('chat');
       setFocus({ santriId, classId: cls, nonce: Date.now() });
+      setOpen(true);
+      writeOpen(true);
       requestAnimationFrame(() => sectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
     };
     window.addEventListener('lpq:ai-ask', onAsk);
@@ -669,12 +682,17 @@ const AiWorkspace = ({ className, guruName }) => {
     <section ref={sectionRef} className={cn('attention-shell mb-8 scroll-mt-20 rounded-3xl', className)} aria-labelledby="ai-workspace-title">
       <div className="attention-aurora" aria-hidden="true" />
       <header className="relative flex flex-wrap items-center gap-3 p-4 sm:p-5">
-        <span className="attention-ai-badge flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl"><Sparkles className="h-5 w-5" aria-hidden="true" /></span>
-        <div className="min-w-0 flex-1">
-          <h2 id="ai-workspace-title" className="text-lg font-semibold leading-tight text-foreground">Asisten AI</h2>
-          <p className="text-sm text-foreground/75">Gambaran kelas, konsultasi, rapor wali, dan kartu santri berdasarkan data.</p>
-        </div>
-        {classes.length > 1 && (
+        <button type="button" onClick={toggle} aria-expanded={open} aria-controls="ai-workspace-content"
+          className="group flex min-w-0 flex-1 items-center gap-3 rounded-2xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background">
+          <span className="attention-ai-badge flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl"><Sparkles className="h-5 w-5" aria-hidden="true" /></span>
+          <span className="min-w-0">
+            <span id="ai-workspace-title" role="heading" aria-level={2} className="block text-lg font-semibold leading-tight text-foreground">Asisten AI</span>
+            <span className="block text-sm text-foreground/75">Gambaran kelas, konsultasi, rapor wali, dan kartu santri berdasarkan data.</span>
+          </span>
+          <ChevronDown className={cn('ml-auto h-5 w-5 shrink-0 text-foreground/70 transition-transform duration-300 motion-reduce:transition-none', open && 'rotate-180')} aria-hidden="true" />
+          <span className="sr-only">{open ? 'Sembunyikan panel' : 'Tampilkan panel'}</span>
+        </button>
+        {open && classes.length > 1 && (
           <div className="w-full sm:w-56">
             <Label htmlFor="ai-class" className="sr-only">Kelas</Label>
             <Select value={classId || undefined} onValueChange={setClassId}>
@@ -684,6 +702,8 @@ const AiWorkspace = ({ className, guruName }) => {
           </div>
         )}
       </header>
+      <div id="ai-workspace-content" className="attention-collapse relative" data-open={open} {...(!open && { inert: '' })}>
+      <div className="min-h-0 overflow-hidden">
       <div className="relative px-4 pb-5 sm:px-5">
         <div className="mb-4 flex max-w-full overflow-x-auto rounded-xl bg-muted/60 p-1 sm:inline-flex" role="tablist" aria-label="Fitur asisten AI">
           {tabs.map(({ id, label, icon: Icon }) => (
@@ -709,6 +729,8 @@ const AiWorkspace = ({ className, guruName }) => {
               focusSantriId={focus?.classId === classId ? focus.santriId : null} />
           )}
         </div>
+      </div>
+      </div>
       </div>
     </section>
   );
