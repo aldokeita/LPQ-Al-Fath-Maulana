@@ -97,10 +97,10 @@ const Signature = ({ guru, dark, label = 'Guru Pengajar' }) => (
 const BUILDING = '/institution/gedung-lpq-blur.webp';
 
 // Foto gedung LPQ sebagai latar: diburamkan tipis lalu ditutup lapisan warna agar teks tetap kontras.
-const BuildingBackdrop = ({ overlay, position = 'center 40%' }) => (
+const BuildingBackdrop = ({ overlay, position = 'center 40%', height = CARD_H }) => (
   <>
     <img src={BUILDING} alt="" aria-hidden="true" crossOrigin="anonymous"
-      style={{ position: 'absolute', inset: 0, width: CARD_W, height: CARD_H, objectFit: 'cover', objectPosition: position }} />
+      style={{ position: 'absolute', left: 0, top: 0, width: CARD_W, height, objectFit: 'cover', objectPosition: position }} />
     <div aria-hidden="true" style={{ position: 'absolute', inset: 0, background: overlay }} />
   </>
 );
@@ -228,15 +228,15 @@ export const JilidCardBiru = React.forwardRef(({ data, pesan, guru, avatar }, re
   return (
     <div ref={ref} style={{ width: CARD_W, height: CARD_H, position: 'relative', overflow: 'hidden', borderRadius: 28, background: '#f8fbff', color: '#0b1f4d', fontFamily: SANS }}>
       <div aria-hidden="true" style={{ position: 'absolute', left: 0, top: 0, width: CARD_W, height: 318, overflow: 'hidden' }}>
-        <BuildingBackdrop position="center 42%"
-          overlay="linear-gradient(155deg, rgba(11,31,77,0.82) 0%, rgba(29,78,216,0.62) 52%, rgba(56,189,248,0.52) 100%)" />
+        {/* Header berproporsi sama dengan foto, sehingga seluruh gedung terlihat (bukan hanya atap). */}
+        <BuildingBackdrop height={318} position="center 55%"
+          overlay="linear-gradient(100deg, rgba(11,31,77,0.86) 0%, rgba(23,60,170,0.62) 42%, rgba(29,78,216,0.28) 72%, rgba(56,189,248,0.16) 100%)" />
       </div>
-      <Blob style={{ width: 300, height: 300, top: -110, left: -90, background: 'rgba(125,211,252,0.45)' }} />
-      <Blob style={{ width: 240, height: 240, top: 120, right: -80, background: 'rgba(99,102,241,0.5)' }} />
+      <Blob style={{ width: 300, height: 300, top: -110, left: -90, background: 'rgba(125,211,252,0.35)' }} />
       <div aria-hidden="true" style={{ position: 'absolute', left: 0, top: 0, width: CARD_W, height: 318, overflow: 'hidden' }}>
-        <StarPattern id="star-jilid-biru" color="#ffffff" opacity={0.07} />
+        <StarPattern id="star-jilid-biru" color="#ffffff" opacity={0.05} />
         <div style={{ position: 'absolute', right: 26, top: 74, fontFamily: SANS, fontWeight: 900, lineHeight: 1, letterSpacing: 0,
-          fontSize: mark.length > 3 ? 92 : mark.length > 1 ? 150 : 190, color: 'rgba(255,255,255,0.30)', textShadow: '0 6px 24px rgba(11,31,77,0.35)' }}>
+          fontSize: mark.length > 3 ? 92 : mark.length > 1 ? 150 : 190, color: 'rgba(255,255,255,0.92)', textShadow: '0 4px 0 rgba(29,78,216,0.55), 0 10px 30px rgba(11,31,77,0.55)' }}>
           {mark}
         </div>
       </div>
@@ -326,52 +326,54 @@ export const JilidCardPink = React.forwardRef(({ data, pesan, guru, avatar }, re
   const name = data.namaLengkap || data.panggilan;
   const longName = isLongName(name);
   return (
-    <div ref={ref} style={{ width: CARD_W, height: CARD_H, position: 'relative', overflow: 'hidden', borderRadius: 28, color: '#4a1238', fontFamily: SANS,
-      background: '#fff1f6' }}>
-      <BuildingBackdrop position="center 40%"
-        overlay="linear-gradient(170deg, rgba(255,247,250,0.84) 0%, rgba(255,228,239,0.80) 48%, rgba(251,207,232,0.86) 100%)" />
-      <Blob style={{ width: 340, height: 340, top: -120, right: -120, background: 'rgba(244,114,182,0.45)' }} />
-      <Blob style={{ width: 300, height: 300, bottom: -130, left: -110, background: 'rgba(192,132,252,0.35)' }} />
-      <Blob style={{ width: 220, height: 220, top: 210, left: -90, background: 'rgba(251,191,36,0.22)' }} />
-      <StarPattern id="star-jilid-pink" color="#be185d" opacity={0.06} />
-      <Confetti dots={[[70, 150, 9, '#f5c48a', 45], [96, 214, 6, '#ec4899', 'round'], [450, 132, 8, '#f9a8d4', 30], [430, 258, 6, '#f5c48a', 'round'], [118, 300, 5, '#c084fc', 'round'], [470, 330, 7, '#ec4899', 15]]} />
+    <div ref={ref} style={{ width: CARD_W, height: CARD_H, position: 'relative', overflow: 'hidden', borderRadius: 28, color: '#4a1238', fontFamily: SANS, background: '#f9a8d4' }}>
+      {/* Gedung LPQ penuh di belakang, diwarnai merah muda; konten berada di panel putih di atasnya. */}
+      <BuildingBackdrop position="center 50%"
+        overlay="linear-gradient(160deg, rgba(219,39,119,0.55) 0%, rgba(236,72,153,0.38) 45%, rgba(147,51,234,0.50) 100%)" />
+      <StarPattern id="star-jilid-pink" color="#ffffff" opacity={0.08} />
+      <Confetti dots={[[18, 120, 9, '#fde68a', 45], [508, 90, 7, '#ffffff', 'round'], [24, 470, 6, '#ffffff', 'round'], [510, 520, 9, '#fde68a', 20]]} />
 
-      <div style={{ position: 'relative', height: '100%', padding: '26px 34px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        <div style={{ alignSelf: 'stretch', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Brand />
-          <span style={{ whiteSpace: 'nowrap', flexShrink: 0, padding: '6px 12px', borderRadius: 9999, fontSize: 10.5, fontWeight: 800, letterSpacing: 2.2, textTransform: 'uppercase',
-            color: '#9d174d', background: 'rgba(255,255,255,0.75)', border: '1px solid rgba(219,39,119,0.35)' }}>
-            Kartu Apresiasi
-          </span>
+      <div style={{ position: 'absolute', inset: 18, borderRadius: 24, background: 'rgba(255,250,252,0.80)', border: '1px solid rgba(255,255,255,0.9)',
+        boxShadow: '0 24px 50px rgba(131,24,67,0.30)' }} />
+      {/* Pita sudut */}
+      <div aria-hidden="true" style={{ position: 'absolute', top: 18, right: 18, width: 120, height: 120, overflow: 'hidden', borderTopRightRadius: 24 }}>
+        <div style={{ position: 'absolute', top: 26, right: -34, width: 170, transform: 'rotate(45deg)', textAlign: 'center', padding: '6px 0',
+          background: 'linear-gradient(90deg, #db2777, #9333ea)', color: '#fff', fontSize: 11, fontWeight: 800, letterSpacing: 2.4, textTransform: 'uppercase',
+          boxShadow: '0 6px 14px rgba(131,24,67,0.35)' }}>
+          Naik Jilid
+        </div>
+      </div>
+
+      <div style={{ position: 'relative', height: '100%', padding: '40px 42px 34px', display: 'flex', flexDirection: 'column' }}>
+        <Brand />
+
+        <div style={{ flexShrink: 0, marginTop: 26, display: 'flex', alignItems: 'center', gap: 24 }}>
+          <ArchPhoto src={avatar} name={name} width={172} height={222} />
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div dir="rtl" lang="ar" style={{ fontFamily: ARABIC, fontSize: 30, lineHeight: 1.25, color: '#be185d', textAlign: 'left' }}>مَا شَاءَ اللهُ</div>
+            <div style={{ marginTop: 4, fontSize: 11.5, fontWeight: 800, letterSpacing: 2.2, textTransform: 'uppercase', color: '#db2777' }}>Selamat naik jilid</div>
+            <div style={{ marginTop: 4, fontSize: longName ? 22 : 27, fontWeight: 800, lineHeight: longName ? '27px' : '32px', letterSpacing: -0.4, color: '#4a1238',
+              display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+              {String(name || '').replace(/-/g, '\u2011')}
+            </div>
+            <div style={{ marginTop: 12, display: 'inline-flex', alignItems: 'baseline', gap: 6, padding: '6px 14px', borderRadius: 14,
+              background: 'linear-gradient(135deg, #db2777 0%, #9333ea 100%)', color: '#fff', boxShadow: '0 8px 18px rgba(157,23,77,0.30)' }}>
+              <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1.6, textTransform: 'uppercase', opacity: 0.85 }}>Kini</span>
+              <span style={{ fontSize: 20, fontWeight: 900, whiteSpace: 'nowrap' }}>{nb(data.ke)}</span>
+            </div>
+          </div>
         </div>
 
-        <div dir="rtl" lang="ar" style={{ flexShrink: 0, fontFamily: ARABIC, fontSize: 34, lineHeight: 1.3, marginTop: 6, color: '#be185d' }}>
-          مَا شَاءَ اللهُ
-        </div>
-
-        <div style={{ position: 'relative', flexShrink: 0, marginTop: 4 }}>
-          <ArchPhoto src={avatar} name={name} width={longName ? 160 : 178} height={longName ? 196 : 218} />
-          <span style={{ position: 'absolute', left: '50%', bottom: -15, transform: 'translateX(-50%)', whiteSpace: 'nowrap',
-            padding: '7px 16px', borderRadius: 9999, fontSize: 15, fontWeight: 800, color: '#ffffff',
-            background: 'linear-gradient(135deg, #db2777 0%, #9333ea 100%)', boxShadow: '0 8px 20px rgba(157,23,77,0.35)', border: '2px solid #ffffff' }}>
-            {nb(`★ ${data.ke}`)}
-          </span>
-        </div>
-
-        <div style={{ flexShrink: 0, marginTop: 26, fontSize: 12.5, fontWeight: 800, letterSpacing: 2.4, textTransform: 'uppercase', color: '#db2777' }}>Selamat naik jilid</div>
-        <div style={{ flexShrink: 0, fontSize: longName ? 24 : 30, fontWeight: 800, lineHeight: longName ? '30px' : '38px', marginTop: 2, letterSpacing: -0.4, textAlign: 'center', maxWidth: '100%',
-          display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', color: '#4a1238' }}>
-          {name}
-        </div>
+        <div aria-hidden="true" style={{ flexShrink: 0, marginTop: 26, height: 1, background: 'linear-gradient(90deg, transparent, rgba(219,39,119,0.35), transparent)' }} />
 
         {data.dari && (
-          <div style={{ marginTop: 8 }}>
-            <JilidStep dari={data.dari} ke={data.ke} muted="#8a4a6d" arrow="#db2777" chipBg="#f5c48a" chipText="#4a1238" border="rgba(219,39,119,0.22)" bg="rgba(255,255,255,0.7)" />
+          <div style={{ flexShrink: 0, marginTop: 14, alignSelf: 'flex-start' }}>
+            <JilidStep dari={data.dari} ke={data.ke} muted="#8a4a6d" arrow="#db2777" chipBg="#fbcfe8" chipText="#831843" border="rgba(219,39,119,0.22)" bg="#fff" />
           </div>
         )}
 
-        <p style={{ flexShrink: 0, marginTop: 10, marginBottom: 0, fontSize: 13, lineHeight: '20px', textAlign: 'center', color: '#6b2a52', padding: '0 6px',
-          display: '-webkit-box', WebkitLineClamp: longName || data.dari ? 2 : 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+        <p style={{ flexShrink: 0, marginTop: 14, marginBottom: 0, fontSize: 15, lineHeight: '24px', color: '#6b2a52',
+          display: '-webkit-box', WebkitLineClamp: data.dari ? 3 : 4, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
           {fillPesan(pesan, { nama: data.panggilan, ke: data.ke })}
         </p>
 

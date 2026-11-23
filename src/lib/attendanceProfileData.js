@@ -100,6 +100,13 @@ const loadSantriBadgeConfig = () => {
     return promise;
 };
 
+// Badge ids held by one santri (for the santri dashboard).
+export const getSantriBadgeIds = async (santriId) => {
+    if (!santriId) return [];
+    const config = await loadSantriBadgeConfig();
+    return badgesForSantri(config, santriId).map((badge) => badge.id);
+};
+
 export const getSantriLearningHighlights = async (santriId) => {
     if (!santriId) {
         return { hafalanCount: 0, characterStrength: null, strongestHafalanCategory: null, badges: [] };

@@ -2,20 +2,25 @@ import React from 'react';
 
 // Logo LPQ sudah berbentuk bintang delapan sudut, jadi dipakai utuh sebagai "bintang" badge.
 const LOGO = '/logo-lpq-al-fath-maulana.webp';
+const DISPLAY = "'Fredoka', 'Outfit', 'Poppins', system-ui, sans-serif";
 
 const SIZES = {
-  sm: { height: 40, star: 54, font: 13, gap: 2 },
-  md: { height: 50, star: 68, font: 16.5, gap: 3 },
+  sm: { height: 46, star: 60, kicker: 9.5, title: 17, pad: 15 },
+  md: { height: 58, star: 76, kicker: 11.5, title: 22, pad: 19 },
 };
 
+// "#22c3d6" + alpha → "#22c3d6xx"; definisi badge selalu memakai hex 6 digit.
+const withAlpha = (hex, alpha) => `${hex}${Math.round(alpha * 255).toString(16).padStart(2, '0')}`;
+
 /**
- * Badge prestasi santri berbentuk stiker akrilik: logo bintang LPQ penuh di kiri,
- * plakat putih dengan dua baris judul bergradasi di kanan. Warna judul dari badge (from → to).
+ * Badge prestasi santri: logo bintang LPQ utuh menempel di kiri, plakat kapsul berbingkai gradasi di kanan.
+ * Baris pertama judul kecil berjarak lebar, baris kedua besar bergradasi dengan bayangan timbul.
  */
 const SantriAchievementBadge = ({ badge, size = 'sm', className }) => {
   if (!badge) return null;
   const dims = SIZES[size] || SIZES.sm;
-  const gradient = `linear-gradient(120deg, ${badge.from}, ${badge.to})`;
+  const [kicker, ...rest] = badge.lines;
+  const title = rest.join(' ') || kicker;
 
   return (
     <span
@@ -23,7 +28,7 @@ const SantriAchievementBadge = ({ badge, size = 'sm', className }) => {
       aria-label={`Badge ${badge.title}`}
       title={badge.title}
       className={className}
-      style={{ display: 'inline-flex', alignItems: 'center', position: 'relative', height: dims.star, paddingLeft: dims.star * 0.62, flexShrink: 0 }}
+      style={{ display: 'inline-flex', alignItems: 'center', position: 'relative', height: dims.star, paddingLeft: dims.star * 0.58, flexShrink: 0 }}
     >
       <img
         src={LOGO}
@@ -36,43 +41,60 @@ const SantriAchievementBadge = ({ badge, size = 'sm', className }) => {
           position: 'absolute',
           left: 0,
           top: 0,
-          zIndex: 1,
+          zIndex: 2,
           width: dims.star,
           height: dims.star,
           objectFit: 'contain',
-          // Tepi putih seperti potongan stiker, lalu bayangan lembut.
-          filter: 'drop-shadow(0 0 1.5px #ffffff) drop-shadow(0 0 1.5px #ffffff) drop-shadow(0 3px 5px rgba(15, 23, 42, 0.22))',
+          filter: `drop-shadow(0 0 1.5px #fff) drop-shadow(0 0 1.5px #fff) drop-shadow(0 6px 10px ${withAlpha(badge.to, 0.35)})`,
         }}
       />
       <span
         style={{
+          position: 'relative',
           display: 'inline-flex',
           flexDirection: 'column',
           justifyContent: 'center',
           height: dims.height,
-          paddingLeft: dims.star * 0.48,
-          paddingRight: dims.height * 0.34,
-          borderRadius: dims.height * 0.22,
-          background: 'linear-gradient(180deg, #ffffff 0%, #f3f7fb 100%)',
-          border: '1px solid rgba(203, 213, 225, 0.9)',
-          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.95), inset 0 -2px 0 rgba(148,163,184,0.18), 0 3px 10px rgba(15,23,42,0.12)',
-          fontFamily: "'Outfit', 'Poppins', system-ui, sans-serif",
-          fontWeight: 900,
-          fontSize: dims.font,
-          lineHeight: 0.98,
-          letterSpacing: 0.3,
+          paddingLeft: dims.star * 0.5,
+          paddingRight: dims.pad + 6,
+          borderRadius: 9999,
+          border: '2px solid transparent',
+          // Lapisan putih buram di bawah rona tipis, agar warna bingkai tidak tembus ke isi plakat.
+          background: `linear-gradient(180deg, #ffffff 30%, ${withAlpha(badge.from, 0.1)} 100%) padding-box, linear-gradient(#ffffff, #ffffff) padding-box, linear-gradient(120deg, ${badge.from}, ${badge.to}) border-box`,
+          boxShadow: `0 8px 20px ${withAlpha(badge.to, 0.22)}, inset 0 1px 0 #ffffff`,
+          fontFamily: DISPLAY,
           textTransform: 'uppercase',
-          gap: dims.gap,
         }}
       >
-        {badge.lines.map((line) => (
-          <span
-            key={line}
-            style={{ whiteSpace: 'nowrap', backgroundImage: gradient, WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' }}
-          >
-            {line}
-          </span>
-        ))}
+        <span style={{ fontSize: dims.kicker, fontWeight: 600, letterSpacing: dims.kicker * 0.28, lineHeight: 1, color: badge.from, whiteSpace: 'nowrap' }}>
+          {kicker}
+        </span>
+        <span
+          style={{
+            marginTop: 2,
+            fontSize: dims.title,
+            fontWeight: 700,
+            letterSpacing: 0.2,
+            lineHeight: 0.95,
+            whiteSpace: 'nowrap',
+            backgroundImage: `linear-gradient(120deg, ${badge.from}, ${badge.to})`,
+            WebkitBackgroundClip: 'text',
+            backgroundClip: 'text',
+            color: 'transparent',
+            filter: `drop-shadow(0 1.5px 0 ${withAlpha(badge.to, 0.28)})`,
+          }}
+        >
+          {title}
+        </span>
+        <svg
+          aria-hidden="true"
+          width={dims.kicker + 3}
+          height={dims.kicker + 3}
+          viewBox="0 0 24 24"
+          style={{ position: 'absolute', top: dims.height * 0.14, right: dims.pad * 0.55 }}
+        >
+          <path d="M12 2l2.2 7.8L22 12l-7.8 2.2L12 22l-2.2-7.8L2 12l7.8-2.2z" fill={badge.to} opacity="0.85" />
+        </svg>
       </span>
     </span>
   );
