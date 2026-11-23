@@ -151,11 +151,7 @@ const AttendanceProfileCard = ({
       )}
 
       {!isTeacher && badgeList.length > 0 && (
-        <div
-          role="list"
-          aria-label="Badge prestasi santri"
-          style={{ display: 'flex', flexWrap: 'wrap', gap: wide ? '10px 14px' : '8px 12px', marginTop: 10, marginBottom: 4 }}
-        >
+        <div role="list" aria-label="Badge prestasi santri" className="attendance-profile-card__badges">
           {badgeList.map((badge) => <SantriAchievementBadge key={badge.id} badge={badge} size={wide ? 'md' : 'sm'} />)}
         </div>
       )}

@@ -4266,12 +4266,28 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
   }
 }
 
+/* Baris badge: jarak bawah sama dengan jarak bawah baris identitas, agar atas & bawah seimbang. */
+.attendance-profile-card__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+  margin: 0 0 1.15rem;
+}
+
+.attendance-profile-card--wide .attendance-profile-card__badges {
+  gap: 0.625rem 0.875rem;
+}
+
 @media (max-width: 380px) {
   .attendance-profile-card__identity-row {
     gap: 0.65rem;
     margin-top: 0.2rem;
     margin-bottom: 0.95rem;
     padding-inline: 0.15rem;
+  }
+
+  .attendance-profile-card__badges {
+    margin-bottom: 0.95rem;
   }
 
   .attendance-profile-card__identity-divider {
@@ -4283,6 +4299,10 @@ body.lpq-admin-context [cmdk-item][data-selected="true"] {
   .attendance-profile-card__identity-row {
     gap: 1rem;
     margin-top: 0.5rem;
+    margin-bottom: 1.35rem;
+  }
+
+  .attendance-profile-card__badges {
     margin-bottom: 1.35rem;
   }
 }
