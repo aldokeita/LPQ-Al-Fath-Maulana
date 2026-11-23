@@ -46,3 +46,9 @@ test('ranks hafalan by completed items, then average score', () => {
   assert.deepEqual(result.Pagi.putra.map((c) => [c.name, c.completed]), [['Cahya', 2], ['Bilal', 1], ['Ahmad', 1]]);
   assert.deepEqual(result.Pagi.putri, []);
 });
+
+test('treats attendance sesi codes and names as the same sesi', () => {
+  const coded = attendance.map((r, i) => (i % 2 ? { ...r, sesi: '0' } : r));
+  const result = rankDiscipline({ attendance: coded, santri });
+  assert.deepEqual(result.Pagi.putra.map((c) => c.name), ['Ahmad', 'Bilal', 'Cahya']);
+});

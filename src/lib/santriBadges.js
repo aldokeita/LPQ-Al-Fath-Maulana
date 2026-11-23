@@ -1,5 +1,7 @@
 // Badge apresiasi santri: tiap badge, tiap sesi, satu santri putra dan satu santri putri.
 // Disimpan di website_content (key SANTRI_BADGES_KEY) hanya berupa id santri, tanpa nama.
+import { getSessionName } from '../utils/sessionMapping.js';
+
 export const SANTRI_BADGES_KEY = 'santriBadges';
 
 export const SANTRI_BADGES = [
@@ -24,8 +26,11 @@ export const normalizeBadgeGender = (value) => {
   return null;
 };
 
+// Sesi bisa tersimpan sebagai kode angka ("0", "2") atau nama ("Pagi"); keduanya disatukan ke nama.
+export const normalizeBadgeSession = (value) => String(getSessionName(String(value ?? '').trim()) || '').trim();
+
 export const resolveSantriBadgeSession = (santri) => (
-  String(santri?.sesi_mengaji || santri?.class?.sesi || '').trim()
+  normalizeBadgeSession(santri?.sesi_mengaji || santri?.class?.sesi || '')
 );
 
 export const listBadgeSessions = (santriList = []) => {
