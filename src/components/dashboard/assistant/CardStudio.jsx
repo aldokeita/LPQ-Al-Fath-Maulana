@@ -11,12 +11,20 @@ import { fetchSantriMonthAttendance, fetchSantriProfile, fetchSantriSnapshots, r
 import { resolveAvatarUrl } from '@/lib/storageAdapters';
 import { getCardFontEmbedCSS } from '@/lib/cardFonts';
 import { buildJilidCard, buildProfilCard, cardFileName, DEFAULT_CAPTION, DEFAULT_PESAN, fillCaption } from '@/lib/santriCards';
-import { CARD_H, CARD_W, JilidCard, ProfilCard } from '@/components/dashboard/assistant/SantriCards';
+import { CARD_H, CARD_W, JILID_DESIGNS, ProfilCard } from '@/components/dashboard/assistant/SantriCards';
 
 const JENIS = [
   { id: 'jilid', label: 'Apresiasi naik jilid', icon: Award },
   { id: 'profil', label: 'Profil kehadiran & hafalan', icon: Contact },
 ];
+
+const DESIGN_KEY = 'lpq.card.jilid-design';
+const readDesign = () => {
+  try {
+    const stored = window.localStorage.getItem(DESIGN_KEY);
+    return JILID_DESIGNS.some((d) => d.id === stored) ? stored : JILID_DESIGNS[0].id;
+  } catch { return JILID_DESIGNS[0].id; }
+};
 
 const AMIRI_HREF = 'https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&display=swap';
 
@@ -107,6 +115,12 @@ const CardStudio = ({ roster, guruName, aiEnabled = true, focusSantriId }) => {
   useEffect(() => { getCardFontEmbedCSS(); }, []);
   const [santriId, setSantriId] = useState(focusSantriId && roster.some((r) => r.id === focusSantriId) ? focusSantriId : '');
   const [jenis, setJenis] = useState('jilid');
+  const [design, setDesign] = useState(readDesign);
+  const chooseDesign = (id) => {
+    setDesign(id);
+    try { window.localStorage.setItem(DESIGN_KEY, id); } catch { /* penyimpanan lokal tidak tersedia */ }
+  };
+  const JilidDesignCard = (JILID_DESIGNS.find((d) => d.id === design) || JILID_DESIGNS[0]).Card;
   const [profile, setProfile] = useState(null);
   const [snapshot, setSnapshot] = useState(null);
   const [avatar, setAvatar] = useState(null);
@@ -270,6 +284,22 @@ const CardStudio = ({ roster, guruName, aiEnabled = true, focusSantriId }) => {
           </div>
         </fieldset>
 
+        {jenis === 'jilid' && (
+          <fieldset className="grid gap-1.5">
+            <legend className="mb-1.5 text-sm font-medium">Desain kartu</legend>
+            <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Desain kartu naik jilid">
+              {JILID_DESIGNS.map(({ id, label, swatch }) => (
+                <button key={id} type="button" role="radio" aria-checked={design === id} onClick={() => chooseDesign(id)}
+                  className={cn('flex min-h-[48px] items-center gap-2 rounded-xl border px-2.5 text-left text-sm font-medium transition active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                    design === id ? 'border-teal-500/60 bg-teal-500/10 text-foreground shadow-sm' : 'border-border bg-background/60 text-foreground/75 hover:bg-muted')}>
+                  <span aria-hidden="true" className={cn('h-6 w-6 shrink-0 rounded-full ring-2 ring-offset-2 ring-offset-background', design === id ? 'ring-teal-500' : 'ring-transparent')} style={{ background: swatch }} />
+                  {label}
+                </button>
+              ))}
+            </div>
+          </fieldset>
+        )}
+
         {santriId && profile && (
           <div className="grid gap-1.5">
             <div className="flex items-end justify-between gap-2">
@@ -347,7 +377,7 @@ const CardStudio = ({ roster, guruName, aiEnabled = true, focusSantriId }) => {
         {santriId && !isLoading && profile && (
           <ScaledPreview>
             {jenis === 'jilid'
-              ? <JilidCard ref={cardRef} data={jilidData} pesan={pesan} guru={guruName} avatar={avatar} />
+              ? <JilidDesignCard ref={cardRef} data={jilidData} pesan={pesan} guru={guruName} avatar={avatar} />
               : <ProfilCard ref={cardRef} data={profilData} pesan={pesan} guru={guruName} avatar={avatar} />}
           </ScaledPreview>
         )}

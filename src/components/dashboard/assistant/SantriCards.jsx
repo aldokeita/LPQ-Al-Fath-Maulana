@@ -58,9 +58,9 @@ const ContactIcon = ({ name, color }) => (
 const websiteLabel = (url) => String(url || '').replace(/^https?:\/\//, '').replace(/\/$/, '');
 
 // Footer kontak resmi lembaga: alamat, website, dan Instagram (bila tersedia).
-const ContactFooter = ({ dark }) => {
-  const text = dark ? 'rgba(255,255,255,0.72)' : '#3f5f64';
-  const icon = dark ? '#5eead4' : '#0d9488';
+const ContactFooter = ({ dark, iconColor, textColor }) => {
+  const text = textColor || (dark ? 'rgba(255,255,255,0.72)' : '#3f5f64');
+  const icon = iconColor || (dark ? '#5eead4' : '#0d9488');
   const items = [
     OFFICIAL_CONTACT.website && { k: 'web', icon: 'globe', label: websiteLabel(OFFICIAL_CONTACT.website) },
     OFFICIAL_CONTACT.instagram && { k: 'ig', icon: 'ig', label: `@${String(OFFICIAL_CONTACT.instagram).replace(/^@/, '')}` },
@@ -197,6 +197,199 @@ export const JilidCard = React.forwardRef(({ data, pesan, guru, avatar }, ref) =
 );
 });
 JilidCard.displayName = 'JilidCard';
+
+// Nomor jilid tanpa kata "Jilid" untuk tipografi besar ("Jilid 3" → "3").
+const jilidMark = (ke) => String(ke || '').replace(/^jilid\s*/i, '').trim() || String(ke || '');
+
+// Pil "dari → ke" yang dipakai kedua varian terang.
+const JilidStep = ({ dari, ke, muted, arrow, chipBg, chipText, border, bg }) => (
+  <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 10, whiteSpace: 'nowrap', padding: '6px 8px 6px 14px', borderRadius: 9999,
+    background: bg, border: `1px solid ${border}` }}>
+    <span style={{ fontSize: 14, fontWeight: 700, color: muted, whiteSpace: 'nowrap', flexShrink: 0 }}>{nb(dari)}</span>
+    <svg width="26" height="16" viewBox="0 0 34 20" aria-hidden="true" style={{ flexShrink: 0 }}>
+      <path d="M2 10h26M21 3l8 7-8 7" fill="none" stroke={arrow} strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+    <span style={{ whiteSpace: 'nowrap', flexShrink: 0, padding: '4px 12px', borderRadius: 9999, fontSize: 14, fontWeight: 800, color: chipText, background: chipBg }}>{nb(ke)}</span>
+  </div>
+);
+
+// Titik-titik konfeti kecil; posisi tetap agar hasil ekspor selalu sama.
+const Confetti = ({ dots }) => dots.map(([x, y, size, color, rotate], i) => (
+  <span key={i} aria-hidden="true" style={{ position: 'absolute', left: x, top: y, width: size, height: size, background: color,
+    borderRadius: rotate === 'round' ? 9999 : 2, transform: rotate === 'round' ? undefined : `rotate(${rotate}deg)` }} />
+));
+
+// ===== Varian biru: langit biru di atas, lembar putih di bawah, foto di perbatasan =====
+
+export const JilidCardBiru = React.forwardRef(({ data, pesan, guru, avatar }, ref) => {
+  const name = data.namaLengkap || data.panggilan;
+  const longName = isLongName(name);
+  const mark = jilidMark(data.ke);
+  return (
+    <div ref={ref} style={{ width: CARD_W, height: CARD_H, position: 'relative', overflow: 'hidden', borderRadius: 28, background: '#f8fbff', color: '#0b1f4d', fontFamily: SANS }}>
+      <div aria-hidden="true" style={{ position: 'absolute', left: 0, top: 0, width: CARD_W, height: 318,
+        background: 'linear-gradient(155deg, #0b1f4d 0%, #1d4ed8 52%, #38bdf8 100%)' }} />
+      <Blob style={{ width: 300, height: 300, top: -110, left: -90, background: 'rgba(125,211,252,0.45)' }} />
+      <Blob style={{ width: 240, height: 240, top: 120, right: -80, background: 'rgba(99,102,241,0.5)' }} />
+      <div aria-hidden="true" style={{ position: 'absolute', left: 0, top: 0, width: CARD_W, height: 318, overflow: 'hidden' }}>
+        <StarPattern id="star-jilid-biru" color="#ffffff" opacity={0.07} />
+        <div style={{ position: 'absolute', right: -6, top: 40, fontFamily: SANS, fontWeight: 900, lineHeight: 0.8, letterSpacing: -8,
+          fontSize: mark.length > 3 ? 120 : mark.length > 1 ? 200 : 250, color: 'transparent', WebkitTextStroke: '2px rgba(255,255,255,0.28)' }}>
+          {mark}
+        </div>
+      </div>
+      <Confetti dots={[[62, 236, 8, '#fde68a', 45], [118, 268, 6, '#ffffff', 'round'], [420, 250, 9, '#7dd3fc', 20], [470, 210, 6, '#fde68a', 'round'], [196, 232, 5, '#bae6fd', 'round']]} />
+
+      {/* Lembar putih dengan lengkung lembut di bagian atas. */}
+      <div aria-hidden="true" style={{ position: 'absolute', left: 0, top: 300, width: CARD_W, height: CARD_H - 300, background: '#f8fbff',
+        borderTopLeftRadius: 40, borderTopRightRadius: 40, boxShadow: '0 -10px 30px rgba(11,31,77,0.18)' }} />
+
+      <div style={{ position: 'relative', height: '100%', padding: '26px 34px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        <div style={{ alignSelf: 'stretch', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Brand dark />
+          <span style={{ whiteSpace: 'nowrap', flexShrink: 0, padding: '6px 12px', borderRadius: 9999, fontSize: 10.5, fontWeight: 800, letterSpacing: 2.2, textTransform: 'uppercase',
+            color: '#0b1f4d', background: '#fde68a' }}>
+            Naik Jilid
+          </span>
+        </div>
+
+        <div dir="rtl" lang="ar" style={{ alignSelf: 'flex-start', flexShrink: 0, fontFamily: ARABIC, fontSize: 36, lineHeight: 1.3, marginTop: 18, color: '#ffffff', textShadow: '0 4px 18px rgba(11,31,77,0.45)' }}>
+          مَا شَاءَ اللهُ
+        </div>
+        <div style={{ alignSelf: 'flex-start', flexShrink: 0, fontSize: 12, fontWeight: 700, letterSpacing: 2.2, textTransform: 'uppercase', color: 'rgba(255,255,255,0.78)' }}>
+          Selamat, kini di
+        </div>
+        <div style={{ alignSelf: 'flex-start', flexShrink: 0, fontSize: 30, fontWeight: 900, lineHeight: '36px', color: '#fde68a', letterSpacing: -0.5 }}>{nb(data.ke)}</div>
+
+        <div style={{ position: 'absolute', top: longName ? 238 : 228, left: '50%', transform: 'translateX(-50%)' }}>
+          <Avatar src={avatar} name={name} size={longName ? 132 : 148} ringWidth={5}
+            ring="linear-gradient(135deg, #fde68a, #38bdf8 55%, #6366f1)"
+            glow="0 0 0 7px #f8fbff, 0 16px 36px rgba(29,78,216,0.35)" />
+        </div>
+
+        <div style={{ flexShrink: 0, marginTop: longName ? 214 : 220, fontSize: 12.5, fontWeight: 800, letterSpacing: 2.4, textTransform: 'uppercase', color: '#2563eb' }}>
+          Selamat naik jilid
+        </div>
+        <div style={{ flexShrink: 0, fontSize: longName ? 24 : 30, fontWeight: 800, lineHeight: longName ? '30px' : '38px', marginTop: 2, letterSpacing: -0.4, textAlign: 'center', maxWidth: '100%',
+          display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', color: '#0b1f4d' }}>
+          {name}
+        </div>
+
+        {data.dari && (
+          <div style={{ marginTop: 8 }}>
+            <JilidStep dari={data.dari} ke={data.ke} muted="#47608f" arrow="#2563eb" chipBg="#1d4ed8" chipText="#ffffff" border="#dbeafe" bg="#eff6ff" />
+          </div>
+        )}
+
+        <p style={{ flexShrink: 0, marginTop: 10, marginBottom: 0, fontSize: 13, lineHeight: '20px', textAlign: 'center', color: '#334a73', padding: '0 6px',
+          display: '-webkit-box', WebkitLineClamp: longName || data.dari ? 2 : 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+          {fillPesan(pesan, { nama: data.panggilan, ke: data.ke })}
+        </p>
+
+        <div style={{ flexShrink: 0, alignSelf: 'stretch', marginTop: 'auto', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, paddingTop: 8 }}>
+          <div>
+            <div style={{ fontSize: 10.5, letterSpacing: 1.6, textTransform: 'uppercase', color: '#5b6f96' }}>{data.adaRiwayat ? 'Tanggal naik' : 'Tanggal'}</div>
+            <div style={{ fontSize: 15, fontWeight: 700, marginTop: 2, color: '#0b1f4d' }}>{data.tanggal}</div>
+          </div>
+          <Signature guru={guru} />
+        </div>
+        <ContactFooter iconColor="#2563eb" textColor="#47608f" />
+      </div>
+    </div>
+  );
+});
+JilidCardBiru.displayName = 'JilidCardBiru';
+
+// ===== Varian pink: nuansa merah muda & emas mawar, foto dalam bingkai mihrab =====
+
+const ArchPhoto = ({ src, name, width, height }) => {
+  const radius = width / 2;
+  const shape = { borderTopLeftRadius: radius, borderTopRightRadius: radius, borderBottomLeftRadius: 26, borderBottomRightRadius: 26 };
+  const inner = width - 12;
+  return (
+    <div style={{ width, height, padding: 6, boxSizing: 'border-box', ...shape,
+      background: 'linear-gradient(160deg, #f9a8d4 0%, #db2777 45%, #f5c48a 100%)', boxShadow: '0 0 0 8px rgba(255,255,255,0.65), 0 22px 44px rgba(190,24,93,0.28)' }}>
+      <div style={{ width: '100%', height: '100%', overflow: 'hidden', background: 'linear-gradient(160deg, #ec4899, #a855f7)',
+        borderTopLeftRadius: inner / 2, borderTopRightRadius: inner / 2, borderBottomLeftRadius: 21, borderBottomRightRadius: 21,
+        display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: 'inset 0 0 0 3px rgba(255,255,255,0.9)' }}>
+        {src
+          ? <img src={src} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          : <span style={{ fontFamily: SANS, fontWeight: 800, fontSize: width * 0.3, color: '#fff', letterSpacing: 1 }}>{initialsOf(name)}</span>}
+      </div>
+    </div>
+  );
+};
+
+export const JilidCardPink = React.forwardRef(({ data, pesan, guru, avatar }, ref) => {
+  const name = data.namaLengkap || data.panggilan;
+  const longName = isLongName(name);
+  return (
+    <div ref={ref} style={{ width: CARD_W, height: CARD_H, position: 'relative', overflow: 'hidden', borderRadius: 28, color: '#4a1238', fontFamily: SANS,
+      background: 'linear-gradient(170deg, #fff7fa 0%, #ffe4ef 48%, #fbcfe8 100%)' }}>
+      <Blob style={{ width: 340, height: 340, top: -120, right: -120, background: 'rgba(244,114,182,0.45)' }} />
+      <Blob style={{ width: 300, height: 300, bottom: -130, left: -110, background: 'rgba(192,132,252,0.35)' }} />
+      <Blob style={{ width: 220, height: 220, top: 210, left: -90, background: 'rgba(251,191,36,0.22)' }} />
+      <StarPattern id="star-jilid-pink" color="#be185d" opacity={0.06} />
+      <Confetti dots={[[70, 150, 9, '#f5c48a', 45], [96, 214, 6, '#ec4899', 'round'], [450, 132, 8, '#f9a8d4', 30], [430, 258, 6, '#f5c48a', 'round'], [118, 300, 5, '#c084fc', 'round'], [470, 330, 7, '#ec4899', 15]]} />
+
+      <div style={{ position: 'relative', height: '100%', padding: '26px 34px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        <div style={{ alignSelf: 'stretch', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Brand />
+          <span style={{ whiteSpace: 'nowrap', flexShrink: 0, padding: '6px 12px', borderRadius: 9999, fontSize: 10.5, fontWeight: 800, letterSpacing: 2.2, textTransform: 'uppercase',
+            color: '#9d174d', background: 'rgba(255,255,255,0.75)', border: '1px solid rgba(219,39,119,0.35)' }}>
+            Kartu Apresiasi
+          </span>
+        </div>
+
+        <div dir="rtl" lang="ar" style={{ flexShrink: 0, fontFamily: ARABIC, fontSize: 34, lineHeight: 1.3, marginTop: 6, color: '#be185d' }}>
+          مَا شَاءَ اللهُ
+        </div>
+
+        <div style={{ position: 'relative', flexShrink: 0, marginTop: 4 }}>
+          <ArchPhoto src={avatar} name={name} width={longName ? 160 : 178} height={longName ? 196 : 218} />
+          <span style={{ position: 'absolute', left: '50%', bottom: -15, transform: 'translateX(-50%)', whiteSpace: 'nowrap',
+            padding: '7px 16px', borderRadius: 9999, fontSize: 15, fontWeight: 800, color: '#ffffff',
+            background: 'linear-gradient(135deg, #db2777 0%, #9333ea 100%)', boxShadow: '0 8px 20px rgba(157,23,77,0.35)', border: '2px solid #ffffff' }}>
+            {nb(`★ ${data.ke}`)}
+          </span>
+        </div>
+
+        <div style={{ flexShrink: 0, marginTop: 26, fontSize: 12.5, fontWeight: 800, letterSpacing: 2.4, textTransform: 'uppercase', color: '#db2777' }}>Selamat naik jilid</div>
+        <div style={{ flexShrink: 0, fontSize: longName ? 24 : 30, fontWeight: 800, lineHeight: longName ? '30px' : '38px', marginTop: 2, letterSpacing: -0.4, textAlign: 'center', maxWidth: '100%',
+          display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', color: '#4a1238' }}>
+          {name}
+        </div>
+
+        {data.dari && (
+          <div style={{ marginTop: 8 }}>
+            <JilidStep dari={data.dari} ke={data.ke} muted="#8a4a6d" arrow="#db2777" chipBg="#f5c48a" chipText="#4a1238" border="rgba(219,39,119,0.22)" bg="rgba(255,255,255,0.7)" />
+          </div>
+        )}
+
+        <p style={{ flexShrink: 0, marginTop: 10, marginBottom: 0, fontSize: 13, lineHeight: '20px', textAlign: 'center', color: '#6b2a52', padding: '0 6px',
+          display: '-webkit-box', WebkitLineClamp: longName || data.dari ? 2 : 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+          {fillPesan(pesan, { nama: data.panggilan, ke: data.ke })}
+        </p>
+
+        <div style={{ flexShrink: 0, alignSelf: 'stretch', marginTop: 'auto', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, paddingTop: 8 }}>
+          <div>
+            <div style={{ fontSize: 10.5, letterSpacing: 1.6, textTransform: 'uppercase', color: '#9a5a7d' }}>{data.adaRiwayat ? 'Tanggal naik' : 'Tanggal'}</div>
+            <div style={{ fontSize: 15, fontWeight: 700, marginTop: 2, color: '#4a1238' }}>{data.tanggal}</div>
+          </div>
+          <Signature guru={guru} />
+        </div>
+        <ContactFooter iconColor="#db2777" textColor="#8a4a6d" />
+      </div>
+    </div>
+  );
+});
+JilidCardPink.displayName = 'JilidCardPink';
+
+export const JILID_DESIGNS = [
+  { id: 'aurora', label: 'Aurora', swatch: 'linear-gradient(135deg, #0f3d45, #312e81)', Card: JilidCard },
+  { id: 'biru', label: 'Biru', swatch: 'linear-gradient(135deg, #0b1f4d, #1d4ed8 55%, #38bdf8)', Card: JilidCardBiru },
+  { id: 'pink', label: 'Pink', swatch: 'linear-gradient(135deg, #fbcfe8, #db2777 60%, #f5c48a)', Card: JilidCardPink },
+];
 
 // ===== Kartu profil kehadiran & hafalan =====
 
