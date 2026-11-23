@@ -11,11 +11,21 @@ import { toast } from '@/components/ui/use-toast';
 import { Input } from '@/components/ui/input';
 import {
     canManageLeaderboard,
+    fetchGlobalLeaderboardPage,
     fetchLeaderboardPage,
     LEADERBOARD_PAGE_SIZE,
 } from '@/lib/leaderboardAdapters';
 
 const PAGE_SIZE = LEADERBOARD_PAGE_SIZE;
+// Guru bisa beralih antara santri kelasnya dan seluruh santri; pilihan diingat di perangkat.
+const SCOPE_KEY = 'lpq.guru-leaderboard.scope';
+const SCOPES = [
+    { id: 'kelas', label: 'Kelas saya' },
+    { id: 'global', label: 'Semua santri' },
+];
+const readScope = () => {
+    try { return window.localStorage.getItem(SCOPE_KEY) === 'global' ? 'global' : 'kelas'; } catch { return 'kelas'; }
+};
 
 const TopScorePage = () => {
     const navigate = useNavigate();
@@ -26,6 +36,16 @@ const TopScorePage = () => {
     const [totalStudents, setTotalStudents] = useState(0);
     const [currentPage, setCurrentPage] = useState(1);
     const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState('');
+    // Admin selalu melihat seluruh santri; pilihan cakupan hanya untuk guru/pentashih.
+    const canChooseScope = !canScanAttendance && Boolean(role);
+    const [scope, setScope] = useState(readScope);
+    const isGlobal = canChooseScope && scope === 'global';
+    const chooseScope = (next) => {
+        setScope(next);
+        setCurrentPage(1);
+        try { window.localStorage.setItem(SCOPE_KEY, next); } catch { /* penyimpanan lokal tidak tersedia */ }
+    };
     const [rfidTag, setRfidTag] = useState('');
     const inputRef = useRef(null);
     const [lastScanTime, setLastScanTime] = useState(0);
@@ -57,8 +77,10 @@ const TopScorePage = () => {
 
         const fetchTopScores = async () => {
             setIsLoading(true);
+            setLoadError('');
             try {
-                const { students: studentsWithAvatars, totalStudents: total } = await fetchLeaderboardPage({
+                const fetchPage = isGlobal ? fetchGlobalLeaderboardPage : fetchLeaderboardPage;
+                const { students: studentsWithAvatars, totalStudents: total } = await fetchPage({
                     page: currentPage,
                     pageSize: PAGE_SIZE,
                 });
@@ -71,6 +93,7 @@ const TopScorePage = () => {
                 if (!isMounted) return;
                 setStudents([]);
                 setTotalStudents(0);
+                setLoadError(err?.code === 'GLOBAL_LEADERBOARD_UNAVAILABLE' ? err.message : 'Leaderboard belum dapat dimuat. Coba lagi beberapa saat.');
             } finally {
                 if (isMounted) setIsLoading(false);
             }
@@ -80,7 +103,7 @@ const TopScorePage = () => {
         return () => {
             isMounted = false;
         };
-    }, [currentPage]);
+    }, [currentPage, isGlobal]);
 
     useEffect(() => {
         if (!isLoading && currentPage > totalPages) {
@@ -349,12 +372,25 @@ const TopScorePage = () => {
                              </div>
                          </div>
                         <p className="text-muted-foreground font-medium uppercase tracking-widest text-xs md:text-sm animate-pulse">
-                            {canScanAttendance ? 'Leaderboard Poin Tertinggi • Tap Kartu Untuk Absen' : 'Leaderboard Poin Tertinggi • Mode Baca Saja • Data kelas Anda'}
+                            {canScanAttendance ? 'Leaderboard Poin Tertinggi • Tap Kartu Untuk Absen' : `Leaderboard Poin Tertinggi • Mode Baca Saja • ${isGlobal ? 'Seluruh santri' : 'Data kelas Anda'}`}
                         </p>
+                        {canChooseScope && (
+                            <div className="mt-4 inline-flex rounded-full border border-blue-200 bg-white/80 p-1 shadow-sm backdrop-blur dark:border-white/10 dark:bg-slate-900/70" role="radiogroup" aria-label="Cakupan leaderboard">
+                                {SCOPES.map(({ id, label }) => (
+                                    <button key={id} type="button" role="radio" aria-checked={scope === id} onClick={() => chooseScope(id)}
+                                        className={`min-h-[40px] rounded-full px-5 text-sm font-bold transition active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${scope === id ? 'bg-blue-600 text-white shadow' : 'text-slate-600 hover:bg-blue-50 dark:text-slate-300 dark:hover:bg-white/10'}`}>
+                                        {label}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
                     </div>
                     <div className="w-[100px]" /> {/* Spacer for balance */}
                 </div>
 
+                {!isLoading && loadError && (
+                    <p className="mb-4 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-center text-sm font-medium text-amber-800 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-200" role="alert">{loadError}</p>
+                )}
                 {isLoading ? (
                      <div className="space-y-4">
                         {[...Array(PAGE_SIZE)].map((_, i) => (

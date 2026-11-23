@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState } from 'react';
-import { Renderer, Program, Mesh, Triangle, Vec2 } from 'ogl';
+import { Renderer, Program, Mesh, Geometry, Vec2 } from 'ogl';
 import './DarkVeil.css';
 
 const vertex = `
@@ -9,7 +9,11 @@ void main(){gl_Position=vec4(position,0.0,1.0);}
 
 const fragment = `
 #ifdef GL_ES
-precision lowp float;
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float;
+#else
+precision mediump float;
+#endif
 #endif
 uniform vec2 uResolution;
 uniform float uTime;
@@ -96,9 +100,12 @@ export default function DarkVeil({
     // ogl throws a TypeError instead of returning null when the context fails.
     let renderer;
     try {
+      // alpha: piksel yang tidak tergambar tetap transparan (latar statis terlihat), bukan hitam.
       renderer = new Renderer({
         dpr: Math.min(window.devicePixelRatio, 2),
-        canvas
+        canvas,
+        alpha: true,
+        premultipliedAlpha: false
       });
     } catch {
       renderer = null;
@@ -109,7 +116,18 @@ export default function DarkVeil({
     }
 
     const gl = renderer.gl;
-    const geometry = new Triangle(gl);
+    gl.clearColor(0, 0, 0, 0);
+    // Dua segitiga persis seukuran layar. Segitiga tunggal yang melebihi layar (bawaan ogl) terpotong
+    // keliru di sebagian driver GPU sehingga separuh latar tampak hitam diagonal.
+    const geometry = new Geometry(gl, {
+      position: { size: 2, data: new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]) }
+    });
+
+    const onContextLost = (event) => {
+      event.preventDefault();
+      setWebGLSupported(false);
+    };
+    canvas.addEventListener('webglcontextlost', onContextLost);
 
     const program = new Program(gl, {
       vertex,
@@ -158,6 +176,7 @@ export default function DarkVeil({
     return () => {
       cancelAnimationFrame(frame);
       window.removeEventListener('resize', resize);
+      canvas.removeEventListener('webglcontextlost', onContextLost);
     };
   }, [hueShift, noiseIntensity, scanlineIntensity, speed, scanlineFrequency, warpAmount, invert, resolutionScale]);
 
@@ -165,5 +184,6 @@ export default function DarkVeil({
     return <div className={`darkveil-fallback${invert >= 0.5 ? ' darkveil-fallback--light' : ''}`} aria-hidden="true" />;
   }
 
-  return <canvas ref={ref} className="darkveil-canvas" />;
+  // Latar statis yang sama ada di belakang kanvas, jadi bagian yang gagal tergambar tidak tampak hitam.
+  return <canvas ref={ref} className={`darkveil-canvas darkveil-fallback${invert >= 0.5 ? ' darkveil-fallback--light' : ''}`} />;
 }
