@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, Award, Loader2, RotateCcw, Save } from 'lucide-react';
+import { AlertTriangle, Award, Check, Loader2, RotateCcw, Save, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -12,6 +12,7 @@ import {
   resolveSantriBadgeSession, SANTRI_BADGES, SANTRI_BADGES_KEY, setBadgeWinner,
 } from '@/lib/santriBadges';
 import SantriAchievementBadge from '@/components/dashboard/shared/SantriAchievementBadge';
+import { DISCIPLINE_MIN_RATE, DISCIPLINE_WINDOW_DAYS, rankDiscipline, rankHafalan } from '@/lib/santriBadgeRecommendations';
 
 const NONE = '__none__';
 
@@ -30,6 +31,47 @@ const loadBadgeData = async () => {
   return { santri, config: normalizeBadgeConfig(configResult.data?.content) };
 };
 
+const PAGE_SIZE = 1000;
+
+// Supabase membatasi 1000 baris per permintaan, jadi data diambil per halaman.
+const fetchAllRows = async (buildQuery) => {
+  const rows = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await buildQuery().range(from, from + PAGE_SIZE - 1);
+    if (error) throw error;
+    rows.push(...(data || []));
+    if (!data || data.length < PAGE_SIZE) return rows;
+  }
+};
+
+const loadRecommendationData = async () => {
+  const since = new Date(Date.now() - DISCIPLINE_WINDOW_DAYS * 864e5).toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
+  const [attendance, progress] = await Promise.all([
+    fetchAllRows(() => supabase
+      .from('attendance')
+      .select('id, user_id, attendance_date, check_in_timestamp, sesi, status, source')
+      .eq('role', 'santri')
+      .gte('attendance_date', since)
+      .order('id', { ascending: true })),
+    fetchAllRows(() => supabase
+      .from('hafalan_progress')
+      .select('id, santri_id, status, score')
+      .order('id', { ascending: true })),
+  ]);
+  return { attendance, progress };
+};
+
+const RECOMMENDED_BADGES = {
+  terdisiplin: {
+    hint: `Konsisten paling awal datang (tap RFID / wajah) dalam ${DISCIPLINE_WINDOW_DAYS} hari terakhir, hadir minimal ${Math.round(DISCIPLINE_MIN_RATE * 100)}% hari sesinya.`,
+    detail: (c) => `Median datang ${c.medianTime} · hadir ${c.attended}/${c.sessionDays} hari`,
+  },
+  hafalan: {
+    hint: 'Jumlah item hafalan yang sudah tuntas (lulus atau skor 4).',
+    detail: (c) => `${c.completed} hafalan tuntas${c.averageScore ? ` · rata-rata skor ${c.averageScore.toFixed(1)}` : ''}`,
+  },
+};
+
 const SantriBadgeManager = () => {
   const [santri, setSantri] = useState([]);
   const [saved, setSaved] = useState({ awards: {} });
@@ -38,6 +80,21 @@ const SantriBadgeManager = () => {
   const [status, setStatus] = useState('loading');
   const [error, setError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [recs, setRecs] = useState({ status: 'idle', terdisiplin: {}, hafalan: {} });
+
+  const loadRecommendations = async (santriList) => {
+    setRecs((current) => ({ ...current, status: 'loading' }));
+    try {
+      const { attendance, progress } = await loadRecommendationData();
+      setRecs({
+        status: 'ready',
+        terdisiplin: rankDiscipline({ attendance, santri: santriList }),
+        hafalan: rankHafalan({ progress, santri: santriList }),
+      });
+    } catch (recError) {
+      setRecs({ status: 'error', terdisiplin: {}, hafalan: {}, message: getPublicContentErrorMessage(recError) });
+    }
+  };
 
   const load = async () => {
     setStatus('loading');
@@ -48,6 +105,7 @@ const SantriBadgeManager = () => {
       setSaved(data.config);
       setDraft(data.config);
       setStatus('ready');
+      loadRecommendations(data.santri);
     } catch (loadError) {
       setError(getPublicContentErrorMessage(loadError));
       setStatus('error');
@@ -186,12 +244,84 @@ const SantriBadgeManager = () => {
                     );
                   })}
                 </div>
+                {RECOMMENDED_BADGES[badge.id] && (
+                  <Recommendations
+                    badge={badge}
+                    config={RECOMMENDED_BADGES[badge.id]}
+                    recs={recs}
+                    sesi={sesi}
+                    draft={draft}
+                    onPick={(gender, santriId) => choose(badge.id, gender, santriId)}
+                    onRetry={() => loadRecommendations(santri)}
+                  />
+                )}
               </article>
             ))}
           </div>
         </>
       )}
     </section>
+  );
+};
+
+const Recommendations = ({ badge, config, recs, sesi, draft, onPick, onRetry }) => {
+  const ranked = recs[badge.id]?.[sesi] || { putra: [], putri: [] };
+  return (
+    <div className="rounded-lg border border-dashed bg-muted/30 p-3">
+      <p className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+        <Sparkles className="h-3.5 w-3.5 text-sky-500" aria-hidden="true" /> Rekomendasi sesi {sesi}
+      </p>
+      <p className="mt-0.5 text-xs text-muted-foreground">{config.hint}</p>
+
+      {recs.status === 'loading' && (
+        <p className="mt-3 flex items-center gap-2 text-xs text-muted-foreground" role="status">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> Menghitung rekomendasi…
+        </p>
+      )}
+      {recs.status === 'error' && (
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-destructive" role="alert">
+          <span>{recs.message || 'Rekomendasi belum bisa dihitung.'}</span>
+          <Button type="button" size="sm" variant="outline" className="h-7" onClick={onRetry}>Coba lagi</Button>
+        </div>
+      )}
+      {recs.status === 'ready' && (
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          {BADGE_GENDERS.map((gender) => {
+            const list = ranked[gender.id] || [];
+            const current = getBadgeWinner(draft, { badgeId: badge.id, sesi, gender: gender.id });
+            return (
+              <div key={gender.id}>
+                <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">{gender.label}</p>
+                {list.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">Belum ada yang memenuhi syarat.</p>
+                ) : (
+                  <ol className="space-y-1.5">
+                    {list.map((candidate, index) => {
+                      const picked = current === candidate.santriId;
+                      return (
+                        <li key={candidate.santriId} className="flex items-center gap-2 rounded-md bg-background/80 px-2 py-1.5">
+                          <span className={cn('flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold',
+                            index === 0 ? 'bg-amber-400 text-amber-950' : 'bg-muted text-muted-foreground')}>{index + 1}</span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-sm font-medium" title={candidate.name}>{candidate.name}</span>
+                            <span className="block text-[11px] text-muted-foreground">{config.detail(candidate)}</span>
+                          </span>
+                          <Button type="button" size="sm" variant={picked ? 'secondary' : 'outline'} className="h-7 shrink-0 px-2 text-xs"
+                            disabled={picked} onClick={() => onPick(gender.id, candidate.santriId)}
+                            aria-label={picked ? `${candidate.name} sudah dipilih` : `Pilih ${candidate.name} sebagai ${gender.label.toLowerCase()}`}>
+                            {picked ? <><Check className="mr-1 h-3.5 w-3.5" aria-hidden="true" /> Dipilih</> : 'Pilih'}
+                          </Button>
+                        </li>
+                      );
+                    })}
+                  </ol>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 };
 
