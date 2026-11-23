@@ -633,6 +633,7 @@ const DigitalAttendancePage = () => {
             hafalanCount={scan.hafalanCount}
             characterStrength={scan.characterStrength}
             strongestHafalanCategory={scan.strongestHafalanCategory}
+            badges={scan.badges}
             sesi={scan.sesi}
             message={scan.message}
             quote={scan.quote}
@@ -660,6 +661,7 @@ const DigitalAttendancePage = () => {
             hafalanCount={scan.hafalanCount}
             characterStrength={scan.characterStrength}
             strongestHafalanCategory={scan.strongestHafalanCategory}
+            badges={scan.badges}
             sesi={scan.sesi}
             message={scan.message}
             quote={scan.quote}
