@@ -141,3 +141,17 @@ test('birthday cards sent early use the upcoming age', async () => {
   assert.equal(defaultUltahUsia({ usia: 6 }, today), 6, 'older backend without ultah_berikut');
   assert.equal(defaultUltahUsia({}, today), null);
 });
+
+test('builds a birthday profile from a plain santri row', async () => {
+  const { birthdayProfileFromSantri, defaultUltahUsia } = await import('../src/lib/santriCards.js');
+  const today = new Date(2026, 10, 23);
+  const soon = birthdayProfileFromSantri({ nama_lengkap: 'Raissa', tanggal_lahir: '2019-11-26', jenis_kelamin: 'Perempuan' }, today);
+  assert.deepEqual([soon.usia, soon.ultah_berikut, soon.usia_ultah_berikut], [6, '2026-11-26', 7]);
+  assert.equal(defaultUltahUsia(soon, today), 7);
+  const todayBirthday = birthdayProfileFromSantri({ tanggal_lahir: '2015-11-23' }, today);
+  assert.deepEqual([todayBirthday.usia, todayBirthday.ultah_berikut], [11, '2026-11-23']);
+  const passed = birthdayProfileFromSantri({ tanggal_lahir: '2018-11-01' }, today);
+  assert.deepEqual([passed.usia, passed.ultah_berikut], [8, '2027-11-01']);
+  assert.equal(birthdayProfileFromSantri({ tanggal_lahir: '2016-02-29' }, new Date(2027, 0, 5)).ultah_berikut, '2027-02-28');
+  assert.equal(birthdayProfileFromSantri({}).usia, null);
+});

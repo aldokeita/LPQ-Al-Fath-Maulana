@@ -34,3 +34,24 @@ export const fetchLeaderboardPage = async ({ page = 1, pageSize = LEADERBOARD_PA
     pageSize: safePageSize,
   };
 };
+
+// Peringkat seluruh santri (lintas kelas) lewat RPC; guru hanya melihat kolom leaderboard.
+export const fetchGlobalLeaderboardPage = async ({ page = 1, pageSize = LEADERBOARD_PAGE_SIZE } = {}) => {
+  const safePage = Math.max(1, Number(page) || 1);
+  const safePageSize = Math.max(1, Number(pageSize) || LEADERBOARD_PAGE_SIZE);
+  const { data, error } = await supabase.rpc('get_global_leaderboard', { p_page: safePage, p_page_size: safePageSize });
+  if (error) {
+    if (error.code === 'PGRST202' || /get_global_leaderboard/.test(error.message || '')) {
+      const notReady = new Error('Leaderboard global belum aktif di server.');
+      notReady.code = 'GLOBAL_LEADERBOARD_UNAVAILABLE';
+      throw notReady;
+    }
+    throw error;
+  }
+  return {
+    students: await resolveAvatarRecords(data?.students || [], { ownerType: 'santri' }),
+    totalStudents: Number(data?.total) || 0,
+    page: safePage,
+    pageSize: safePageSize,
+  };
+};

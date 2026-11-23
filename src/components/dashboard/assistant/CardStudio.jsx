@@ -1,5 +1,4 @@
-import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { toBlob } from 'html-to-image';
+import React, { useEffect, useRef, useState } from 'react';
 import { AlertTriangle, Award, Cake, Check, Copy, Download, Contact, Loader2, Share2, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -8,10 +7,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from '@/components/ui/use-toast';
 import { cn } from '@/lib/utils';
 import { fetchSantriMonthAttendance, fetchSantriProfile, fetchSantriSnapshots, requestCardCaption, requestCardNote } from '@/lib/assistantAlertAdapters';
-import { resolveAvatarUrl } from '@/lib/storageAdapters';
 import { getCardFontEmbedCSS } from '@/lib/cardFonts';
+import { copyText, loadAvatar, renderCardBlob, ScaledPreview, useArabicFont } from '@/components/dashboard/assistant/cardExport';
 import { buildJilidCard, buildProfilCard, buildUltahCard, cardFileName, defaultUltahUsia, upcomingBirthday, DEFAULT_CAPTION, DEFAULT_PESAN, fillCaption } from '@/lib/santriCards';
-import { CARD_H, CARD_W, JILID_DESIGNS, ProfilCard, ULTAH_DESIGNS } from '@/components/dashboard/assistant/SantriCards';
+import { JILID_DESIGNS, ProfilCard, ULTAH_DESIGNS } from '@/components/dashboard/assistant/SantriCards';
 
 const JENIS = [
   { id: 'jilid', label: 'Apresiasi naik jilid', icon: Award },
@@ -42,89 +41,6 @@ const ultahHint = (profile) => {
 };
 
 const SHARE_TITLE = { jilid: 'Kartu apresiasi naik jilid', profil: 'Profil perkembangan santri', ultah: 'Kartu ucapan ulang tahun' };
-
-const AMIRI_HREF = 'https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&display=swap';
-
-// Font Arab hanya dimuat saat studio kartu dibuka.
-const useArabicFont = () => {
-  useEffect(() => {
-    if (document.querySelector(`link[href="${AMIRI_HREF}"]`)) return;
-    const link = document.createElement('link');
-    link.rel = 'stylesheet';
-    link.href = AMIRI_HREF;
-    link.crossOrigin = 'anonymous';
-    document.head.appendChild(link);
-  }, []);
-};
-
-// Pratinjau kartu ukuran tetap yang diperkecil mengikuti lebar layar.
-const ScaledPreview = ({ children }) => {
-  const boxRef = useRef(null);
-  const [scale, setScale] = useState(1);
-  useLayoutEffect(() => {
-    const el = boxRef.current;
-    if (!el) return undefined;
-    const update = () => setScale(Math.min(1, el.clientWidth / CARD_W));
-    update();
-    const observer = new ResizeObserver(update);
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
-  return (
-    <div ref={boxRef} className="w-full max-w-[540px]">
-      <div style={{ width: CARD_W * scale, height: CARD_H * scale }} className="overflow-hidden rounded-[28px] shadow-xl shadow-slate-900/15">
-        <div style={{ width: CARD_W, height: CARD_H, transform: `scale(${scale})`, transformOrigin: 'top left' }}>{children}</div>
-      </div>
-    </div>
-  );
-};
-
-// Foto santri dibaca sebagai data URL agar ikut tergambar saat kartu diekspor ke PNG.
-const loadAvatar = async (santriId) => {
-  const url = await resolveAvatarUrl({ ownerType: 'santri', ownerId: santriId });
-  if (!url) return null;
-  const res = await fetch(url);
-  if (!res.ok) return null;
-  const blob = await res.blob();
-  if (!blob.type.startsWith('image/')) return null;
-  return new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = () => resolve(null);
-    reader.readAsDataURL(blob);
-  });
-};
-
-// Safari dan semua browser di iPad/iPhone (WebKit) sering menggambar SVG foreignObject sebelum gambar di
-// dalamnya siap, sehingga render pertama kehilangan logo, foto, dan latar. Render diulang dan hasil terakhir dipakai.
-const isWebKit = () => typeof navigator !== 'undefined'
-  && /AppleWebKit/i.test(navigator.userAgent) && !/Chrome\/|Chromium|Edg\/|Android/i.test(navigator.userAgent);
-
-const decodeImages = (node) => Promise.all([...node.querySelectorAll('img')].map((img) => (
-  img.complete && img.naturalWidth ? img.decode?.().catch(() => {}) : new Promise((resolve) => {
-    img.addEventListener('load', resolve, { once: true });
-    img.addEventListener('error', resolve, { once: true });
-  })
-)));
-
-// Salin teks ke papan klip; cadangan lewat textarea tersembunyi untuk browser lama.
-const copyText = async (text) => {
-  try {
-    await navigator.clipboard.writeText(text);
-    return true;
-  } catch {
-    const area = document.createElement('textarea');
-    area.value = text;
-    area.setAttribute('readonly', '');
-    area.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
-    document.body.appendChild(area);
-    area.select();
-    let done = false;
-    try { done = document.execCommand('copy'); } catch { done = false; }
-    area.remove();
-    return done;
-  }
-};
 
 const CardStudio = ({ roster, guruName, aiEnabled = true, focusSantriId }) => {
   useArabicFont();
@@ -234,29 +150,13 @@ const CardStudio = ({ roster, guruName, aiEnabled = true, focusSantriId }) => {
     }
   };
 
-  const renderBlob = async () => {
-    await document.fonts?.ready;
-    await decodeImages(cardRef.current);
-    const fontEmbedCSS = await getCardFontEmbedCSS();
-    const options = {
-      pixelRatio: 2, width: CARD_W, height: CARD_H, backgroundColor: 'transparent',
-      ...(fontEmbedCSS ? { fontEmbedCSS } : {}),
-    };
-    if (isWebKit()) {
-      // Dua render pemanasan agar gambar tertanam ikut tergambar pada render ketiga.
-      await toBlob(cardRef.current, options);
-      await toBlob(cardRef.current, options);
-    }
-    return toBlob(cardRef.current, options);
-  };
-
   const exportCard = async (mode) => {
     if (!cardRef.current) return;
     // Salin caption lebih dulu, selagi masih dalam ketukan pengguna (syarat papan klip di Safari).
     if (caption.trim()) copyText(caption).then((done) => setCopied(done));
     setIsExporting(true);
     try {
-      const blob = await renderBlob();
+      const blob = await renderCardBlob(cardRef.current);
       if (!blob) throw new Error('Gambar kosong.');
       const fileName = cardFileName(jenis, nama);
       const file = new File([blob], fileName, { type: 'image/png' });
