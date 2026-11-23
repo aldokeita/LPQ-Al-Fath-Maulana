@@ -17,13 +17,16 @@ export const formatBulan = (date) => {
 export const panggilanOf = (profile) => String(profile?.nama_panggilan || '').trim()
   || String(profile?.nama_lengkap || 'Ananda').trim().split(/\s+/)[0];
 
-export const fillPesan = (text, { nama, ke } = {}) => String(text || '')
+export const fillPesan = (text, { nama, ke, usia, shalih } = {}) => String(text || '')
   .replace(/\{nama\}/g, nama || 'Ananda')
-  .replace(/\{ke\}/g, ke || 'jilid berikutnya');
+  .replace(/\{ke\}/g, ke || 'jilid berikutnya')
+  .replace(/\{usia\}/g, usia ? String(usia) : '')
+  .replace(/\{shalih\}/g, shalih || 'shalih/shalihah');
 
 export const DEFAULT_PESAN = {
   jilid: 'Alhamdulillah, {nama} telah naik ke {ke}. Terima kasih atas ketekunan dan semangatnya. Semoga Allah memudahkan langkah berikutnya dalam belajar Al-Qur\'an.',
   profil: 'Terus semangat mengaji, {nama}! Pertahankan kehadiran dan ulangi hafalan bersama Ayah dan Bunda di rumah.',
+  ultah: 'Selamat milad, {nama}! Semoga Allah memberkahi umurmu, menjadikanmu anak {shalih} yang cinta Al-Qur\'an, dan berbakti kepada Ayah dan Bunda. Aamiin.',
 };
 
 // Caption siap posting (Instagram/WhatsApp). Isi bisa ditulis guru atau AI; tagar dan akun lembaga
@@ -33,12 +36,14 @@ export const CAPTION_FOOTER = '#LPQAlFathMaulana #MetodeQiroati #BelajarAlQuran 
 export const DEFAULT_CAPTION = {
   jilid: 'Alhamdulillah, selamat untuk ananda {nama} yang telah naik ke {ke}! 🎉\n\nTerima kasih atas ketekunannya, dan terima kasih Ayah Bunda atas dukungannya. Semoga Allah mudahkan langkah berikutnya dalam belajar Al-Qur\'an. 🤲',
   profil: 'Perkembangan belajar ananda {nama} bulan {bulan} 📖\n\nTerus semangat mengaji, dan ulangi hafalan bersama Ayah dan Bunda di rumah. Semoga Allah mudahkan. 🤲',
+  ultah: 'Barakallahu fii umrik, ananda {nama}! 🎉🎂\n\nSemoga Allah memberkahi usiamu, menjadikanmu anak {shalih} yang cinta Al-Qur\'an, dan menjadi penyejuk hati Ayah dan Bunda. Aamiin. 🤲',
 };
 
-export const fillCaption = (body, { nama, ke, bulan } = {}) => {
+export const fillCaption = (body, { nama, ke, bulan, shalih } = {}) => {
   const text = String(body || '')
     .replace(/\{nama\}/g, nama || 'Ananda')
     .replace(/\{ke\}/g, ke || 'jilid berikutnya')
+    .replace(/\{shalih\}/g, shalih || 'shalih/shalihah')
     .replace(/\{bulan\}/g, bulan || '')
     .trim();
   return text ? `${text}\n\n${CAPTION_FOOTER}` : CAPTION_FOOTER;
@@ -126,6 +131,26 @@ export const buildProfilCard = (profile, snapshot, { today = new Date(), bulanan
   };
 };
 
+// Kartu ucapan ulang tahun. Usia dari profil bisa ditimpa guru (mis. kartu dibuat sebelum hari lahirnya).
+export const isPutri = (profile) => /^(perempuan|p|putri)$/i.test(String(profile?.jenis_kelamin || '').trim());
+
+export const buildUltahCard = (profile, { today = new Date(), usia } = {}) => {
+  if (!profile) return null;
+  const putri = isPutri(profile);
+  const known = /^(laki-laki|l|putra|perempuan|p|putri)$/i.test(String(profile.jenis_kelamin || '').trim());
+  const age = Number(usia ?? profile.usia);
+  return {
+    namaLengkap: String(profile.nama_lengkap || '').trim(),
+    panggilan: panggilanOf(profile),
+    usia: Number.isInteger(age) && age > 0 && age < 120 ? age : null,
+    tanggal: formatTanggal(today),
+    putri,
+    shalih: known ? (putri ? 'shalihah' : 'shalih') : 'shalih/shalihah',
+    // Doa "semoga Allah memberkahi umurmu" dengan akhiran sesuai jenis kelamin.
+    doa: known ? (putri ? 'بَارَكَ اللهُ فِي عُمْرِكِ' : 'بَارَكَ اللهُ فِي عُمْرِكَ') : 'بَارَكَ اللهُ فِي عُمْرِك',
+  };
+};
+
 // Batasi daftar chip agar kartu tetap rapi: tampilkan n pertama dan sisanya sebagai "+x lainnya".
 export const limitList = (list = [], n = 10) => ({ shown: list.slice(0, n), more: Math.max(0, list.length - n) });
 
@@ -133,5 +158,6 @@ export const cardFileName = (jenis, nama, tanggal = new Date()) => {
   const slug = String(nama || 'santri').toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'santri';
   const d = tanggal instanceof Date ? tanggal : new Date(tanggal);
   const stamp = Number.isNaN(d.getTime()) ? '' : `-${d.toISOString().slice(0, 10)}`;
-  return `kartu-${jenis === 'jilid' ? 'naik-jilid' : 'profil'}-${slug}${stamp}.png`;
+  const label = { jilid: 'naik-jilid', ultah: 'ulang-tahun' }[jenis] || 'profil';
+  return `kartu-${label}-${slug}${stamp}.png`;
 };

@@ -1,6 +1,6 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { toBlob } from 'html-to-image';
-import { AlertTriangle, Award, Check, Copy, Download, Contact, Loader2, Share2, Sparkles } from 'lucide-react';
+import { AlertTriangle, Award, Cake, Check, Copy, Download, Contact, Loader2, Share2, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -10,21 +10,28 @@ import { cn } from '@/lib/utils';
 import { fetchSantriMonthAttendance, fetchSantriProfile, fetchSantriSnapshots, requestCardCaption, requestCardNote } from '@/lib/assistantAlertAdapters';
 import { resolveAvatarUrl } from '@/lib/storageAdapters';
 import { getCardFontEmbedCSS } from '@/lib/cardFonts';
-import { buildJilidCard, buildProfilCard, cardFileName, DEFAULT_CAPTION, DEFAULT_PESAN, fillCaption } from '@/lib/santriCards';
-import { CARD_H, CARD_W, JILID_DESIGNS, ProfilCard } from '@/components/dashboard/assistant/SantriCards';
+import { buildJilidCard, buildProfilCard, buildUltahCard, cardFileName, DEFAULT_CAPTION, DEFAULT_PESAN, fillCaption } from '@/lib/santriCards';
+import { CARD_H, CARD_W, JILID_DESIGNS, ProfilCard, ULTAH_DESIGNS } from '@/components/dashboard/assistant/SantriCards';
 
 const JENIS = [
   { id: 'jilid', label: 'Apresiasi naik jilid', icon: Award },
   { id: 'profil', label: 'Profil kehadiran & hafalan', icon: Contact },
+  { id: 'ultah', label: 'Ucapan ulang tahun', icon: Cake },
 ];
 
-const DESIGN_KEY = 'lpq.card.jilid-design';
-const readDesign = () => {
-  try {
-    const stored = window.localStorage.getItem(DESIGN_KEY);
-    return JILID_DESIGNS.some((d) => d.id === stored) ? stored : JILID_DESIGNS[0].id;
-  } catch { return JILID_DESIGNS[0].id; }
+// Jenis kartu yang punya beberapa desain; pilihan desain diingat per jenis di perangkat ini.
+const DESIGN_SETS = {
+  jilid: { key: 'lpq.card.jilid-design', list: JILID_DESIGNS, label: 'Desain kartu naik jilid' },
+  ultah: { key: 'lpq.card.ultah-design', list: ULTAH_DESIGNS, label: 'Desain kartu ulang tahun' },
 };
+const readDesign = (jenis) => {
+  const set = DESIGN_SETS[jenis];
+  try {
+    const stored = window.localStorage.getItem(set.key);
+    return set.list.some((d) => d.id === stored) ? stored : set.list[0].id;
+  } catch { return set.list[0].id; }
+};
+const SHARE_TITLE = { jilid: 'Kartu apresiasi naik jilid', profil: 'Profil perkembangan santri', ultah: 'Kartu ucapan ulang tahun' };
 
 const AMIRI_HREF = 'https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&display=swap';
 
@@ -115,12 +122,15 @@ const CardStudio = ({ roster, guruName, aiEnabled = true, focusSantriId }) => {
   useEffect(() => { getCardFontEmbedCSS(); }, []);
   const [santriId, setSantriId] = useState(focusSantriId && roster.some((r) => r.id === focusSantriId) ? focusSantriId : '');
   const [jenis, setJenis] = useState('jilid');
-  const [design, setDesign] = useState(readDesign);
+  const [designs, setDesigns] = useState(() => ({ jilid: readDesign('jilid'), ultah: readDesign('ultah') }));
+  const designSet = DESIGN_SETS[jenis] || null;
+  const design = designSet ? designs[jenis] : null;
   const chooseDesign = (id) => {
-    setDesign(id);
-    try { window.localStorage.setItem(DESIGN_KEY, id); } catch { /* penyimpanan lokal tidak tersedia */ }
+    setDesigns((current) => ({ ...current, [jenis]: id }));
+    try { window.localStorage.setItem(designSet.key, id); } catch { /* penyimpanan lokal tidak tersedia */ }
   };
-  const JilidDesignCard = (JILID_DESIGNS.find((d) => d.id === design) || JILID_DESIGNS[0]).Card;
+  const DesignCard = designSet ? (designSet.list.find((d) => d.id === design) || designSet.list[0]).Card : null;
+  const [usiaInput, setUsiaInput] = useState('');
   const [profile, setProfile] = useState(null);
   const [snapshot, setSnapshot] = useState(null);
   const [avatar, setAvatar] = useState(null);
@@ -162,10 +172,15 @@ const CardStudio = ({ roster, guruName, aiEnabled = true, focusSantriId }) => {
   }, [santriId]);
 
   useEffect(() => { setPesan(DEFAULT_PESAN[jenis]); }, [jenis, santriId]);
+  useEffect(() => { setUsiaInput(''); }, [santriId]);
 
   const jilidData = profile ? buildJilidCard(profile) : null;
   const profilData = profile ? buildProfilCard(profile, snapshot, { bulanan }) : null;
-  const captionVars = { nama: jilidData?.panggilan, ke: jilidData?.ke, bulan: profilData?.bulan };
+  const ultahData = profile ? buildUltahCard(profile, { usia: usiaInput === '' ? undefined : Number(usiaInput) }) : null;
+  const captionVars = { nama: jilidData?.panggilan, ke: jilidData?.ke, bulan: profilData?.bulan, shalih: ultahData?.shalih };
+  const cardData = { jilid: jilidData, ultah: ultahData }[jenis];
+  // AI penulis pesan/caption belum mengenal kartu ulang tahun.
+  const canUseAi = aiEnabled && jenis !== 'ultah';
 
   // Caption bawaan diisi ulang saat santri, jenis kartu, atau data berganti.
   useEffect(() => {
@@ -237,7 +252,7 @@ const CardStudio = ({ roster, guruName, aiEnabled = true, focusSantriId }) => {
       const file = new File([blob], fileName, { type: 'image/png' });
       if (mode === 'share' && navigator.canShare?.({ files: [file] })) {
         try {
-          await navigator.share({ files: [file], text: caption || undefined, title: jenis === 'jilid' ? 'Kartu apresiasi naik jilid' : 'Profil perkembangan santri' });
+          await navigator.share({ files: [file], text: caption || undefined, title: SHARE_TITLE[jenis] });
           return;
         } catch (err) {
           // Safari menolak bagikan bila jeda sejak ketukan terlalu lama; jatuh ke unduhan.
@@ -284,11 +299,11 @@ const CardStudio = ({ roster, guruName, aiEnabled = true, focusSantriId }) => {
           </div>
         </fieldset>
 
-        {jenis === 'jilid' && (
+        {designSet && (
           <fieldset className="grid gap-1.5">
             <legend className="mb-1.5 text-sm font-medium">Desain kartu</legend>
-            <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Desain kartu naik jilid">
-              {JILID_DESIGNS.map(({ id, label, swatch }) => (
+            <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label={designSet.label}>
+              {designSet.list.map(({ id, label, swatch }) => (
                 <button key={id} type="button" role="radio" aria-checked={design === id} onClick={() => chooseDesign(id)}
                   className={cn('flex min-h-[48px] items-center gap-2 rounded-xl border px-2.5 text-left text-sm font-medium transition active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                     design === id ? 'border-teal-500/60 bg-teal-500/10 text-foreground shadow-sm' : 'border-border bg-background/60 text-foreground/75 hover:bg-muted')}>
@@ -300,11 +315,24 @@ const CardStudio = ({ roster, guruName, aiEnabled = true, focusSantriId }) => {
           </fieldset>
         )}
 
+        {jenis === 'ultah' && santriId && profile && (
+          <div className="grid gap-1.5">
+            <Label htmlFor="card-usia">Usia di kartu</Label>
+            <input id="card-usia" type="number" inputMode="numeric" min={1} max={99}
+              value={usiaInput === '' ? (profile.usia ?? '') : usiaInput}
+              onChange={(e) => setUsiaInput(e.target.value.replace(/\D/g, '').slice(0, 2))}
+              className="h-10 w-28 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+            <p className="text-xs text-muted-foreground">
+              {profile.usia ? `Terisi dari tanggal lahir (${profile.usia} tahun). Ubah bila kartu dibuat sebelum hari ulang tahunnya.` : 'Tanggal lahir belum diisi; isi usia secara manual atau kosongkan.'}
+            </p>
+          </div>
+        )}
+
         {santriId && profile && (
           <div className="grid gap-1.5">
             <div className="flex items-end justify-between gap-2">
               <Label htmlFor="card-pesan">Pesan di kartu</Label>
-              {aiEnabled && (
+              {canUseAi && (
                 <Button type="button" size="sm" variant="outline" className="h-8" onClick={writeWithAi} disabled={isWriting}>
                   {isWriting ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <Sparkles className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />}
                   Tulis dengan AI
@@ -312,7 +340,7 @@ const CardStudio = ({ roster, guruName, aiEnabled = true, focusSantriId }) => {
               )}
             </div>
             <Textarea id="card-pesan" rows={4} maxLength={240} value={pesan} onChange={(e) => setPesan(e.target.value)} className="text-sm leading-relaxed" />
-            <p className="text-xs text-muted-foreground">{'{nama}'} diganti nama panggilan santri{jenis === 'jilid' ? ', {ke} diganti jilid baru' : ''}. Maksimal 240 karakter.</p>
+            <p className="text-xs text-muted-foreground">{'{nama}'} diganti nama panggilan santri{jenis === 'jilid' ? ', {ke} diganti jilid baru' : ''}{jenis === 'ultah' ? ', {usia} diganti usia' : ''}. Maksimal 240 karakter.</p>
           </div>
         )}
 
@@ -321,7 +349,7 @@ const CardStudio = ({ roster, guruName, aiEnabled = true, focusSantriId }) => {
             <div className="flex items-end justify-between gap-2">
               <Label htmlFor="card-caption">Caption untuk posting</Label>
               <div className="flex gap-2">
-                {aiEnabled && (
+                {canUseAi && (
                   <Button type="button" size="sm" variant="outline" className="h-8" onClick={writeCaptionWithAi} disabled={isWritingCaption}>
                     {isWritingCaption ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <Sparkles className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />}
                     Tulis dengan AI
@@ -376,8 +404,8 @@ const CardStudio = ({ roster, guruName, aiEnabled = true, focusSantriId }) => {
         )}
         {santriId && !isLoading && profile && (
           <ScaledPreview>
-            {jenis === 'jilid'
-              ? <JilidDesignCard ref={cardRef} data={jilidData} pesan={pesan} guru={guruName} avatar={avatar} />
+            {DesignCard
+              ? <DesignCard ref={cardRef} data={cardData} pesan={pesan} guru={guruName} avatar={avatar} />
               : <ProfilCard ref={cardRef} data={profilData} pesan={pesan} guru={guruName} avatar={avatar} />}
           </ScaledPreview>
         )}

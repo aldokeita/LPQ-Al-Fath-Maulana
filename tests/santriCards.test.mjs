@@ -111,3 +111,19 @@ test('parseCardCaption menjaga paragraf dan membuang tagar serta akun dari AI', 
   assert.throws(() => parseCardCaption('#a #b'), /AI_EMPTY_RESPONSE/);
   assert.equal(parseCardCaption('x'.repeat(900)).length, 700);
 });
+
+test('builds a birthday card with gender-aware wording and an overridable age', async () => {
+  const { buildUltahCard, fillPesan, DEFAULT_PESAN, cardFileName } = await import('../src/lib/santriCards.js');
+  const putri = buildUltahCard({ nama_lengkap: 'Aisyah Putri', jenis_kelamin: 'Perempuan', usia: 7 }, { today: new Date('2026-11-23T10:00:00') });
+  assert.equal(putri.usia, 7);
+  assert.equal(putri.shalih, 'shalihah');
+  assert.equal(putri.doa, 'بَارَكَ اللهُ فِي عُمْرِكِ');
+  assert.equal(putri.tanggal, '23 November 2026');
+  assert.match(fillPesan(DEFAULT_PESAN.ultah, { nama: putri.panggilan, shalih: putri.shalih }), /Aisyah.*anak shalihah/);
+
+  const putra = buildUltahCard({ nama_lengkap: 'Ahmad', jenis_kelamin: 'Laki-laki', usia: 8 }, { usia: 9 });
+  assert.equal(putra.usia, 9);
+  assert.equal(putra.shalih, 'shalih');
+  assert.equal(buildUltahCard({ nama_lengkap: 'X', usia: null }).usia, null);
+  assert.match(cardFileName('ultah', 'Ahmad'), /^kartu-ulang-tahun-ahmad/);
+});
