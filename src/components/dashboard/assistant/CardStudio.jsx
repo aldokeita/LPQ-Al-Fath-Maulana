@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils';
 import { fetchSantriMonthAttendance, fetchSantriProfile, fetchSantriSnapshots, requestCardCaption, requestCardNote } from '@/lib/assistantAlertAdapters';
 import { resolveAvatarUrl } from '@/lib/storageAdapters';
 import { getCardFontEmbedCSS } from '@/lib/cardFonts';
-import { buildJilidCard, buildProfilCard, buildUltahCard, cardFileName, DEFAULT_CAPTION, DEFAULT_PESAN, fillCaption } from '@/lib/santriCards';
+import { buildJilidCard, buildProfilCard, buildUltahCard, cardFileName, defaultUltahUsia, upcomingBirthday, DEFAULT_CAPTION, DEFAULT_PESAN, fillCaption } from '@/lib/santriCards';
 import { CARD_H, CARD_W, JILID_DESIGNS, ProfilCard, ULTAH_DESIGNS } from '@/components/dashboard/assistant/SantriCards';
 
 const JENIS = [
@@ -31,6 +31,16 @@ const readDesign = (jenis) => {
     return set.list.some((d) => d.id === stored) ? stored : set.list[0].id;
   } catch { return set.list[0].id; }
 };
+// Keterangan di bawah kolom usia: kapan ulang tahun berikutnya. Kartu tetap bisa dibuat kapan saja.
+const ultahHint = (profile) => {
+  const next = upcomingBirthday(profile);
+  const usia = defaultUltahUsia(profile);
+  if (!usia) return 'Tanggal lahir belum diisi; isi usia secara manual atau kosongkan.';
+  if (!next) return `Terisi dari tanggal lahir (${usia} tahun).`;
+  const kapan = next.hariLagi === 0 ? 'hari ini' : next.hariLagi === 1 ? 'besok' : `${next.hariLagi} hari lagi`;
+  return `Ulang tahun ke-${next.usia ?? usia}: ${next.tanggal} (${kapan}). Kartu bisa dibuat dan dikirim kapan saja; ubah usia bila perlu.`;
+};
+
 const SHARE_TITLE = { jilid: 'Kartu apresiasi naik jilid', profil: 'Profil perkembangan santri', ultah: 'Kartu ucapan ulang tahun' };
 
 const AMIRI_HREF = 'https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&display=swap';
@@ -319,11 +329,11 @@ const CardStudio = ({ roster, guruName, aiEnabled = true, focusSantriId }) => {
           <div className="grid gap-1.5">
             <Label htmlFor="card-usia">Usia di kartu</Label>
             <input id="card-usia" type="number" inputMode="numeric" min={1} max={99}
-              value={usiaInput === '' ? (profile.usia ?? '') : usiaInput}
+              value={usiaInput === '' ? (defaultUltahUsia(profile) ?? '') : usiaInput}
               onChange={(e) => setUsiaInput(e.target.value.replace(/\D/g, '').slice(0, 2))}
               className="h-10 w-28 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
             <p className="text-xs text-muted-foreground">
-              {profile.usia ? `Terisi dari tanggal lahir (${profile.usia} tahun). Ubah bila kartu dibuat sebelum hari ulang tahunnya.` : 'Tanggal lahir belum diisi; isi usia secara manual atau kosongkan.'}
+              {ultahHint(profile)}
             </p>
           </div>
         )}

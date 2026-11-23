@@ -134,11 +134,30 @@ export const buildProfilCard = (profile, snapshot, { today = new Date(), bulanan
 // Kartu ucapan ulang tahun. Usia dari profil bisa ditimpa guru (mis. kartu dibuat sebelum hari lahirnya).
 export const isPutri = (profile) => /^(perempuan|p|putri)$/i.test(String(profile?.jenis_kelamin || '').trim());
 
+// Ulang tahun berikutnya dari profil (ultah_berikut = 'YYYY-MM-DD', hari ini terhitung).
+export const upcomingBirthday = (profile, today = new Date()) => {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(profile?.ultah_berikut || ''));
+  if (!match) return null;
+  const [y, m, d] = match.slice(1).map(Number);
+  const hariLagi = Math.round((Date.UTC(y, m - 1, d) - Date.UTC(today.getFullYear(), today.getMonth(), today.getDate())) / 86400000);
+  const usia = Number(profile.usia_ultah_berikut);
+  return { hariLagi, usia: Number.isInteger(usia) && usia > 0 ? usia : null, tanggal: formatTanggal(new Date(y, m - 1, d)) };
+};
+
+// Kartu boleh dikirim sebelum hari H: bila ulang tahun tinggal ≤ 60 hari, pakai usia yang akan dicapai.
+export const ULTAH_EARLY_DAYS = 60;
+export const defaultUltahUsia = (profile, today = new Date()) => {
+  const next = upcomingBirthday(profile, today);
+  if (next && next.usia && next.hariLagi >= 0 && next.hariLagi <= ULTAH_EARLY_DAYS) return next.usia;
+  const current = Number(profile?.usia);
+  return Number.isInteger(current) && current > 0 ? current : null;
+};
+
 export const buildUltahCard = (profile, { today = new Date(), usia } = {}) => {
   if (!profile) return null;
   const putri = isPutri(profile);
   const known = /^(laki-laki|l|putra|perempuan|p|putri)$/i.test(String(profile.jenis_kelamin || '').trim());
-  const age = Number(usia ?? profile.usia);
+  const age = Number(usia ?? defaultUltahUsia(profile, today));
   return {
     namaLengkap: String(profile.nama_lengkap || '').trim(),
     panggilan: panggilanOf(profile),
