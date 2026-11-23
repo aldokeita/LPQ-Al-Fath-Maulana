@@ -631,6 +631,9 @@ export const ProfilCard = React.forwardRef(({ data, pesan, guru, avatar }, ref) 
 ProfilCard.displayName = 'ProfilCard';
 
 // ===== Kartu ucapan ulang tahun =====
+// Sengaja berbeda dari kartu naik jilid: tanpa latar gedung, tata letak sendiri, tipografi bulat (Fredoka).
+
+const ROUND = "'Fredoka', 'Outfit', system-ui, sans-serif";
 
 // Balon dengan kilap dan tali; posisi tetap agar hasil ekspor selalu sama.
 const Balloon = ({ x, y, size = 46, color, shine = 'rgba(255,255,255,0.55)', string = 'rgba(255,255,255,0.55)', tilt = 0 }) => (
@@ -643,249 +646,289 @@ const Balloon = ({ x, y, size = 46, color, shine = 'rgba(255,255,255,0.55)', str
   </svg>
 );
 
-// Panji segitiga kecil berwarna-warni di bagian atas kartu.
-const Bunting = ({ y = 0, colors, width = CARD_W, count = 11, opacity = 1 }) => {
-  const step = width / count;
+const DotPattern = ({ id, color, opacity, gap = 22, r = 2 }) => (
+  <svg width={CARD_W} height={CARD_H} style={{ position: 'absolute', inset: 0, opacity }} aria-hidden="true">
+    <defs>
+      <pattern id={id} width={gap} height={gap} patternUnits="userSpaceOnUse"><circle cx={gap / 2} cy={gap / 2} r={r} fill={color} /></pattern>
+    </defs>
+    <rect width="100%" height="100%" fill={`url(#${id})`} />
+  </svg>
+);
+
+const Flame = ({ size = 14 }) => (
+  <svg width={size} height={size * 1.5} viewBox="0 0 20 30" aria-hidden="true" style={{ display: 'block' }}>
+    <path d="M10 1 C 15 9, 19 14, 19 20 A 9 9 0 0 1 1 20 C 1 14, 6 10, 10 1 Z" fill="#fbbf24" />
+    <path d="M10 11 C 13 16, 14 18, 14 21 A 4 4 0 0 1 6 21 C 6 18, 8 15, 10 11 Z" fill="#fff7d6" />
+  </svg>
+);
+
+// Lelehan krim di tepi atas tingkat kue.
+const Drip = ({ width, color, depth = 14 }) => {
+  const segs = Math.max(3, Math.round(width / 26));
+  const seg = width / segs;
+  let d = `M0 0 L${width} 0 L${width} 6`;
+  for (let i = segs - 1; i >= 0; i -= 1) {
+    const dep = 6 + depth * [1, 0.55, 0.8][i % 3];
+    d += ` C ${(i + 1) * seg} ${dep}, ${i * seg} ${dep}, ${i * seg} 6`;
+  }
   return (
-    <svg aria-hidden="true" width={width} height={46} style={{ position: 'absolute', left: 0, top: y, opacity }}>
-      <path d={`M0 6 Q ${width / 2} 26 ${width} 6`} fill="none" stroke="rgba(255,255,255,0.65)" strokeWidth="1.2" />
-      {Array.from({ length: count }, (_, i) => {
-        const x = i * step + step * 0.12;
-        const t = (i + 0.5) / count;
-        const sag = 6 + 20 * 4 * t * (1 - t) * 0.5;
-        return <path key={i} d={`M${x} ${sag} L ${x + step * 0.76} ${sag} L ${x + step * 0.38} ${sag + 22} Z`} fill={colors[i % colors.length]} />;
-      })}
+    <svg aria-hidden="true" width={width} height={depth + 8} style={{ position: 'absolute', left: 0, top: 0 }}>
+      <path d={`${d} Z`} fill={color} />
     </svg>
   );
 };
 
+const Sprinkles = ({ items }) => items.map(([x, y, color, rotate], i) => (
+  <span key={i} aria-hidden="true" style={{ position: 'absolute', left: x, top: y, width: 9, height: 3, borderRadius: 2, background: color, transform: `rotate(${rotate}deg)` }} />
+));
+
+// Kue dua tingkat: lilin angka sesuai usia di atas, foto santri sebagai hiasan tingkat bawah.
+const BirthdayCake = ({ usia, avatar, name }) => {
+  const digits = usia ? String(usia).split('') : null;
+  return (
+    <div style={{ position: 'relative', width: 320, height: 240, flexShrink: 0 }}>
+      <div style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 66, display: 'flex', justifyContent: 'center', alignItems: 'flex-end', gap: digits ? 4 : 18 }}>
+        {digits ? digits.map((digit, i) => (
+          <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <Flame />
+            <div style={{ width: 2, height: 4, background: '#7c2d12' }} />
+            <span style={{ fontFamily: ROUND, fontWeight: 700, fontSize: 46, lineHeight: '40px', color: '#fb7185', textShadow: '0 3px 0 #be123c' }}>{digit}</span>
+          </div>
+        )) : [0, 1, 2].map((i) => (
+          <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <Flame />
+            <div style={{ width: 10, height: 34, borderRadius: 3, background: 'repeating-linear-gradient(135deg, #fda4af 0 5px, #ffffff 5px 10px)' }} />
+          </div>
+        ))}
+      </div>
+      <div aria-hidden="true" style={{ position: 'absolute', left: 0, top: 222, width: 320, height: 18, borderRadius: '50%', background: '#ead7c3', boxShadow: '0 6px 14px rgba(124,45,18,0.18)' }} />
+      <div style={{ position: 'absolute', left: 85, top: 66, width: 150, height: 56, borderRadius: '14px 14px 6px 6px', overflow: 'hidden', background: '#f9a8d4' }}>
+        <Drip width={150} color="#fffaf3" depth={12} />
+        <Sprinkles items={[[22, 30, '#facc15', 30], [58, 38, '#38bdf8', -20], [96, 28, '#ffffff', 60], [124, 40, '#a78bfa', 10]]} />
+      </div>
+      <div style={{ position: 'absolute', left: 20, top: 122, width: 280, height: 108, borderRadius: '16px 16px 10px 10px', overflow: 'hidden',
+        background: 'linear-gradient(180deg, #8a4a26 0%, #6b3417 100%)' }}>
+        <Drip width={280} color="#f9a8d4" depth={16} />
+        <Sprinkles items={[[30, 64, '#facc15', 25], [58, 86, '#ffffff', -30], [212, 70, '#38bdf8', 40], [244, 90, '#fda4af', -15]]} />
+      </div>
+      <div style={{ position: 'absolute', left: 110, top: 126 }}>
+        <Avatar src={avatar} name={name} size={100} ringWidth={4} ring="linear-gradient(135deg, #ffffff, #fde68a)" glow="0 8px 20px rgba(59,23,8,0.35)" />
+      </div>
+    </div>
+  );
+};
+
+// Foto persegi (polaroid); tanpa foto memakai inisial.
+const SquarePhoto = ({ src, name, size }) => (
+  <div style={{ width: size, height: size, overflow: 'hidden', background: 'linear-gradient(135deg, #14b8a6, #fb7185)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    {src
+      ? <img src={src} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+      : <span style={{ fontFamily: ROUND, fontWeight: 700, fontSize: size * 0.32, color: '#fff' }}>{initialsOf(name)}</span>}
+  </div>
+);
+
+const Tape = ({ style }) => (
+  <span aria-hidden="true" style={{ position: 'absolute', width: 84, height: 24, background: 'rgba(250,204,21,0.72)',
+    boxShadow: '0 2px 4px rgba(15,61,53,0.12)', ...style }} />
+);
+
 const nameText = (data) => String(data.namaLengkap || data.panggilan || '').replace(/-/g, '‑');
 const pesanText = (pesan, data) => fillPesan(pesan, { nama: data.panggilan, usia: data.usia, shalih: data.shalih });
 
-// --- Desain 1: Aurora (latar gedung gelap, aksen emas) ---
-export const UltahCardAurora = React.forwardRef(({ data, pesan, guru, avatar }, ref) => {
-  const longName = isLongName(data.namaLengkap || data.panggilan);
+const FooterRow = ({ data, guru, label, value }) => (
+  <div style={{ flexShrink: 0, alignSelf: 'stretch', marginTop: 'auto', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, paddingTop: 8 }}>
+    <div>
+      <div style={{ fontSize: 10.5, letterSpacing: 1.6, textTransform: 'uppercase', color: label }}>Tanggal</div>
+      <div style={{ fontSize: 15, fontWeight: 700, marginTop: 2, color: value }}>{data.tanggal}</div>
+    </div>
+    <Signature guru={guru} />
+  </div>
+);
+
+// --- Desain 1: Kue (krem hangat, kue dua tingkat dengan lilin angka usia) ---
+export const UltahCardKue = React.forwardRef(({ data, pesan, guru, avatar }, ref) => {
+  const name = data.namaLengkap || data.panggilan;
+  const longName = isLongName(name);
   return (
-    <div ref={ref} style={{ width: CARD_W, height: CARD_H, position: 'relative', overflow: 'hidden', borderRadius: 28, background: '#1a1240', color: '#fff', fontFamily: SANS }}>
-      <BuildingBackdrop position="center 45%"
-        overlay="linear-gradient(180deg, rgba(20,16,64,0.74) 0%, rgba(49,22,92,0.66) 36%, rgba(30,18,70,0.90) 68%, rgba(14,10,40,0.97) 100%)" />
-      <Blob style={{ width: 320, height: 320, top: 60, left: 110, background: 'rgba(244,114,182,0.30)' }} />
-      <Blob style={{ width: 260, height: 260, bottom: -90, right: -70, background: 'rgba(45,212,191,0.32)' }} />
-      <Blob style={{ width: 220, height: 220, top: -90, right: -40, background: 'rgba(251,191,36,0.26)' }} />
-      <StarPattern id="star-ultah-aurora" color="#ffffff" opacity={0.05} />
-      <Bunting y={0} colors={['#fcd34d', '#f472b6', '#5eead4', '#a78bfa']} opacity={0.9} />
-      <Balloon x={22} y={118} size={50} color="#f472b6" tilt={-10} />
-      <Balloon x={60} y={168} size={36} color="#fcd34d" tilt={6} />
-      <Balloon x={462} y={128} size={48} color="#5eead4" tilt={10} />
-      <Balloon x={430} y={186} size={34} color="#a78bfa" tilt={-6} />
-      <Confetti dots={[[120, 210, 7, '#fcd34d', 45], [400, 250, 6, '#f9a8d4', 'round'], [90, 300, 5, '#5eead4', 'round'], [450, 330, 8, '#fde68a', 20]]} />
+    <div ref={ref} style={{ width: CARD_W, height: CARD_H, position: 'relative', overflow: 'hidden', borderRadius: 28, color: '#5b2a12', fontFamily: SANS,
+      background: 'linear-gradient(180deg, #fff7ed 0%, #ffe4e6 100%)' }}>
+      <DotPattern id="dots-ultah-kue" color="#fb7185" opacity={0.2} gap={24} r={2} />
+      <Blob style={{ width: 420, height: 420, top: 40, left: 60, background: 'rgba(255,255,255,0.95)' }} />
+      <Balloon x={30} y={150} size={44} color="#fb7185" string="rgba(124,45,18,0.35)" tilt={-10} />
+      <Balloon x={72} y={196} size={30} color="#38bdf8" string="rgba(124,45,18,0.35)" tilt={6} />
+      <Balloon x={462} y={140} size={42} color="#facc15" string="rgba(124,45,18,0.35)" tilt={10} />
+      <Balloon x={432} y={202} size={28} color="#a78bfa" string="rgba(124,45,18,0.35)" tilt={-6} />
+      <Confetti dots={[[60, 110, 7, '#fb7185', 45], [470, 100, 6, '#38bdf8', 'round'], [40, 330, 6, '#facc15', 20], [490, 320, 7, '#a78bfa', 'round']]} />
 
       <div style={{ position: 'relative', height: '100%', padding: '30px 34px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         <div style={{ alignSelf: 'stretch', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Brand dark />
-          <span style={{ whiteSpace: 'nowrap', flexShrink: 0, padding: '6px 12px', borderRadius: 9999, fontSize: 10.5, fontWeight: 700, letterSpacing: 2.2, textTransform: 'uppercase',
-            color: '#fde68a', background: 'rgba(251,191,36,0.14)', border: '1px solid rgba(251,191,36,0.4)' }}>
-            Kartu Ucapan
+          <Brand />
+          <span style={{ whiteSpace: 'nowrap', flexShrink: 0, padding: '6px 14px', borderRadius: 9999, fontFamily: ROUND, fontSize: 13, fontWeight: 700,
+            color: '#fff', background: '#fb7185', boxShadow: '0 4px 0 #e11d48' }}>
+            Milad Berkah
           </span>
         </div>
 
-        <div dir="rtl" lang="ar" style={{ flexShrink: 0, fontFamily: ARABIC, fontSize: 32, lineHeight: 1.35, marginTop: 8, color: '#fcd34d', textShadow: '0 4px 22px rgba(251,191,36,0.45)' }}>
-          {data.doa}
-        </div>
+        <div dir="rtl" lang="ar" style={{ flexShrink: 0, fontFamily: ARABIC, fontSize: 30, lineHeight: 1.3, marginTop: 8, color: '#e11d48' }}>{data.doa}</div>
 
-        <div style={{ position: 'relative', marginTop: 6, flexShrink: 0 }}>
-          <Avatar src={avatar} name={data.namaLengkap || data.panggilan} size={longName ? 150 : 172} ringWidth={6}
-            ring="linear-gradient(135deg, #fde68a, #f472b6 50%, #5eead4)"
-            glow="0 0 0 8px rgba(255,255,255,0.06), 0 18px 50px rgba(244,114,182,0.35)" />
-          {data.usia && (
-            <span style={{ position: 'absolute', left: '50%', bottom: -14, transform: 'translateX(-50%)', whiteSpace: 'nowrap',
-              padding: '7px 16px', borderRadius: 9999, fontSize: 15, fontWeight: 800, color: '#2a0f3d',
-              background: 'linear-gradient(135deg, #fde68a 0%, #f9a8d4 100%)', boxShadow: '0 8px 22px rgba(0,0,0,0.3)', border: '2px solid rgba(255,255,255,0.85)' }}>
-              {nb(`★ ${data.usia} Tahun`)}
-            </span>
-          )}
-        </div>
+        <div style={{ marginTop: 4 }}><BirthdayCake usia={data.usia} avatar={avatar} name={name} /></div>
 
-        <div style={{ flexShrink: 0, marginTop: 26, fontSize: 13, fontWeight: 700, letterSpacing: 2.4, textTransform: 'uppercase', color: 'rgba(255,255,255,0.75)' }}>Selamat ulang tahun</div>
-        <div style={{ flexShrink: 0, fontSize: longName ? 26 : 32, fontWeight: 800, lineHeight: longName ? '33px' : '42px', padding: '0 4px', marginTop: 2, letterSpacing: -0.4, textAlign: 'center', maxWidth: '100%',
+        <div style={{ flexShrink: 0, marginTop: 10, fontFamily: ROUND, fontSize: 14, fontWeight: 600, letterSpacing: 3, textTransform: 'uppercase', color: '#e11d48' }}>
+          Selamat ulang tahun
+        </div>
+        <div style={{ flexShrink: 0, fontFamily: ROUND, fontSize: longName ? 25 : 34, fontWeight: 700, lineHeight: longName ? '30px' : '40px', textAlign: 'center', maxWidth: '100%',
           display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
           {nameText(data)}
         </div>
-
-        <p style={{ flexShrink: 0, marginTop: 12, marginBottom: 0, fontSize: 13.5, lineHeight: '21px', textAlign: 'center', color: 'rgba(255,255,255,0.9)', padding: '0 6px',
-          display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+        <p style={{ flexShrink: 0, marginTop: 8, marginBottom: 0, fontSize: 13, lineHeight: '20px', textAlign: 'center', color: '#7a4a32', padding: '0 6px',
+          display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
           {pesanText(pesan, data)}
         </p>
 
-        <div style={{ flexShrink: 0, alignSelf: 'stretch', marginTop: 'auto', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, paddingTop: 12 }}>
-          <div>
-            <div style={{ fontSize: 10.5, letterSpacing: 1.6, textTransform: 'uppercase', color: 'rgba(255,255,255,0.6)' }}>Tanggal</div>
-            <div style={{ fontSize: 15, fontWeight: 700, marginTop: 2 }}>{data.tanggal}</div>
-          </div>
-          <Signature guru={guru} dark />
-        </div>
-        <ContactFooter dark />
+        <FooterRow data={data} guru={guru} label="#a0705a" value="#5b2a12" />
+        <ContactFooter iconColor="#e11d48" textColor="#8a5a44" />
       </div>
     </div>
   );
 });
-UltahCardAurora.displayName = 'UltahCardAurora';
+UltahCardKue.displayName = 'UltahCardKue';
 
-// --- Desain 2: Biru (langit biru dengan gedung, angka usia besar, lembar putih) ---
-export const UltahCardBiru = React.forwardRef(({ data, pesan, guru, avatar }, ref) => {
+// --- Desain 2: Polaroid (kertas bertitik ala scrapbook, foto polaroid, catatan bergaris) ---
+export const UltahCardPolaroid = React.forwardRef(({ data, pesan, guru, avatar }, ref) => {
   const name = data.namaLengkap || data.panggilan;
   const longName = isLongName(name);
   return (
-    <div ref={ref} style={{ width: CARD_W, height: CARD_H, position: 'relative', overflow: 'hidden', borderRadius: 28, background: '#f8fbff', color: '#0b1f4d', fontFamily: SANS }}>
-      <div aria-hidden="true" style={{ position: 'absolute', left: 0, top: 0, width: CARD_W, height: 318, overflow: 'hidden' }}>
-        <BuildingBackdrop height={318} position="center 55%"
-          overlay="linear-gradient(100deg, rgba(11,31,77,0.86) 0%, rgba(23,60,170,0.62) 42%, rgba(29,78,216,0.28) 72%, rgba(56,189,248,0.16) 100%)" />
-        <StarPattern id="star-ultah-biru" color="#ffffff" opacity={0.05} />
-        {data.usia ? (
-          <div style={{ position: 'absolute', right: 30, top: 70, fontFamily: SANS, fontWeight: 900, lineHeight: 1,
-            fontSize: String(data.usia).length > 1 ? 150 : 190, color: 'rgba(255,255,255,0.92)', textShadow: '0 4px 0 rgba(29,78,216,0.55), 0 10px 30px rgba(11,31,77,0.55)' }}>
-            {data.usia}
-          </div>
-        ) : null}
-      </div>
-      <Bunting y={0} colors={['#fde68a', '#ffffff', '#7dd3fc', '#f9a8d4']} />
-      <Balloon x={data.usia ? 330 : 420} y={80} size={40} color="#fde68a" tilt={-8} />
-      <Balloon x={data.usia ? 372 : 466} y={128} size={30} color="#f9a8d4" tilt={8} />
-      <Confetti dots={[[62, 236, 8, '#fde68a', 45], [118, 268, 6, '#ffffff', 'round'], [196, 232, 5, '#bae6fd', 'round'], [300, 260, 7, '#f9a8d4', 30]]} />
+    <div ref={ref} style={{ width: CARD_W, height: CARD_H, position: 'relative', overflow: 'hidden', borderRadius: 28, color: '#0f3d35', fontFamily: SANS,
+      background: 'linear-gradient(160deg, #e3f6ef 0%, #d6eef6 100%)' }}>
+      <DotPattern id="dots-ultah-polaroid" color="#0f766e" opacity={0.22} gap={18} r={1.3} />
+      <Confetti dots={[[256, 92, 7, '#fb7185', 45], [500, 250, 6, '#facc15', 'round'], [26, 380, 6, '#fb7185', 'round'], [505, 380, 7, '#14b8a6', 20]]} />
 
-      <div aria-hidden="true" style={{ position: 'absolute', left: 0, top: 300, width: CARD_W, height: CARD_H - 300, background: '#f8fbff',
-        borderTopLeftRadius: 40, borderTopRightRadius: 40, boxShadow: '0 -10px 30px rgba(11,31,77,0.18)' }} />
-
-      <div style={{ position: 'relative', height: '100%', padding: '30px 34px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        <div style={{ alignSelf: 'stretch', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Brand dark />
-          <span style={{ whiteSpace: 'nowrap', flexShrink: 0, padding: '6px 12px', borderRadius: 9999, fontSize: 10.5, fontWeight: 800, letterSpacing: 2.2, textTransform: 'uppercase',
-            color: '#0b1f4d', background: '#fde68a' }}>
+      <div style={{ position: 'relative', height: '100%', padding: '30px 34px 20px', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Brand />
+          <span style={{ whiteSpace: 'nowrap', flexShrink: 0, padding: '5px 12px', fontFamily: ROUND, fontSize: 13, fontWeight: 700, color: '#0f3d35',
+            background: '#fde68a', transform: 'rotate(3deg)', boxShadow: '0 3px 8px rgba(15,61,53,0.15)' }}>
             Selamat Milad
           </span>
         </div>
 
-        <div dir="rtl" lang="ar" style={{ alignSelf: 'flex-start', flexShrink: 0, fontFamily: ARABIC, fontSize: 30, lineHeight: 1.35, marginTop: 14, color: '#ffffff', textShadow: '0 4px 18px rgba(11,31,77,0.45)' }}>
-          {data.doa}
-        </div>
-        <div style={{ alignSelf: 'flex-start', flexShrink: 0, fontSize: 12, fontWeight: 700, letterSpacing: 2.2, textTransform: 'uppercase', color: 'rgba(255,255,255,0.8)' }}>
-          Selamat ulang tahun
-        </div>
-        <div style={{ alignSelf: 'flex-start', flexShrink: 0, fontSize: 30, fontWeight: 900, lineHeight: '36px', color: '#fde68a', letterSpacing: -0.5 }}>
-          {data.usia ? nb(`ke-${data.usia}`) : 'Barakallah'}
-        </div>
-
-        <div style={{ position: 'absolute', top: longName ? 238 : 228, left: '50%', transform: 'translateX(-50%)' }}>
-          <Avatar src={avatar} name={name} size={longName ? 132 : 148} ringWidth={5}
-            ring="linear-gradient(135deg, #fde68a, #38bdf8 55%, #f9a8d4)"
-            glow="0 0 0 7px #f8fbff, 0 16px 36px rgba(29,78,216,0.35)" />
-        </div>
-
-        <div style={{ flexShrink: 0, marginTop: longName ? 214 : 220, fontSize: 12.5, fontWeight: 800, letterSpacing: 2.4, textTransform: 'uppercase', color: '#2563eb' }}>
-          Barakallahu fii umrik
-        </div>
-        <div style={{ flexShrink: 0, fontSize: longName ? 24 : 30, fontWeight: 800, lineHeight: longName ? '30px' : '38px', marginTop: 2, letterSpacing: -0.4, textAlign: 'center', maxWidth: '100%',
-          display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', color: '#0b1f4d' }}>
-          {nameText(data)}
-        </div>
-
-        <p style={{ flexShrink: 0, marginTop: 10, marginBottom: 0, fontSize: 13, lineHeight: '20px', textAlign: 'center', color: '#334a73', padding: '0 6px',
-          display: '-webkit-box', WebkitLineClamp: longName ? 3 : 4, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-          {pesanText(pesan, data)}
-        </p>
-
-        <div style={{ flexShrink: 0, alignSelf: 'stretch', marginTop: 'auto', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, paddingTop: 8 }}>
-          <div>
-            <div style={{ fontSize: 10.5, letterSpacing: 1.6, textTransform: 'uppercase', color: '#5b6f96' }}>Tanggal</div>
-            <div style={{ fontSize: 15, fontWeight: 700, marginTop: 2, color: '#0b1f4d' }}>{data.tanggal}</div>
+        <div style={{ flexShrink: 0, marginTop: 24, display: 'flex', gap: 24, alignItems: 'flex-start' }}>
+          <div style={{ position: 'relative', width: 196, height: 240, flexShrink: 0 }}>
+            <div style={{ position: 'absolute', inset: 0, transform: 'rotate(-5deg)', background: '#fff', padding: '12px 12px 0', borderRadius: 4,
+              boxShadow: '0 16px 30px rgba(15,61,53,0.24)' }}>
+              <SquarePhoto src={avatar} name={name} size={172} />
+              <div style={{ height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: ROUND, fontSize: 19, fontWeight: 600, color: '#0f3d35' }}>
+                {data.usia ? nb(`${data.usia} tahun`) : 'Barakallah'}
+              </div>
+            </div>
+            <Tape style={{ top: -12, left: 54, transform: 'rotate(-10deg)' }} />
           </div>
-          <Signature guru={guru} />
+          <div style={{ minWidth: 0, flex: 1, paddingTop: 4 }}>
+            <div dir="rtl" lang="ar" style={{ fontFamily: ARABIC, fontSize: 25, lineHeight: 1.35, color: '#0f766e', textAlign: 'left' }}>{data.doa}</div>
+            <div style={{ marginTop: 6, fontFamily: ROUND, fontSize: 40, fontWeight: 700, lineHeight: '40px', color: '#fb7185', textShadow: '3px 3px 0 #fde68a' }}>
+              Selamat<br />Milad!
+            </div>
+            <div style={{ marginTop: 12, fontFamily: ROUND, fontSize: longName ? 20 : 24, fontWeight: 600, lineHeight: longName ? '25px' : '29px', color: '#0f3d35',
+              display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+              {nameText(data)}
+            </div>
+          </div>
         </div>
-        <ContactFooter iconColor="#2563eb" textColor="#47608f" />
+
+        <div style={{ position: 'relative', flexShrink: 0, marginTop: 26, padding: '14px 20px 12px 24px', borderRadius: 6, transform: 'rotate(1deg)',
+          background: '#fffbea', borderLeft: '3px solid rgba(251,113,133,0.55)', boxShadow: '0 10px 24px rgba(15,61,53,0.14)',
+          backgroundImage: 'repeating-linear-gradient(180deg, transparent 0 21px, rgba(14,116,144,0.16) 21px 22px)', backgroundPosition: '0 12px' }}>
+          <Tape style={{ top: -11, right: 30, width: 64, transform: 'rotate(6deg)', background: 'rgba(251,113,133,0.55)' }} />
+          <div style={{ fontFamily: ROUND, fontSize: 14, fontWeight: 600, lineHeight: '22px', color: '#e11d48' }}>Doa untukmu</div>
+          <p style={{ margin: 0, fontSize: 13.5, lineHeight: '22px', color: '#2f4b45',
+            display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+            {pesanText(pesan, data)}
+          </p>
+        </div>
+
+        <FooterRow data={data} guru={guru} label="#4f7a72" value="#0f3d35" />
+        <ContactFooter iconColor="#0f766e" textColor="#3f6660" />
       </div>
     </div>
   );
 });
-UltahCardBiru.displayName = 'UltahCardBiru';
+UltahCardPolaroid.displayName = 'UltahCardPolaroid';
 
-// --- Desain 3: Pink (gedung bernuansa merah muda, panel bingkai, foto mihrab, pita sudut) ---
-export const UltahCardPink = React.forwardRef(({ data, pesan, guru, avatar }, ref) => {
+// --- Desain 3: Kado (kertas kado kuning, pita merah bersilang, label nama berlubang) ---
+const TAG_CLIP = 'polygon(44px 0, calc(100% - 44px) 0, 100% 44px, 100% 100%, 0 100%, 0 44px)';
+
+export const UltahCardKado = React.forwardRef(({ data, pesan, guru, avatar }, ref) => {
   const name = data.namaLengkap || data.panggilan;
   const longName = isLongName(name);
+  const ribbon = { position: 'absolute', background: 'linear-gradient(90deg, #e11d48, #f43f5e 50%, #e11d48)' };
   return (
-    <div ref={ref} style={{ width: CARD_W, height: CARD_H, position: 'relative', overflow: 'hidden', borderRadius: 28, color: '#4a1238', fontFamily: SANS, background: '#f9a8d4' }}>
-      <BuildingBackdrop position="center 50%"
-        overlay="linear-gradient(160deg, rgba(219,39,119,0.55) 0%, rgba(236,72,153,0.38) 45%, rgba(147,51,234,0.50) 100%)" />
-      <StarPattern id="star-ultah-pink" color="#ffffff" opacity={0.08} />
+    <div ref={ref} style={{ width: CARD_W, height: CARD_H, position: 'relative', overflow: 'hidden', borderRadius: 28, color: '#3b1d0a', fontFamily: SANS,
+      background: 'linear-gradient(160deg, #fde047 0%, #fbbf24 60%, #f59e0b 100%)' }}>
+      <svg width={CARD_W} height={CARD_H} style={{ position: 'absolute', inset: 0, opacity: 0.45 }} aria-hidden="true">
+        <defs>
+          <pattern id="wrap-ultah-kado" width="48" height="48" patternUnits="userSpaceOnUse">
+            <path d="M12 5l2.2 5.3 5.3 2.2-5.3 2.2L12 20l-2.2-5.3-5.3-2.2 5.3-2.2z" fill="#fff" />
+            <circle cx="36" cy="35" r="3" fill="#fff" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#wrap-ultah-kado)" />
+      </svg>
+      <div aria-hidden="true" style={{ ...ribbon, left: 0, top: 84, width: CARD_W, height: 34, background: 'linear-gradient(180deg, #e11d48, #f43f5e 50%, #e11d48)' }} />
+      <div aria-hidden="true" style={{ ...ribbon, left: 398, top: 0, width: 34, height: CARD_H }} />
+      <svg aria-hidden="true" width="150" height="96" viewBox="0 0 150 96" style={{ position: 'absolute', left: 340, top: 56 }}>
+        <path d="M70 50 L 50 92 L 61 87 L 66 96 L 78 52 Z" fill="#be123c" />
+        <path d="M80 50 L 100 92 L 89 87 L 84 96 L 72 52 Z" fill="#be123c" />
+        <path d="M75 45 C 50 8, 6 6, 10 38 C 13 64, 52 60, 75 45 Z" fill="#f43f5e" />
+        <path d="M75 45 C 100 8, 144 6, 140 38 C 137 64, 98 60, 75 45 Z" fill="#f43f5e" />
+        <path d="M75 45 C 56 24, 26 22, 25 38 C 26 50, 54 52, 75 45 Z" fill="#9f1239" opacity="0.45" />
+        <path d="M75 45 C 94 24, 124 22, 125 38 C 124 50, 96 52, 75 45 Z" fill="#9f1239" opacity="0.45" />
+        <rect x="63" y="33" width="24" height="24" rx="8" fill="#e11d48" stroke="#9f1239" strokeWidth="2" />
+      </svg>
 
-      <div style={{ position: 'absolute', inset: 18, borderRadius: 24, background: 'rgba(255,250,252,0.82)', border: '1px solid rgba(255,255,255,0.9)',
-        boxShadow: '0 24px 50px rgba(131,24,67,0.30)' }} />
-      <div aria-hidden="true" style={{ position: 'absolute', top: 18, right: 18, width: 128, height: 128, overflow: 'hidden', borderTopRightRadius: 24 }}>
-        <div style={{ position: 'absolute', top: 28, right: -36, width: 180, transform: 'rotate(45deg)', textAlign: 'center', padding: '6px 0',
-          background: 'linear-gradient(90deg, #db2777, #9333ea)', color: '#fff', fontSize: 11, fontWeight: 800, letterSpacing: 2.2, textTransform: 'uppercase',
-          boxShadow: '0 6px 14px rgba(131,24,67,0.35)' }}>
-          Selamat Milad
+      <div style={{ position: 'absolute', left: 28, top: 24 }}><Brand /></div>
+
+      <div aria-hidden="true" style={{ position: 'absolute', left: 28, right: 28, top: 176, bottom: 14, clipPath: TAG_CLIP, background: 'rgba(120,53,15,0.22)' }} />
+      <div aria-hidden="true" style={{ position: 'absolute', left: 28, right: 28, top: 168, bottom: 22, clipPath: TAG_CLIP, background: '#fffdf5' }} />
+      <div aria-hidden="true" style={{ position: 'absolute', left: 404, top: 182, width: 22, height: 22, borderRadius: 9999, background: '#fbbf24',
+        boxShadow: '0 0 0 4px #f3e3bf, inset 0 2px 4px rgba(120,53,15,0.35)' }} />
+      {data.usia && (
+        <div style={{ position: 'absolute', left: 40, top: 142, width: 76, height: 76, borderRadius: 9999, transform: 'rotate(-10deg)', zIndex: 1, display: 'flex', flexDirection: 'column',
+          alignItems: 'center', justifyContent: 'center', color: '#fff', background: 'radial-gradient(circle at 35% 30%, #fb7185, #e11d48 70%)',
+          border: '4px solid #fff', boxShadow: '0 10px 20px rgba(159,18,57,0.35)', lineHeight: 1 }}>
+          <span style={{ fontFamily: ROUND, fontSize: 32, fontWeight: 700 }}>{data.usia}</span>
+          <span style={{ fontFamily: ROUND, fontSize: 10, fontWeight: 600, letterSpacing: 1.6, textTransform: 'uppercase', marginTop: 1 }}>tahun</span>
         </div>
-      </div>
-      <Balloon x={26} y={210} size={34} color="#f472b6" string="rgba(157,23,77,0.35)" tilt={-8} />
-      <Balloon x={470} y={300} size={30} color="#c084fc" string="rgba(157,23,77,0.35)" tilt={8} />
-      <Confetti dots={[[60, 520, 7, '#f5c48a', 45], [480, 470, 6, '#ec4899', 'round'], [250, 360, 5, '#c084fc', 'round']]} />
+      )}
 
-      <div style={{ position: 'relative', height: '100%', padding: '40px 42px 34px', display: 'flex', flexDirection: 'column' }}>
-        <Brand />
-
-        <div style={{ flexShrink: 0, marginTop: 26, display: 'flex', alignItems: 'center', gap: 24 }}>
-          <div style={{ position: 'relative', flexShrink: 0 }}>
-            <ArchPhoto src={avatar} name={name} width={172} height={222} />
-            {data.usia && (
-              <span style={{ position: 'absolute', right: -14, top: -10, width: 62, height: 62, borderRadius: 9999, display: 'flex', flexDirection: 'column',
-                alignItems: 'center', justifyContent: 'center', color: '#fff', background: 'linear-gradient(135deg, #f59e0b, #db2777)',
-                border: '3px solid #ffffff', boxShadow: '0 10px 20px rgba(157,23,77,0.35)', lineHeight: 1 }}>
-                <span style={{ fontSize: 24, fontWeight: 900 }}>{data.usia}</span>
-                <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: 1.2, textTransform: 'uppercase', marginTop: 2 }}>tahun</span>
-              </span>
-            )}
-          </div>
+      <div style={{ position: 'absolute', left: 28, right: 28, top: 168, bottom: 22, padding: '56px 26px 14px', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 20 }}>
+          <Avatar src={avatar} name={name} size={longName ? 124 : 140} ringWidth={5} ring="linear-gradient(135deg, #f43f5e, #fbbf24)" glow="0 10px 24px rgba(159,18,57,0.25)" />
           <div style={{ minWidth: 0, flex: 1 }}>
-            <div dir="rtl" lang="ar" style={{ fontFamily: ARABIC, fontSize: 26, lineHeight: 1.35, color: '#be185d', textAlign: 'left' }}>{data.doa}</div>
-            <div style={{ marginTop: 4, fontSize: 11.5, fontWeight: 800, letterSpacing: 2.2, textTransform: 'uppercase', color: '#db2777' }}>Selamat ulang tahun</div>
-            <div style={{ marginTop: 4, fontSize: longName ? 22 : 27, fontWeight: 800, lineHeight: longName ? '27px' : '32px', letterSpacing: -0.4, color: '#4a1238',
+            <div dir="rtl" lang="ar" style={{ fontFamily: ARABIC, fontSize: 25, lineHeight: 1.35, color: '#e11d48', textAlign: 'left' }}>{data.doa}</div>
+            <div style={{ marginTop: 2, fontFamily: ROUND, fontSize: 13, fontWeight: 600, letterSpacing: 2.4, textTransform: 'uppercase', color: '#b45309' }}>Selamat ulang tahun</div>
+            <div style={{ marginTop: 2, fontFamily: ROUND, fontSize: longName ? 22 : 29, fontWeight: 700, lineHeight: longName ? '26px' : '34px', color: '#3b1d0a',
               display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
               {nameText(data)}
             </div>
-            {data.usia && (
-              <div style={{ marginTop: 12, display: 'inline-flex', alignItems: 'baseline', gap: 6, padding: '6px 14px', borderRadius: 14,
-                background: 'linear-gradient(135deg, #db2777 0%, #9333ea 100%)', color: '#fff', boxShadow: '0 8px 18px rgba(157,23,77,0.30)' }}>
-                <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1.6, textTransform: 'uppercase', opacity: 0.85 }}>Usia</span>
-                <span style={{ fontSize: 20, fontWeight: 900, whiteSpace: 'nowrap' }}>{nb(`${data.usia} tahun`)}</span>
-              </div>
-            )}
           </div>
         </div>
 
-        <div aria-hidden="true" style={{ flexShrink: 0, marginTop: 26, height: 1, background: 'linear-gradient(90deg, transparent, rgba(219,39,119,0.35), transparent)' }} />
-
-        <p style={{ flexShrink: 0, marginTop: 16, marginBottom: 0, fontSize: 15, lineHeight: '24px', color: '#6b2a52',
+        <div aria-hidden="true" style={{ flexShrink: 0, marginTop: 22, borderTop: '2px dashed #f1d79c' }} />
+        <p style={{ flexShrink: 0, marginTop: 16, marginBottom: 0, fontSize: 15, lineHeight: '24px', color: '#5a3a1e',
           display: '-webkit-box', WebkitLineClamp: 5, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
           {pesanText(pesan, data)}
         </p>
 
-        <div style={{ flexShrink: 0, alignSelf: 'stretch', marginTop: 'auto', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, paddingTop: 8 }}>
-          <div>
-            <div style={{ fontSize: 10.5, letterSpacing: 1.6, textTransform: 'uppercase', color: '#9a5a7d' }}>Tanggal</div>
-            <div style={{ fontSize: 15, fontWeight: 700, marginTop: 2, color: '#4a1238' }}>{data.tanggal}</div>
-          </div>
-          <Signature guru={guru} />
-        </div>
-        <ContactFooter iconColor="#db2777" textColor="#8a4a6d" />
+        <FooterRow data={data} guru={guru} label="#a07a4a" value="#3b1d0a" />
+        <ContactFooter iconColor="#e11d48" textColor="#7a5a3a" />
       </div>
     </div>
   );
 });
-UltahCardPink.displayName = 'UltahCardPink';
+UltahCardKado.displayName = 'UltahCardKado';
 
 export const ULTAH_DESIGNS = [
-  { id: 'aurora', label: 'Aurora', swatch: 'linear-gradient(135deg, #1a1240, #6d28d9 55%, #f472b6)', Card: UltahCardAurora },
-  { id: 'biru', label: 'Biru', swatch: 'linear-gradient(135deg, #0b1f4d, #1d4ed8 55%, #38bdf8)', Card: UltahCardBiru },
-  { id: 'pink', label: 'Pink', swatch: 'linear-gradient(135deg, #fbcfe8, #db2777 60%, #f5c48a)', Card: UltahCardPink },
+  { id: 'kue', label: 'Kue', swatch: 'linear-gradient(135deg, #fff7ed, #fda4af 55%, #8a4a26)', Card: UltahCardKue },
+  { id: 'polaroid', label: 'Polaroid', swatch: 'linear-gradient(135deg, #e3f6ef, #5eead4 55%, #fb7185)', Card: UltahCardPolaroid },
+  { id: 'kado', label: 'Kado', swatch: 'linear-gradient(135deg, #fde047, #f59e0b 55%, #e11d48)', Card: UltahCardKado },
 ];
