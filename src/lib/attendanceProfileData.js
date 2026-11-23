@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/customSupabaseClient';
+import { badgesForSantri, SANTRI_BADGES_KEY } from '@/lib/santriBadges';
 
 const getCurrentMonthDateRange = () => {
     const now = new Date();
@@ -82,12 +83,29 @@ export const getSantriMonthlyAttendanceStats = async (santriId) => {
     return { present, late, absent };
 };
 
+// Badge config is small and changes rarely, so kiosks reuse it for a minute between scans.
+const BADGE_CACHE_MS = 60 * 1000;
+let badgeCache = { at: 0, promise: null };
+
+const loadSantriBadgeConfig = () => {
+    if (badgeCache.promise && Date.now() - badgeCache.at < BADGE_CACHE_MS) return badgeCache.promise;
+    const promise = supabase
+        .from('website_content')
+        .select('content')
+        .eq('key', SANTRI_BADGES_KEY)
+        .maybeSingle()
+        .then(({ data, error }) => (error ? null : data?.content || null))
+        .catch(() => null);
+    badgeCache = { at: Date.now(), promise };
+    return promise;
+};
+
 export const getSantriLearningHighlights = async (santriId) => {
     if (!santriId) {
-        return { hafalanCount: 0, characterStrength: null, strongestHafalanCategory: null };
+        return { hafalanCount: 0, characterStrength: null, strongestHafalanCategory: null, badges: [] };
     }
 
-    const [progressResult, strengthResult] = await Promise.all([
+    const [progressResult, strengthResult, badgeConfig] = await Promise.all([
         supabase
             .from('hafalan_progress')
             .select('category,status,score,nilai')
@@ -99,6 +117,7 @@ export const getSantriLearningHighlights = async (santriId) => {
             .order('selected_at', { ascending: false })
             .limit(1)
             .maybeSingle(),
+        loadSantriBadgeConfig(),
     ]);
 
     const rows = progressResult.error ? [] : (progressResult.data || []);
@@ -138,5 +157,6 @@ export const getSantriLearningHighlights = async (santriId) => {
         hafalanCount,
         characterStrength: strengthResult.error ? null : (strengthResult.data?.strength_key || null),
         strongestHafalanCategory: strongest ? `${strongest.category} · ${averageLabel}` : null,
+        badges: badgesForSantri(badgeConfig, santriId).map((badge) => badge.id),
     };
 };

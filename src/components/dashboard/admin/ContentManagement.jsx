@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
-import { Plus, Trash2, Edit, Trophy, Star, Sun, Moon, Video, Users, BookCopy, MessageSquare, FileText, Library, Building, Mail, Info, Image as ImageIcon, CalendarClock, HelpCircle, Home, Heart, Save } from 'lucide-react';
+import { Plus, Trash2, Edit, Sun, Moon, Video, Users, BookCopy, MessageSquare, FileText, Library, Building, Mail, Image as ImageIcon, CalendarClock, HelpCircle, Home, Heart, Save } from 'lucide-react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
@@ -13,6 +13,7 @@ import { Switch } from "@/components/ui/switch";
 import { RotateCcw, ClipboardList, GripVertical, PlusCircle, MinusCircle, ArrowUp, ArrowDown, CaseSensitive, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import HafalanDisplay from '@/components/dashboard/shared/HafalanDisplay';
+import SantriBadgeManager from '@/components/dashboard/admin/SantriBadgeManager';
 import { createHafalanItem, deactivateHafalanItem, fetchHafalanItems, getAcademicErrorMessage, renameHafalanItem, updateHafalanItem } from '@/lib/academicAdapters';
 import { formatHafalanItemName, usesHafalanTitleCase, validateHafalanItemRename } from '@/lib/hafalanItemName';
 import { groupItemsByLevel, moveHafalanItem } from '@/lib/hafalanItemOrder';
@@ -230,13 +231,11 @@ const ContentManagement = () => {
   const [editingItem, setEditingItem] = useState(null);
   const [modalType, setModalType] = useState('');
   const [formState, setFormState] = useState({});
-  const [santriList, setSantriList] = useState([]);
-  const [guruList, setGuruList] = useState([]);
   const [activeTab, setActiveTab] = useState("homepage");
   const [enrollmentData, setEnrollmentData] = useState({ categories: [] });
   const [isEnrollmentSaving, setIsEnrollmentSaving] = useState(false);
 
-  useEffect(() => { fetchContent(); fetchSantriAndGuru(); fetchFeedbacks(); }, []);
+  useEffect(() => { fetchContent(); fetchFeedbacks(); }, []);
 
   const fetchFeedbacks = async () => {
     try {
@@ -256,13 +255,6 @@ const ContentManagement = () => {
       toast({ title: "Gagal Menghapus Pesan", description: getPublicContentErrorMessage(error), variant: "destructive" });
     }
   }
-
-  const fetchSantriAndGuru = async () => {
-    const { data: santriData } = await supabase.from('santri').select('id, nama_lengkap, foto_url').eq('status', 'Aktif').order('nama_lengkap', { ascending: true });
-    const { data: guruData } = await supabase.from('guru').select('id, nama, foto_url').order('nama', { ascending: true });
-    setSantriList(santriData || []);
-    setGuruList(guruData || []);
-  };
 
   const fetchContent = async () => {
     const { data, error } = await supabase.from('website_content').select('key, content');
@@ -413,9 +405,6 @@ const ContentManagement = () => {
 
   const handleHeroSlideChange = (id, field, value) => { setContent(prev => ({ ...prev, heroSlides: prev.heroSlides.map(slide => slide.id === id ? { ...slide, [field]: value } : slide) })); };
   const addHeroSlide = () => { if (content.heroSlides?.length >= 5) return; setContent(prev => ({ ...prev, heroSlides: [...(prev.heroSlides || []), { id: Date.now(), url: '/logo-lpq-al-fath-maulana.webp', text: 'Teks slide baru', author: 'LPQ Al-Fath Maulana' }] })); };
-  const handleSantriOfTheMonthChange = (index, personId, alasan) => { const person = santriList.find(p => p.id === personId); if (person) { const newSantriOTM = [...content.santriOfTheMonth]; newSantriOTM[index] = { ...person, alasan }; setContent(prev => ({ ...prev, santriOfTheMonth: newSantriOTM })); } };
-  const handleGuruOfTheMonthChange = (personId, alasan) => { const person = guruList.find(p => p.id === personId); if (person) setContent(prev => ({ ...prev, guruOfTheMonth: { ...person, alasan } })); };
-  const handleLeaderboardChange = (index, personId, achievement) => { const person = santriList.find(p => p.id === personId); if (person) { const newLeaderboard = [...content.leaderboard]; newLeaderboard[index] = { ...person, achievement }; setContent(prev => ({ ...prev, leaderboard: newLeaderboard })); } };
   const handleOpacityChange = (key, value) => { setContent(prev => ({...prev, [key]: value[0]})); };
 
   /* ---- Enrollment Data Handlers ---- */
@@ -716,10 +705,7 @@ const ContentManagement = () => {
         </TabsContent>
 
         <TabsContent value="apresiasi" className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
-          <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-100 dark:border-blue-800 flex gap-3 mb-4"><Info className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" /><div className="text-sm text-blue-700 dark:text-blue-300"><p className="font-bold mb-1">Info Pindah Lokasi</p><p>Pengaturan <strong>TV Leaderboard</strong> telah dipindahkan ke menu <strong>Pengaturan TV</strong> sesuai permintaan.</p></div></div>
-          <div className="admin-card p-4"><h3 className="font-bold text-xl mb-4 flex items-center"><Star className="w-6 h-6 mr-2 text-blue-500" /> Papan Peringkat (Website)</h3>{[0, 1, 2].map(index => (<div key={index} className="admin-card p-4 space-y-3 mb-4 bg-background"><h4 className="font-semibold">Peringkat #{index + 1}</h4><Select onValueChange={val => handleLeaderboardChange(index, val, content.leaderboard?.[index]?.achievement || '')} value={content.leaderboard?.[index]?.id}><SelectTrigger><SelectValue placeholder="Pilih Santri" /></SelectTrigger><SelectContent>{santriList.map(s => <SelectItem key={s.id} value={s.id}>{s.nama_lengkap}</SelectItem>)}</SelectContent></Select><Input placeholder="Deskripsi Prestasi" value={content.leaderboard?.[index]?.achievement || ''} onChange={e => handleLeaderboardChange(index, content.leaderboard?.[index]?.id, e.target.value)} /></div>))}</div>
-          <div className="admin-card p-4"><h3 className="font-bold text-xl mb-4 flex items-center"><Trophy className="w-6 h-6 mr-2 text-amber-500" /> Santri of the Month</h3>{[0, 1, 2].map(index => (<div key={index} className="admin-card p-4 space-y-3 mb-4 bg-background"><h4 className="font-semibold">Pilihan Santri #{index + 1}</h4><Select onValueChange={val => handleSantriOfTheMonthChange(index, val, content.santriOfTheMonth?.[index]?.alasan || '')} value={content.santriOfTheMonth?.[index]?.id}><SelectTrigger><SelectValue placeholder="Pilih Santri" /></SelectTrigger><SelectContent>{santriList.map(s => <SelectItem key={s.id} value={s.id}>{s.nama_lengkap}</SelectItem>)}</SelectContent></Select><Input placeholder="Alasan apresiasi..." value={content.santriOfTheMonth?.[index]?.alasan || ''} onChange={e => handleSantriOfTheMonthChange(index, content.santriOfTheMonth?.[index]?.id, e.target.value)} /></div>))}</div>
-          <div className="admin-card p-4"><h3 className="font-bold text-xl mb-4 flex items-center"><Trophy className="w-6 h-6 mr-2 text-amber-500" /> Guru of the Month</h3><div className="admin-card p-4 space-y-3 bg-background"><Select onValueChange={val => handleGuruOfTheMonthChange(val, content.guruOfTheMonth?.alasan || '')} value={content.guruOfTheMonth?.id}><SelectTrigger><SelectValue placeholder="Pilih Guru" /></SelectTrigger><SelectContent>{guruList.map(g => <SelectItem key={g.id} value={g.id}>{g.nama}</SelectItem>)}</SelectContent></Select><Input placeholder="Alasan apresiasi..." value={content.guruOfTheMonth?.alasan || ''} onChange={e => handleGuruOfTheMonthChange(content.guruOfTheMonth?.id, e.target.value)} /></div></div>
+          <SantriBadgeManager />
         </TabsContent>
 
         <TabsContent value="media" className="grid md:grid-cols-2 gap-6 animate-in fade-in slide-in-from-bottom-2">

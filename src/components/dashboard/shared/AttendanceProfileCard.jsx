@@ -20,6 +20,8 @@ import {
 import { getSessionName } from '@/utils/sessionMapping';
 import { resolveSantriTier } from '@/lib/santriTier';
 import TierEmblem from './TierEmblem';
+import SantriAchievementBadge from './SantriAchievementBadge';
+import { getSantriBadgeById } from '@/lib/santriBadges';
 
 /**
  * AttendanceProfileCard — Shared premium profile card for attendance results.
@@ -42,6 +44,7 @@ const AttendanceProfileCard = ({
   hafalanCount,
   characterStrength,
   strongestHafalanCategory,
+  badges,
   jabatan,
   guruStats,
   quote,
@@ -73,6 +76,7 @@ const AttendanceProfileCard = ({
   const avatarDepth = clampDepth(avatarBorderThickness, 4);
   const statusConfig = getStatusConfig(status);
   const displayMessage = formatAttendanceMessage(message, sesi);
+  const badgeList = (Array.isArray(badges) ? badges : []).map(getSantriBadgeById).filter(Boolean);
   const nameGradient = pointAccent
     ? `linear-gradient(135deg, ${pointAccent.gradientStart}, ${pointAccent.gradientEnd})`
     : isTeacher
@@ -143,6 +147,16 @@ const AttendanceProfileCard = ({
               </p>
             )}
           </div>
+        </div>
+      )}
+
+      {!isTeacher && badgeList.length > 0 && (
+        <div
+          role="list"
+          aria-label="Badge prestasi santri"
+          style={{ display: 'flex', flexWrap: 'wrap', gap: wide ? '10px 14px' : '8px 12px', marginTop: 10, marginBottom: 4 }}
+        >
+          {badgeList.map((badge) => <SantriAchievementBadge key={badge.id} badge={badge} size={wide ? 'md' : 'sm'} />)}
         </div>
       )}
 
