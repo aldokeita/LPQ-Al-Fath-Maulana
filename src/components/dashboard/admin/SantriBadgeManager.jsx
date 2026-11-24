@@ -8,9 +8,10 @@ import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/customSupabaseClient';
 import { getPublicContentErrorMessage, saveWebsiteContentItem } from '@/lib/publicContentAdapters';
 import {
-  BADGE_GENDERS, getBadgeWinner, listBadgeSessions, normalizeBadgeConfig, normalizeBadgeGender,
-  resolveSantriBadgeSession, SANTRI_BADGES, SANTRI_BADGES_KEY, setBadgeWinner,
+  BADGE_GENDERS, getBadgeWinner, listBadgeSessions, normalizeBadgeConfig, normalizeBadgeGender, normalizeBadgePrivileges,
+  resolveSantriBadgeSession, SANTRI_BADGE_PRIVILEGES_KEY, SANTRI_BADGES, SANTRI_BADGES_KEY, setBadgeWinner,
 } from '@/lib/santriBadges';
+import SantriBadgePrivilegesEditor from '@/components/dashboard/admin/SantriBadgePrivilegesEditor';
 import SantriAchievementBadge from '@/components/dashboard/shared/SantriAchievementBadge';
 import { buildBadgePosterHtml, collectPosterPages } from '@/lib/santriBadgePoster';
 import { OFFICIAL_CONTACT } from '@/lib/institutionContent';
@@ -37,18 +38,21 @@ const toDataUrl = async (url) => {
 };
 
 const loadBadgeData = async () => {
-  const [santriResult, configResult] = await Promise.all([
+  const [santriResult, configResult, privilegesResult] = await Promise.all([
     supabase
       .from('santri')
       .select('id, nama_lengkap, jenis_kelamin, sesi_mengaji, kategori, class:current_class_id(sesi)')
       .eq('status', 'Aktif')
       .order('nama_lengkap', { ascending: true }),
     supabase.from('website_content').select('content').eq('key', SANTRI_BADGES_KEY).maybeSingle(),
+    supabase.from('website_content').select('content').eq('key', SANTRI_BADGE_PRIVILEGES_KEY).maybeSingle(),
   ]);
   if (santriResult.error) throw santriResult.error;
   if (configResult.error) throw configResult.error;
   const santri = (santriResult.data || []).filter((row) => row.kategori !== 'Dewasa');
-  return { santri, config: normalizeBadgeConfig(configResult.data?.content) };
+  // Hak istimewa belum pernah disimpan atau gagal dibaca → contoh bawaan.
+  const privileges = normalizeBadgePrivileges(privilegesResult.error ? null : privilegesResult.data?.content);
+  return { santri, config: normalizeBadgeConfig(configResult.data?.content), privileges };
 };
 
 const PAGE_SIZE = 1000;
@@ -102,6 +106,7 @@ const SantriBadgeManager = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [recs, setRecs] = useState({ status: 'idle', terdisiplin: {}, hafalan: {} });
   const [isPrinting, setIsPrinting] = useState(false);
+  const [privileges, setPrivileges] = useState(() => normalizeBadgePrivileges(null));
 
   const loadRecommendations = async (santriList) => {
     setRecs((current) => ({ ...current, status: 'loading' }));
@@ -125,6 +130,7 @@ const SantriBadgeManager = () => {
       setSantri(data.santri);
       setSaved(data.config);
       setDraft(data.config);
+      setPrivileges(data.privileges);
       setStatus('ready');
       loadRecommendations(data.santri);
     } catch (loadError) {
@@ -171,7 +177,7 @@ const SantriBadgeManager = () => {
         ...ids.map((id) => loadAvatar(id).catch(() => null)),
       ]);
       const photos = new Map(ids.map((id, index) => [id, photoList[index]]).filter(([, url]) => url));
-      const html = buildBadgePosterHtml({ pages: posterPages, photos, assets: { logo, building }, address: OFFICIAL_CONTACT.address });
+      const html = buildBadgePosterHtml({ pages: posterPages, photos, assets: { logo, building }, address: OFFICIAL_CONTACT.address, privileges });
       win.document.open();
       win.document.write(html);
       win.document.close();
@@ -215,7 +221,7 @@ const SantriBadgeManager = () => {
         </div>
         <div className="flex shrink-0 flex-wrap gap-2">
           <Button type="button" variant="outline" onClick={printPoster} disabled={status !== 'ready' || isPrinting || posterPages.length === 0}
-            title={posterPages.length === 0 ? 'Simpan pemenang badge terlebih dahulu' : isDirty ? 'Mencetak badge yang sudah disimpan; perubahan yang belum disimpan tidak ikut' : 'Cetak santri berprestasi per sesi dalam ukuran A4'}>
+            title={isDirty ? 'Mencetak badge yang sudah disimpan; perubahan yang belum disimpan tidak ikut' : 'Cetak santri berprestasi per sesi dalam ukuran A4; badge yang belum dipilih tampil sebagai ???'}>
             {isPrinting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> : <Printer className="mr-2 h-4 w-4" aria-hidden="true" />}
             Cetak A4
           </Button>
@@ -315,6 +321,8 @@ const SantriBadgeManager = () => {
               </article>
             ))}
           </div>
+
+          <SantriBadgePrivilegesEditor value={privileges} onSaved={setPrivileges} />
         </>
       )}
     </section>
