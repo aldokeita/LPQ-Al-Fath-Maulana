@@ -84,3 +84,33 @@ export const badgesForSantri = (config, santriId) => {
 };
 
 export const getSantriBadgeById = (id) => SANTRI_BADGES.find((badge) => badge.id === id) || null;
+
+// ===== Hak istimewa santri berprestasi (dapat diedit admin di tab Apresiasi) =====
+
+export const SANTRI_BADGE_PRIVILEGES_KEY = 'santriBadgePrivileges';
+export const PRIVILEGE_MAX_ITEMS = 12;
+export const PRIVILEGE_MAX_LENGTH = 140;
+export const PRIVILEGE_INTRO_MAX_LENGTH = 240;
+
+export const DEFAULT_BADGE_PRIVILEGES = {
+  intro: 'Santri peraih badge apresiasi mendapat hak istimewa berikut selama periode berlaku.',
+  items: [
+    'Masuk kelas lebih dulu setelah drilling.',
+    'Maju mengaji lebih dulu saat di kelas.',
+    'Pulang lebih dulu setelah membaca doa penutup.',
+    'Memimpin doa pembuka atau penutup di kelas.',
+    'Duduk di barisan terdepan saat kegiatan bersama.',
+    'Namanya dipajang di papan Santri Berprestasi.',
+  ],
+};
+
+const clean = (value, max) => String(value ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
+
+// Konten tersimpan → { intro, items }; kosong/rusak memakai bawaan.
+export const normalizeBadgePrivileges = (raw) => {
+  if (!raw || typeof raw !== 'object' || !Array.isArray(raw.items)) return { ...DEFAULT_BADGE_PRIVILEGES, items: [...DEFAULT_BADGE_PRIVILEGES.items] };
+  return {
+    intro: clean(raw.intro, PRIVILEGE_INTRO_MAX_LENGTH),
+    items: raw.items.map((item) => clean(item, PRIVILEGE_MAX_LENGTH)).filter(Boolean).slice(0, PRIVILEGE_MAX_ITEMS),
+  };
+};

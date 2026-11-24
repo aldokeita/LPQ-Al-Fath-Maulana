@@ -9,15 +9,27 @@ const santriById = new Map([
   ['c', { id: 'c', nama_lengkap: 'Citra' }],
 ]);
 
-test('one page per sesi with only filled badges, in badge order', () => {
+test('one page per sesi with every badge; empty slots stay as mystery entries', () => {
   let config = setBadgeWinner({}, { badgeId: 'shalat', sesi: 'Sore', gender: 'putri', santriId: 'c' });
   config = setBadgeWinner(config, { badgeId: 'terdisiplin', sesi: 'Pagi', gender: 'putra', santriId: 'a' });
-  config = setBadgeWinner(config, { badgeId: 'terdisiplin', sesi: 'Pagi', gender: 'putri', santriId: 'b' });
   config = setBadgeWinner(config, { badgeId: 'hafalan', sesi: 'Pagi', gender: 'putra', santriId: 'gone' });
   const pages = collectPosterPages({ config, sessions: ['Pagi', 'Siang', 'Sore'], santriById });
-  assert.deepEqual(pages.map((p) => p.sesi), ['Pagi', 'Sore']);
-  assert.deepEqual(pages[0].badges.map((b) => b.badge.id), ['terdisiplin'], 'unknown santri is skipped');
-  assert.deepEqual(pages[0].badges[0].winners.map((w) => w.gender.id), ['putra', 'putri']);
+  assert.deepEqual(pages.map((p) => p.sesi), ['Pagi', 'Siang', 'Sore']);
+  assert.deepEqual(pages[0].badges.map((b) => b.badge.id), ['terdisiplin', 'hafalan', 'drilling', 'shalat']);
+  assert.deepEqual(pages[0].badges[0].winners.map((w) => w.santri?.id ?? null), ['a', null]);
+  assert.equal(pages[0].badges[1].winners[0].santri, null, 'unknown santri becomes a mystery slot');
+});
+
+test('mystery slots and the privilege page render', () => {
+  const pages = collectPosterPages({ config: {}, sessions: ['Pagi'], santriById });
+  const html = buildBadgePosterHtml({ pages, privileges: { intro: 'Hak <istimewa>', items: ['Pulang dulu'] } });
+  assert.equal(html.match(/class="winner mystery"/g).length, 8);
+  assert.match(html, /<strong>\?\?\?<\/strong>/);
+  assert.match(html, /class="sesi-pill"><small>Sesi<\/small><b>Pagi<\/b>/);
+  assert.equal(html.match(/class="sheet"/g).length, 2);
+  assert.match(html, /Hak &lt;istimewa&gt;/);
+  assert.match(html, /<span class="num">1<\/span><span>Pulang dulu<\/span>/);
+  assert.equal(buildBadgePosterHtml({ pages, privileges: { items: [] } }).match(/class="sheet"/g).length, 1);
 });
 
 test('poster html escapes names and has one A4 sheet per page', () => {

@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  DEFAULT_BADGE_PRIVILEGES, normalizeBadgePrivileges, PRIVILEGE_MAX_ITEMS,
   badgesForSantri, getBadgeWinner, listBadgeSessions, normalizeBadgeConfig, normalizeBadgeGender, setBadgeWinner,
 } from '../src/lib/santriBadges.js';
 
@@ -47,4 +48,14 @@ test('orders sesi Pagi, Siang, Sore, Malam, then others', () => {
 test('merges numeric sesi codes with their names', () => {
   const santri = [{ sesi_mengaji: '0' }, { sesi_mengaji: 'Pagi' }, { class: { sesi: '2' } }, { sesi_mengaji: '3' }];
   assert.deepEqual(listBadgeSessions(santri), ['Pagi', 'Siang', 'Sore']);
+});
+
+test('privileges fall back to defaults and are trimmed and capped', () => {
+  assert.deepEqual(normalizeBadgePrivileges(null), DEFAULT_BADGE_PRIVILEGES);
+  const many = normalizeBadgePrivileges({ intro: '  Hak  ', items: ['  Pulang dulu ', '', 7, ...Array(20).fill('x')] });
+  assert.equal(many.intro, 'Hak');
+  assert.equal(many.items[0], 'Pulang dulu');
+  assert.equal(many.items[1], '7');
+  assert.equal(many.items.length, PRIVILEGE_MAX_ITEMS);
+  assert.deepEqual(normalizeBadgePrivileges({ items: [] }).items, [], 'an emptied list stays empty');
 });

@@ -11,7 +11,8 @@ const initialsOf = (name) => String(name || '?').trim().split(/\s+/).slice(0, 2)
 
 export const formatPeriode = (date = new Date()) => `${BULAN[date.getMonth()]} ${date.getFullYear()}`;
 
-// Pemenang per sesi: [{ sesi, badges: [{ badge, winners: [{ gender, santri }] }] }], hanya sesi/badge yang terisi.
+// Pemenang per sesi: [{ sesi, badges: [{ badge, winners: [{ gender, santri|null }] }] }].
+// Semua badge dan kedua jenis kelamin selalu ada; slot kosong (santri null) dicetak sebagai "???" misterius.
 export const collectPosterPages = ({ config, sessions = [], santriById = new Map() }) => {
   const knownSessions = new Set(sessions);
   const allSessions = [...sessions];
@@ -25,10 +26,10 @@ export const collectPosterPages = ({ config, sessions = [], santriById = new Map
       winners: BADGE_GENDERS.map((gender) => {
         const id = getBadgeWinner(config, { badgeId: badge.id, sesi, gender: gender.id });
         const row = id ? santriById.get(id) : null;
-        return id && row ? { gender, santri: row } : null;
-      }).filter(Boolean),
-    })).filter((entry) => entry.winners.length > 0),
-  })).filter((page) => page.badges.length > 0);
+        return { gender, santri: id && row ? row : null };
+      }),
+    })),
+  }));
 };
 
 const badgePlaque = (badge, logo) => {
@@ -42,7 +43,20 @@ const badgePlaque = (badge, logo) => {
   </div>`;
 };
 
+// Siluet misterius untuk badge yang belum ada pemenangnya.
+const MYSTERY_FACE = `<svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="39" r="17" fill="rgba(255,255,255,0.2)"/><path d="M16 96c3-21 18-32 34-32s31 11 34 32z" fill="rgba(255,255,255,0.2)"/></svg>`;
+
 const winnerCard = ({ gender, santri }, photos, badge) => {
+  if (!santri) {
+    return `<figure class="winner mystery" style="--from:${badge.from};--to:${badge.to}">
+    <div class="photo"><span class="mystery-face">${MYSTERY_FACE}<b>?</b></span></div>
+    <figcaption>
+      <strong>???</strong>
+      <span>${escapeHtml(gender.label)}</span>
+      <em>Siapa yang akan meraihnya?</em>
+    </figcaption>
+  </figure>`;
+  }
   const photo = photos.get(santri.id);
   return `<figure class="winner" style="--from:${badge.from};--to:${badge.to}">
     <div class="photo">${photo ? `<img src="${photo}" alt="">` : `<span>${escapeHtml(initialsOf(santri.nama_lengkap))}</span>`}</div>
@@ -86,11 +100,6 @@ body { background: #e7ecef; font-family: 'Outfit', 'Poppins', system-ui, sans-se
 .heading h1 { margin: 3mm 0 1mm; font-family: 'Fredoka', 'Outfit', sans-serif; font-weight: 700; font-size: 34pt; line-height: 1.05; color: #0f4f5c; }
 .heading p { margin: 0; font-size: 12pt; color: #3f5f64; }
 .grid { flex: 1; display: grid; grid-template-columns: 1fr 1fr; grid-auto-rows: minmax(0, 1fr); gap: 6mm; margin-top: 8mm; }
-.grid.few { grid-template-columns: 1fr; grid-auto-rows: auto; align-content: center; gap: 10mm; }
-.grid.few .block { padding: 10mm 6mm; }
-.grid.few .photo { width: 44mm; height: 44mm; }
-.grid.few .winner { max-width: 60mm; }
-.grid.few .winner strong { font-size: 14pt; }
 .block { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6mm; padding: 6mm 4mm 5mm; border-radius: 6mm;
   background: rgba(255,255,255,0.86); border: 0.35mm solid rgba(15,47,54,0.08); box-shadow: 0 3mm 9mm rgba(15,47,54,0.08); }
 .plaque { position: relative; display: inline-flex; align-items: center; height: 17mm; padding-left: 9.6mm; }
@@ -107,10 +116,32 @@ body { background: #e7ecef; font-family: 'Outfit', 'Poppins', system-ui, sans-se
 .photo { width: 34mm; height: 34mm; border-radius: 50%; padding: 1mm; background: linear-gradient(135deg, var(--from), var(--to)); }
 .photo img, .photo span { width: 100%; height: 100%; border-radius: 50%; border: 0.8mm solid #fff; object-fit: cover; display: flex; align-items: center; justify-content: center; }
 .photo span { background: linear-gradient(135deg, #0d9488, #6366f1); color: #fff; font: 700 22pt 'Fredoka', 'Outfit', sans-serif; }
-.grid.few .photo span { font-size: 30pt; }
 .winner figcaption { margin-top: 2.6mm; display: flex; flex-direction: column; gap: 0.8mm; }
 .winner strong { font-size: 11.5pt; line-height: 1.2; font-weight: 700; color: #0f2f36; }
 .winner figcaption span { font-size: 8pt; font-weight: 700; letter-spacing: 1.4pt; text-transform: uppercase; color: var(--from); }
+.sesi-pill { display: inline-flex; align-items: baseline; gap: 2.4mm; margin-top: 3mm; padding: 2.4mm 9mm; border-radius: 9999px;
+  background: linear-gradient(120deg, #0d9488, #0284c7); color: #fff; box-shadow: 0 2.5mm 7mm rgba(2,132,199,0.3), inset 0 0.4mm 0 rgba(255,255,255,0.35);
+  font-family: 'Fredoka', 'Outfit', sans-serif; line-height: 1; }
+.sesi-pill small { font-size: 11pt; font-weight: 600; letter-spacing: 2.4pt; text-transform: uppercase; opacity: 0.85; }
+.sesi-pill b { font-size: 22pt; font-weight: 700; }
+.heading .periode { margin-top: 2.6mm; font-size: 10.5pt; color: #3f5f64; }
+.mystery .photo { background: linear-gradient(135deg, #94a3b8, #475569); }
+.photo .mystery-face { position: relative; width: 100%; height: 100%; border-radius: 50%; border: 0.8mm solid #fff; overflow: hidden;
+  display: flex; align-items: center; justify-content: center; background: radial-gradient(circle at 50% 35%, #334155, #0f172a 75%); }
+.photo .mystery-face svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.photo .mystery-face b { position: relative; margin-top: -2mm; font: 700 34pt 'Fredoka', 'Outfit', sans-serif; color: #fde68a; text-shadow: 0 0 3mm rgba(253,230,138,0.6); }
+.mystery strong { letter-spacing: 2pt; color: #475569; }
+.mystery figcaption span { color: #64748b; }
+.mystery em { font-size: 7.5pt; font-style: normal; color: #94a3b8; }
+.privileges { list-style: none; margin: 9mm 0 0; padding: 0; display: grid; gap: 4.2mm; }
+.privileges li { display: flex; align-items: center; gap: 5mm; padding: 4.2mm 6mm; border-radius: 5mm; background: rgba(255,255,255,0.9);
+  border: 0.35mm solid rgba(15,47,54,0.08); box-shadow: 0 2mm 6mm rgba(15,47,54,0.07); font-size: 13pt; line-height: 1.35; }
+.privileges .num { flex-shrink: 0; width: 11mm; height: 11mm; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, #0d9488, #6366f1); color: #fff; font: 700 13pt 'Fredoka', 'Outfit', sans-serif; }
+.heading .privilege-intro { margin: 4mm auto 0; max-width: 150mm; text-align: center; font-size: 12pt; color: #3f5f64; }
+.badge-row { margin-top: auto; padding-top: 8mm; display: flex; flex-direction: column; align-items: center; gap: 4mm; }
+.badge-row p { margin: 0; font-size: 9pt; font-weight: 700; letter-spacing: 2pt; text-transform: uppercase; color: #3f5f64; }
+.badge-row .plaques { display: grid; grid-template-columns: 1fr 1fr; gap: 4mm 8mm; justify-items: center; }
 .footer { margin-top: 6mm; padding-top: 3mm; border-top: 0.3mm solid rgba(15,47,54,0.14); display: flex; justify-content: space-between; gap: 6mm;
   font-size: 8.5pt; color: #3f5f64; }
 .footer .doa { font-family: 'Amiri', serif; font-size: 13pt; color: #0f766e; }
@@ -141,9 +172,39 @@ document.getElementById('save-btn').addEventListener('click', function () {
  * HTML mandiri berisi satu halaman A4 per sesi. `photos` = Map(santriId → data URL),
  * `assets` = { logo, building } (data URL atau alamat absolut).
  */
-export const buildBadgePosterHtml = ({ pages, photos = new Map(), assets = {}, date = new Date(), address = '' }) => {
+export const buildBadgePosterHtml = ({ pages, photos = new Map(), assets = {}, date = new Date(), address = '', privileges = null }) => {
   const periode = formatPeriode(date);
   const logo = assets.logo || '';
+  const background = assets.building ? `<img class="bg-building" src="${assets.building}" alt="">` : '';
+  const brand = `<div class="brand">
+        ${logo ? `<img src="${logo}" alt="Logo LPQ Al-Fath Maulana">` : ''}
+        <div><div class="brand-name">LPQ Al-Fath Maulana</div><div class="brand-sub">Metode Qiroati</div></div>
+      </div>`;
+  const footer = `<div class="footer">
+        <span class="doa" lang="ar" dir="rtl">بَارَكَ اللهُ فِيكُمْ</span>
+        <span>${escapeHtml(address)}</span>
+      </div>`;
+  // Halaman penjelasan hak istimewa, di akhir berkas.
+  const privilegeSheet = privileges?.items?.length ? `
+  <section class="sheet" aria-label="Hak istimewa santri berprestasi">
+    <div class="bg" aria-hidden="true">${background}<div class="bg-veil"></div></div>
+    <div class="content">
+      ${brand}
+      <div class="heading">
+        <span class="kicker">Apresiasi Santri</span>
+        <h1>Hak Istimewa Santri Berprestasi</h1>
+        ${privileges.intro ? `<p class="privilege-intro">${escapeHtml(privileges.intro)}</p>` : ''}
+      </div>
+      <ol class="privileges">
+        ${privileges.items.map((item, index) => `<li><span class="num">${index + 1}</span><span>${escapeHtml(item)}</span></li>`).join('')}
+      </ol>
+      <div class="badge-row">
+        <p>Berlaku untuk peraih badge</p>
+        <div class="plaques">${SANTRI_BADGES.map((badge) => badgePlaque(badge, logo)).join('')}</div>
+      </div>
+      ${footer}
+    </div>
+  </section>` : '';
   const sheets = pages.map((page) => `
   <section class="sheet" aria-label="Santri berprestasi sesi ${escapeHtml(page.sesi)}">
     <div class="bg" aria-hidden="true">
@@ -158,9 +219,10 @@ export const buildBadgePosterHtml = ({ pages, photos = new Map(), assets = {}, d
       <div class="heading">
         <span class="kicker">Apresiasi Santri</span>
         <h1>Santri Berprestasi</h1>
-        <p>Sesi ${escapeHtml(page.sesi)} · Periode ${escapeHtml(periode)}</p>
+        <div><span class="sesi-pill"><small>Sesi</small><b>${escapeHtml(page.sesi)}</b></span></div>
+        <p class="periode">Periode ${escapeHtml(periode)}</p>
       </div>
-      <div class="grid${page.badges.length <= 2 ? ' few' : ''}">
+      <div class="grid">
         ${page.badges.map(({ badge, winners }) => `
         <article class="block">
           ${badgePlaque(badge, logo)}
@@ -186,11 +248,12 @@ export const buildBadgePosterHtml = ({ pages, photos = new Map(), assets = {}, d
 </head>
 <body data-file="santri-berprestasi-${escapeHtml(periode.toLowerCase().replace(/\s+/g, '-'))}.html">
 <div class="toolbar" role="toolbar" aria-label="Aksi cetak">
-  <span>${pages.length} halaman A4 · Periode ${escapeHtml(periode)}</span>
+  <span>${pages.length + (privilegeSheet ? 1 : 0)} halaman A4 · Periode ${escapeHtml(periode)}</span>
   <button type="button" class="primary" id="print-btn">Cetak / Simpan PDF</button>
   <button type="button" class="secondary" id="save-btn">Unduh HTML</button>
 </div>
 ${sheets}
+${privilegeSheet}
 <script>${SCRIPT}</script>
 </body>
 </html>`;
