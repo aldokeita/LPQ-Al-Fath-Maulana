@@ -1,11 +1,5 @@
 import { supabase } from '@/lib/customSupabaseClient';
-import {
-  OFFICIAL_ANNOUNCEMENTS,
-  OFFICIAL_FACILITIES,
-  OFFICIAL_GALLERY,
-  OFFICIAL_NEWS,
-  withOfficialItems,
-} from '@/lib/institutionContent';
+import { OFFICIAL_ANNOUNCEMENTS, OFFICIAL_NEWS } from '@/lib/institutionContent';
 
 const toDateText = (value) => value ? new Date(value).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10);
 
@@ -330,36 +324,4 @@ export const fetchAdminFeedbacks = async () => {
 export const deleteFeedback = async (id) => {
   const { error } = await supabase.from('feedbacks').delete().eq('id', id);
   if (error) throw error;
-};
-
-const officialPostPayload = ({ id: _id, ...row }) => ({ ...row, status: 'published' });
-
-/**
- * Masukkan galeri, fasilitas, berita, dan pengumuman bawaan LPQ ke Supabase supaya bisa
- * diedit dari dashboard admin. Aman diulang: yang sudah ada (URL gambar / slug sama) dilewati.
- */
-export const importOfficialContent = async () => {
-  const contentMap = await fetchWebsiteContentMap({ keys: ['galleryPhotos', 'facilities'], publicOnly: false });
-  const gallery = withOfficialItems(contentMap.galleryPhotos, OFFICIAL_GALLERY);
-  const facilities = withOfficialItems(contentMap.facilities, OFFICIAL_FACILITIES);
-  const countOf = (value) => (Array.isArray(value) ? value.length : 0);
-  await saveWebsiteContentItems([
-    { key: 'galleryPhotos', content: gallery },
-    { key: 'facilities', content: facilities },
-  ]);
-
-  const [news, announcements] = await Promise.all([fetchAdminNews(), fetchAdminAnnouncements()]);
-  const newsSlugs = new Set(news.map((row) => row.slug));
-  const announcementSlugs = new Set(announcements.map((row) => row.slug));
-  const newNews = OFFICIAL_NEWS.filter((row) => !newsSlugs.has(row.slug));
-  const newAnnouncements = OFFICIAL_ANNOUNCEMENTS.filter((row) => !announcementSlugs.has(row.slug));
-  for (const row of newNews) await saveNews(officialPostPayload(row));
-  for (const row of newAnnouncements) await saveAnnouncement(officialPostPayload(row));
-
-  return {
-    galleryPhotos: gallery.length - countOf(contentMap.galleryPhotos),
-    facilities: facilities.length - countOf(contentMap.facilities),
-    news: newNews.length,
-    announcements: newAnnouncements.length,
-  };
 };
