@@ -35,8 +35,8 @@ const ActivityGallery = ({ facilities }) => {
             <div ref={trackRef} className="home-gallery__track" tabIndex={0} aria-label="Galeri horizontal kegiatan LPQ">
               {images.map((item, index) => (
                 <Link key={item.id || index} to="/profil/galeri" className="home-gallery__card">
-                  <img src={imageOf(item)} alt={item.name || 'Aktivitas LPQ Al-Fath Maulana'} width="420" height="540" loading="lazy" />
-                  <span>{item.name || 'Kegiatan LPQ'}</span>
+                  <img src={imageOf(item)} alt={item.caption || item.name || 'Aktivitas LPQ Al-Fath Maulana'} width="420" height="540" loading="lazy" />
+                  <span>{item.caption || item.name || 'Kegiatan LPQ'}</span>
                 </Link>
               ))}
             </div>

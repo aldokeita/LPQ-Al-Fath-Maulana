@@ -6,6 +6,7 @@ import {
   OFFICIAL_FACILITIES,
   OFFICIAL_GALLERY,
   OFFICIAL_NEWS,
+  withOfficialFallback,
   withOfficialItems,
 } from '../src/lib/institutionContent.js';
 
@@ -34,7 +35,18 @@ test('withOfficialItems: data Supabase duluan, foto bawaan tidak dobel', () => {
   assert.equal(merged.filter((item) => item.url === OFFICIAL_GALLERY[0].url).length, 1);
 });
 
-test('withOfficialItems: konten kosong atau rusak pakai foto bawaan', () => {
+test('withOfficialItems: konten kosong atau rusak diisi konten bawaan', () => {
   assert.equal(withOfficialItems(null, OFFICIAL_FACILITIES).length, OFFICIAL_FACILITIES.length);
   assert.equal(withOfficialItems({}, OFFICIAL_FACILITIES).length, OFFICIAL_FACILITIES.length);
+});
+
+test('withOfficialFallback: data Supabase dipakai apa adanya, kosong pakai bawaan', () => {
+  const fromDb = [{ id: 'db-1', url: '/x.webp' }];
+  assert.deepEqual(withOfficialFallback(fromDb, OFFICIAL_GALLERY), fromDb);
+  assert.equal(withOfficialFallback([], OFFICIAL_GALLERY).length, OFFICIAL_GALLERY.length);
+  assert.equal(withOfficialFallback(undefined, OFFICIAL_GALLERY).length, OFFICIAL_GALLERY.length);
+});
+
+test('prioritas pengumuman bawaan lolos constraint database', () => {
+  for (const item of OFFICIAL_ANNOUNCEMENTS) assert.ok(['low', 'normal', 'high'].includes(item.priority));
 });

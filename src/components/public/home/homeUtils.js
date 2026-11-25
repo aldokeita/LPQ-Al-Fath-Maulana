@@ -7,7 +7,6 @@ import {
   OFFICIAL_HERO_SLIDES,
   OFFICIAL_QUOTAS,
   OFFICIAL_SCHEDULES,
-  withOfficialItems,
 } from '@/lib/institutionContent';
 
 export const BRAND_NAME = 'LPQ Al-Fath Maulana';
@@ -34,11 +33,9 @@ export const compactNumber = (value) => new Intl.NumberFormat('id-ID').format(Nu
 
 export const mergeHomepageContent = (contentMap = {}) => {
   const merged = { ...defaultContent, ...contentMap };
-  ['heroSlides', 'schedules', 'faqs', 'proofPoints'].forEach((key) => {
+  ['heroSlides', 'facilities', 'galleryPhotos', 'schedules', 'faqs', 'proofPoints'].forEach((key) => {
     if (!Array.isArray(merged[key]) || merged[key].length === 0) merged[key] = defaultContent[key];
   });
-  merged.facilities = withOfficialItems(contentMap.facilities, OFFICIAL_FACILITIES);
-  merged.galleryPhotos = withOfficialItems(contentMap.galleryPhotos, OFFICIAL_GALLERY);
 
   const quotaTotal = Object.values(merged.quotas || {}).reduce((total, value) => total + Number(value || 0), 0);
   if (quotaTotal <= 0) merged.quotas = defaultContent.quotas;

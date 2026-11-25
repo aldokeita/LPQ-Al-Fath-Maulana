@@ -122,8 +122,6 @@ export const OFFICIAL_FACILITIES = Object.freeze([
 
 const galleryItem = (name, title, description) => ({
   id: `official-gallery-${name}`,
-  title,
-  name: title,
   caption: title,
   description,
   url: photo(name),
@@ -175,8 +173,8 @@ export const OFFICIAL_GALLERY = Object.freeze([
 
 /*
  * Berita & pengumuman bawaan dari dokumentasi foto LPQ.
- * Tampil berdampingan dengan konten dari Supabase (yang dari Supabase menang bila slug sama).
- * Teks masih draft: mohon dicek pengurus sebelum dianggap final.
+ * Tampil hanya bila Supabase belum punya konten yang terbit. Admin bisa memasukkannya ke
+ * database lewat tombol "Impor konten bawaan" di Manajemen Konten, lalu mengeditnya dari sana.
  */
 export const OFFICIAL_NEWS = Object.freeze([
   {
@@ -258,7 +256,7 @@ export const OFFICIAL_ANNOUNCEMENTS = Object.freeze([
       'Info lebih lanjut: WhatsApp 0857-8322-7144.',
     ].join('\n\n'),
     cover_image_url: photo('2025-01-foto-bersama-depan-lpq'),
-    priority: 'important',
+    priority: 'high',
     published_at: '2026-11-25',
   },
   {
@@ -306,9 +304,14 @@ export const ACADEMIC_YEAR = '2026–2027';
 
 const mediaUrlOf = (item) => item?.image_url || item?.url || item?.cover_image_url || '';
 
+/** Daftar dari Supabase bila ada isinya; kalau kosong pakai konten bawaan LPQ. */
+export const withOfficialFallback = (items, officialItems) => (
+  Array.isArray(items) && items.length > 0 ? items : [...officialItems]
+);
+
 /**
- * Gabungkan item dari Supabase dengan foto bawaan LPQ.
- * Item Supabase tampil lebih dulu; foto bawaan yang URL-nya sudah ada di Supabase tidak diulang.
+ * Gabungkan item dari Supabase dengan konten bawaan LPQ (dipakai saat impor ke database).
+ * Item Supabase tetap di depan; item bawaan yang URL gambarnya sudah ada tidak diulang.
  */
 export const withOfficialItems = (items, officialItems) => {
   const list = Array.isArray(items) ? items : [];
