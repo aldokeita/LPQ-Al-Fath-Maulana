@@ -12,7 +12,6 @@ import SectionKicker from './SectionKicker';
 import { imageOf, LOCAL_LOGO, safeArray } from './homeUtils';
 
 const LightPillar = React.lazy(() => import('@/components/reactbits/LightPillar/LightPillar'));
-const ModelViewer = React.lazy(() => import('@/components/reactbits/ModelViewer/ModelViewer'));
 
 const getQuality = () => {
   if (typeof window === 'undefined') return 'medium';
@@ -22,14 +21,6 @@ const getQuality = () => {
 };
 
 const HeroSection = ({ content, currentSlide, setCurrentSlide, stats }) => {
-  const model3dSettings = content?.model3dSettings || {};
-  const autoRotate = model3dSettings.autoRotate === true;
-  const autoRotateSpeed = autoRotate ? (model3dSettings.autoRotateSpeed || 0.34) : 0;
-  const modelRotation = [
-    model3dSettings.rotationX || 0,
-    model3dSettings.rotationY || 0,
-    model3dSettings.rotationZ || 0,
-  ];
   const slides = safeArray(content.heroSlides);
   const activeSlide = slides[currentSlide] || slides[0] || {};
   const heroText = activeSlide.text || 'Masuki ruang belajar Al-Qur’an yang hangat, tertata, dan dekat dengan keluarga.';
@@ -111,23 +102,6 @@ const HeroSection = ({ content, currentSlide, setCurrentSlide, stats }) => {
         </Suspense>
       )}
       <div className="home-hero__grain" aria-hidden="true" />
-      {!isMobile && (
-        <div className="home-hero__quran-model" aria-hidden="true">
-          <Suspense fallback={null}>
-            <ModelViewer
-              url="/models/quran_3d_free.glb"
-              width="100%"
-              height="100%"
-              environmentPreset="studio"
-              defaultZoom={3.05}
-              modelScale={1.36}
-              modelPosition={[0, -0.01, 0]}
-              modelRotation={modelRotation}
-              autoRotateSpeed={autoRotateSpeed}
-            />
-          </Suspense>
-        </div>
-      )}
       <div className="home-hero__inner">
         <motion.div
           className="home-hero__copy"
