@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/customSupabaseClient';
+import { OFFICIAL_ANNOUNCEMENTS, OFFICIAL_NEWS } from '@/lib/institutionContent';
 
 const toDateText = (value) => value ? new Date(value).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10);
 
@@ -48,6 +49,23 @@ export const normalizeAnnouncementRow = (row) => ({
   published_at: row.published_at,
   created_at: row.created_at,
 });
+
+const toOfficialRow = (row) => ({ ...row, content: { body: row.content }, status: 'published' });
+const officialNews = () => OFFICIAL_NEWS.map((row) => ({ ...normalizeNewsRow(toOfficialRow(row)), is_official: true }));
+const officialAnnouncements = () => OFFICIAL_ANNOUNCEMENTS.map((row) => ({ ...normalizeAnnouncementRow(toOfficialRow(row)), is_official: true }));
+
+const sortTime = (item) => new Date(item.published_at || item.created_at || 0).getTime() || 0;
+
+/** Konten Supabase menang bila slug sama; hasil diurutkan dari yang terbaru. */
+export const mergeOfficialPosts = (rows, officialRows, limit) => {
+  const slugs = new Set(rows.map((row) => row.slug));
+  const merged = [...rows, ...officialRows.filter((row) => !slugs.has(row.slug))]
+    .sort((a, b) => sortTime(b) - sortTime(a));
+  return limit ? merged.slice(0, limit) : merged;
+};
+
+const findOfficial = (officialRows, slugOrId) => officialRows
+  .find((row) => row.slug === slugOrId || row.id === slugOrId) || null;
 
 export const fetchWebsiteContentMap = async ({ keys, publicOnly = true } = {}) => {
   let query = supabase.from('website_content').select('key, content, is_public');
@@ -158,8 +176,9 @@ export const fetchPublishedNews = async ({ limit } = {}) => {
     .order('created_at', { ascending: false });
   if (limit) query = query.limit(limit);
   const { data, error } = await query;
-  if (error) throw error;
-  return (data || []).map(normalizeNewsRow);
+  // Konten bawaan LPQ tetap tampil walau Supabase sedang tidak bisa diakses.
+  if (error) return mergeOfficialPosts([], officialNews(), limit);
+  return mergeOfficialPosts((data || []).map(normalizeNewsRow), officialNews(), limit);
 };
 
 export const fetchNewsDetail = async (slugOrId) => {
@@ -171,8 +190,12 @@ export const fetchNewsDetail = async (slugOrId) => {
   query = uuidLike ? query.or(`slug.eq.${slugOrId},id.eq.${slugOrId}`) : query.eq('slug', slugOrId);
   query = query.maybeSingle();
   const { data, error } = await query;
-  if (error) throw error;
-  return data ? normalizeNewsRow(data) : null;
+  if (error) {
+    const official = findOfficial(officialNews(), slugOrId);
+    if (official) return official;
+    throw error;
+  }
+  return data ? normalizeNewsRow(data) : findOfficial(officialNews(), slugOrId);
 };
 
 export const fetchPublishedAnnouncements = async ({ limit } = {}) => {
@@ -185,8 +208,9 @@ export const fetchPublishedAnnouncements = async ({ limit } = {}) => {
     .order('created_at', { ascending: false });
   if (limit) query = query.limit(limit);
   const { data, error } = await query;
-  if (error) throw error;
-  return (data || []).map(normalizeAnnouncementRow);
+  // Konten bawaan LPQ tetap tampil walau Supabase sedang tidak bisa diakses.
+  if (error) return mergeOfficialPosts([], officialAnnouncements(), limit);
+  return mergeOfficialPosts((data || []).map(normalizeAnnouncementRow), officialAnnouncements(), limit);
 };
 
 export const fetchAnnouncementDetail = async (slugOrId) => {
@@ -198,9 +222,13 @@ export const fetchAnnouncementDetail = async (slugOrId) => {
   query = uuidLike ? query.or(`slug.eq.${slugOrId},id.eq.${slugOrId}`) : query.eq('slug', slugOrId);
   query = query.maybeSingle();
   const { data, error } = await query;
-  if (error) throw error;
+  if (error) {
+    const official = findOfficial(officialAnnouncements(), slugOrId);
+    if (official) return official;
+    throw error;
+  }
   if (data?.valid_until && data.valid_until < new Date().toISOString().slice(0, 10)) return null;
-  return data ? normalizeAnnouncementRow(data) : null;
+  return data ? normalizeAnnouncementRow(data) : findOfficial(officialAnnouncements(), slugOrId);
 };
 
 export const fetchAdminNews = async () => {

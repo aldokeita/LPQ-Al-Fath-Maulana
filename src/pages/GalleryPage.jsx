@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Helmet } from 'react-helmet';
 import { supabase } from '@/lib/customSupabaseClient';
+import { OFFICIAL_GALLERY, withOfficialItems } from '@/lib/institutionContent';
 import { Image as ImageIcon, AlertTriangle, RefreshCw, X, ChevronLeft, ChevronRight, Maximize2 } from 'lucide-react';
 import '@/styles/public-gallery.css';
 
@@ -261,13 +262,10 @@ const GalleryPage = () => {
 
       if (fetchErr) throw fetchErr;
 
-      if (data?.content && Array.isArray(data.content)) {
-        setPhotos(data.content);
-      } else {
-        setPhotos([]);
-      }
+      setPhotos(withOfficialItems(data?.content, OFFICIAL_GALLERY));
     } catch {
-      setError(true);
+      // Foto bawaan LPQ tetap tampil walau konten Supabase gagal dimuat.
+      setPhotos([...OFFICIAL_GALLERY]);
     } finally {
       setLoading(false);
     }
