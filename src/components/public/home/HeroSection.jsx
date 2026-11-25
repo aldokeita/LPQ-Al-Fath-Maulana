@@ -61,7 +61,7 @@ const HeroSection = ({ content, currentSlide, setCurrentSlide, stats }) => {
     ].map((item, index) => ({
       id: item.id || `support-${index}`,
       source: 'Kegiatan LPQ',
-      title: item.title || item.name || 'Suasana belajar',
+      title: item.title || item.caption || item.name || 'Suasana belajar',
       description: item.description || 'Foto kegiatan yang dikelola dari konten website.',
       image: imageOf(item),
       slideIndex: null,

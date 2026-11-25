@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/lib/customSupabaseClient';
-import { OFFICIAL_FACILITIES, OFFICIAL_WEBSITE } from '@/lib/institutionContent';
+import { OFFICIAL_FACILITIES, OFFICIAL_WEBSITE, withOfficialFallback } from '@/lib/institutionContent';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import '@/styles/public-facilities.css';
 
@@ -147,7 +147,7 @@ const ErrorState = ({ onRetry }) => (
 /*            MAIN COMPONENT                */
 /* ======================================== */
 
-/* ---------- Default Facilities (fallback when Supabase has no data) ---------- */
+/* ---------- Fasilitas bawaan LPQ (dipakai bila Supabase belum punya data) ---------- */
 const defaultFacilities = OFFICIAL_FACILITIES;
 
 const FacilitiesPage = () => {
@@ -168,11 +168,7 @@ const FacilitiesPage = () => {
 
       if (fetchErr) throw fetchErr;
 
-      if (data?.content && Array.isArray(data.content) && data.content.length > 0) {
-        setFacilities(data.content);
-      } else {
-        setFacilities(defaultFacilities);
-      }
+      setFacilities(withOfficialFallback(data?.content, defaultFacilities));
     } catch {
       setFacilities(defaultFacilities);
     } finally {

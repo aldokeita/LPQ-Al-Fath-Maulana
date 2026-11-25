@@ -1,4 +1,11 @@
 import { supabase } from '@/lib/customSupabaseClient';
+import {
+  OFFICIAL_ANNOUNCEMENTS,
+  OFFICIAL_FACILITIES,
+  OFFICIAL_GALLERY,
+  OFFICIAL_NEWS,
+  withOfficialItems,
+} from '@/lib/institutionContent';
 
 const toDateText = (value) => value ? new Date(value).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10);
 
@@ -48,6 +55,21 @@ export const normalizeAnnouncementRow = (row) => ({
   published_at: row.published_at,
   created_at: row.created_at,
 });
+
+const toOfficialRow = (row) => ({ ...row, content: { body: row.content }, status: 'published' });
+const officialNews = () => OFFICIAL_NEWS.map((row) => ({ ...normalizeNewsRow(toOfficialRow(row)), is_official: true }));
+const officialAnnouncements = () => OFFICIAL_ANNOUNCEMENTS.map((row) => ({ ...normalizeAnnouncementRow(toOfficialRow(row)), is_official: true }));
+
+const sortTime = (item) => new Date(item.published_at || item.created_at || 0).getTime() || 0;
+
+/** Konten bawaan hanya dipakai bila Supabase belum punya konten yang terbit. */
+export const mergeOfficialPosts = (rows, officialRows, limit) => {
+  const list = rows.length > 0 ? rows : [...officialRows].sort((a, b) => sortTime(b) - sortTime(a));
+  return limit ? list.slice(0, limit) : list;
+};
+
+const findOfficial = (officialRows, slugOrId) => officialRows
+  .find((row) => row.slug === slugOrId || row.id === slugOrId) || null;
 
 export const fetchWebsiteContentMap = async ({ keys, publicOnly = true } = {}) => {
   let query = supabase.from('website_content').select('key, content, is_public');
@@ -158,8 +180,9 @@ export const fetchPublishedNews = async ({ limit } = {}) => {
     .order('created_at', { ascending: false });
   if (limit) query = query.limit(limit);
   const { data, error } = await query;
-  if (error) throw error;
-  return (data || []).map(normalizeNewsRow);
+  // Konten bawaan LPQ tetap tampil walau Supabase sedang tidak bisa diakses.
+  if (error) return mergeOfficialPosts([], officialNews(), limit);
+  return mergeOfficialPosts((data || []).map(normalizeNewsRow), officialNews(), limit);
 };
 
 export const fetchNewsDetail = async (slugOrId) => {
@@ -171,8 +194,12 @@ export const fetchNewsDetail = async (slugOrId) => {
   query = uuidLike ? query.or(`slug.eq.${slugOrId},id.eq.${slugOrId}`) : query.eq('slug', slugOrId);
   query = query.maybeSingle();
   const { data, error } = await query;
-  if (error) throw error;
-  return data ? normalizeNewsRow(data) : null;
+  if (error) {
+    const official = findOfficial(officialNews(), slugOrId);
+    if (official) return official;
+    throw error;
+  }
+  return data ? normalizeNewsRow(data) : findOfficial(officialNews(), slugOrId);
 };
 
 export const fetchPublishedAnnouncements = async ({ limit } = {}) => {
@@ -185,8 +212,9 @@ export const fetchPublishedAnnouncements = async ({ limit } = {}) => {
     .order('created_at', { ascending: false });
   if (limit) query = query.limit(limit);
   const { data, error } = await query;
-  if (error) throw error;
-  return (data || []).map(normalizeAnnouncementRow);
+  // Konten bawaan LPQ tetap tampil walau Supabase sedang tidak bisa diakses.
+  if (error) return mergeOfficialPosts([], officialAnnouncements(), limit);
+  return mergeOfficialPosts((data || []).map(normalizeAnnouncementRow), officialAnnouncements(), limit);
 };
 
 export const fetchAnnouncementDetail = async (slugOrId) => {
@@ -198,9 +226,13 @@ export const fetchAnnouncementDetail = async (slugOrId) => {
   query = uuidLike ? query.or(`slug.eq.${slugOrId},id.eq.${slugOrId}`) : query.eq('slug', slugOrId);
   query = query.maybeSingle();
   const { data, error } = await query;
-  if (error) throw error;
+  if (error) {
+    const official = findOfficial(officialAnnouncements(), slugOrId);
+    if (official) return official;
+    throw error;
+  }
   if (data?.valid_until && data.valid_until < new Date().toISOString().slice(0, 10)) return null;
-  return data ? normalizeAnnouncementRow(data) : null;
+  return data ? normalizeAnnouncementRow(data) : findOfficial(officialAnnouncements(), slugOrId);
 };
 
 export const fetchAdminNews = async () => {
@@ -298,4 +330,36 @@ export const fetchAdminFeedbacks = async () => {
 export const deleteFeedback = async (id) => {
   const { error } = await supabase.from('feedbacks').delete().eq('id', id);
   if (error) throw error;
+};
+
+const officialPostPayload = ({ id: _id, ...row }) => ({ ...row, status: 'published' });
+
+/**
+ * Masukkan galeri, fasilitas, berita, dan pengumuman bawaan LPQ ke Supabase supaya bisa
+ * diedit dari dashboard admin. Aman diulang: yang sudah ada (URL gambar / slug sama) dilewati.
+ */
+export const importOfficialContent = async () => {
+  const contentMap = await fetchWebsiteContentMap({ keys: ['galleryPhotos', 'facilities'], publicOnly: false });
+  const gallery = withOfficialItems(contentMap.galleryPhotos, OFFICIAL_GALLERY);
+  const facilities = withOfficialItems(contentMap.facilities, OFFICIAL_FACILITIES);
+  const countOf = (value) => (Array.isArray(value) ? value.length : 0);
+  await saveWebsiteContentItems([
+    { key: 'galleryPhotos', content: gallery },
+    { key: 'facilities', content: facilities },
+  ]);
+
+  const [news, announcements] = await Promise.all([fetchAdminNews(), fetchAdminAnnouncements()]);
+  const newsSlugs = new Set(news.map((row) => row.slug));
+  const announcementSlugs = new Set(announcements.map((row) => row.slug));
+  const newNews = OFFICIAL_NEWS.filter((row) => !newsSlugs.has(row.slug));
+  const newAnnouncements = OFFICIAL_ANNOUNCEMENTS.filter((row) => !announcementSlugs.has(row.slug));
+  for (const row of newNews) await saveNews(officialPostPayload(row));
+  for (const row of newAnnouncements) await saveAnnouncement(officialPostPayload(row));
+
+  return {
+    galleryPhotos: gallery.length - countOf(contentMap.galleryPhotos),
+    facilities: facilities.length - countOf(contentMap.facilities),
+    news: newNews.length,
+    announcements: newAnnouncements.length,
+  };
 };
