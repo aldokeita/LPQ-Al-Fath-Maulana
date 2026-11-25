@@ -29,7 +29,6 @@ import {
   fetchAdminNews,
   getPublicContentErrorMessage,
   assertNonEmptyWebsiteContentString,
-  importOfficialContent,
   saveAnnouncement,
   saveNews,
   saveWebsiteContentItem,
@@ -293,26 +292,6 @@ const ContentManagement = () => {
       toast({ title: "Konten Disimpan!", description: `Semua perubahan telah berhasil disimpan.` });
     } catch (error) {
       toast({ title: "Gagal Menyimpan!", description: getPublicContentErrorMessage(error), variant: "destructive" });
-    }
-  };
-
-  const [importingOfficial, setImportingOfficial] = useState(false);
-  const handleImportOfficial = async () => {
-    setImportingOfficial(true);
-    try {
-      const added = await importOfficialContent();
-      const total = added.galleryPhotos + added.facilities + added.news + added.announcements;
-      toast({
-        title: total > 0 ? "Konten Bawaan Diimpor" : "Semua Sudah Ada",
-        description: total > 0
-          ? `${added.galleryPhotos} foto galeri, ${added.facilities} fasilitas, ${added.news} berita, ${added.announcements} pengumuman masuk database dan bisa diedit.`
-          : "Konten bawaan LPQ sudah ada di database.",
-      });
-      await fetchContent();
-    } catch (error) {
-      toast({ title: "Gagal Mengimpor", description: getPublicContentErrorMessage(error), variant: "destructive" });
-    } finally {
-      setImportingOfficial(false);
     }
   };
 
@@ -605,15 +584,6 @@ const ContentManagement = () => {
           </div>
         </div>
         <div className="admin-panel-header-actions">
-          <Button
-            variant="outline"
-            onClick={handleImportOfficial}
-            disabled={importingOfficial}
-            title="Masukkan foto galeri, fasilitas, berita, dan pengumuman bawaan LPQ ke database supaya bisa diedit di sini"
-          >
-            {importingOfficial ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <ImageIcon className="w-4 h-4 mr-2" />}
-            Impor Konten Bawaan
-          </Button>
           <button onClick={handleSaveAll} className="admin-panel-primary-btn">
             <Save className="w-4 h-4" /> Simpan Semua Perubahan
           </button>

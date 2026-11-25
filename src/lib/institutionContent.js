@@ -173,8 +173,8 @@ export const OFFICIAL_GALLERY = Object.freeze([
 
 /*
  * Berita & pengumuman bawaan dari dokumentasi foto LPQ.
- * Tampil hanya bila Supabase belum punya konten yang terbit. Admin bisa memasukkannya ke
- * database lewat tombol "Impor konten bawaan" di Manajemen Konten, lalu mengeditnya dari sana.
+ * Tampil hanya bila Supabase belum punya konten yang terbit (sudah diimpor ke production,
+ * jadi sekarang cuma cadangan).
  */
 export const OFFICIAL_NEWS = Object.freeze([
   {
@@ -308,13 +308,3 @@ const mediaUrlOf = (item) => item?.image_url || item?.url || item?.cover_image_u
 export const withOfficialFallback = (items, officialItems) => (
   Array.isArray(items) && items.length > 0 ? items : [...officialItems]
 );
-
-/**
- * Gabungkan item dari Supabase dengan konten bawaan LPQ (dipakai saat impor ke database).
- * Item Supabase tetap di depan; item bawaan yang URL gambarnya sudah ada tidak diulang.
- */
-export const withOfficialItems = (items, officialItems) => {
-  const list = Array.isArray(items) ? items : [];
-  const seen = new Set(list.map(mediaUrlOf).filter(Boolean));
-  return [...list, ...officialItems.filter((item) => !seen.has(mediaUrlOf(item)))];
-};
