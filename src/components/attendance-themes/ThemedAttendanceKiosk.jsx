@@ -1,7 +1,7 @@
 import React, { useLayoutEffect, useRef, useState } from 'react';
 import AttendanceMenu from './AttendanceMenu';
 import { THEME_RENDERERS } from './KioskThemes';
-import { I, useNow } from './kioskParts';
+import { useNow } from './kioskParts';
 import { resolveActiveSession } from '@/lib/attendanceKioskStats';
 import '@/styles/attendance-themes.css';
 
@@ -47,7 +47,7 @@ const ThemedAttendanceKiosk = ({ theme, mode, view, sessionTimes, stats, input, 
   const head = (
     <div className="k-head">
       <div className="brand">
-        <div className="brand-mark"><I.logo /></div>
+        <div className="brand-mark atk-logo"><img src="/logo-lpq-al-fath-maulana.webp" alt="Logo LPQ Al-Fath Maulana" /></div>
         <div className="brand-txt"><b>LPQ Al-Fath Maulana</b><span>Absensi Digital</span></div>
       </div>
       <div className="k-head-r">
