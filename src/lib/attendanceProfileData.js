@@ -12,7 +12,7 @@ const getCurrentMonthDateRange = () => {
 };
 
 export const getSantriMonthlyAttendanceStats = async (santriId) => {
-    if (!santriId) return { present: 0, late: 0, absent: 0 };
+    if (!santriId) return { present: 0, late: 0, absent: 0, days: [] };
 
     const { start, end } = getCurrentMonthDateRange();
     const now = new Date();
@@ -38,7 +38,7 @@ export const getSantriMonthlyAttendanceStats = async (santriId) => {
     ]);
 
     if (attendanceResult.error || holidayResult.error) {
-        return { present: 0, late: 0, absent: 0 };
+        return { present: 0, late: 0, absent: 0, days: [] };
     }
 
     const holidaySet = new Set((holidayResult.data || []).map(item => item.date));
@@ -80,7 +80,12 @@ export const getSantriMonthlyAttendanceStats = async (santriId) => {
     const attended = new Set([...presentDateSet, ...lateDateSet]).size;
     const absent = Math.max(activeDaysUntilToday.length - attended, 0);
 
-    return { present, late, absent };
+    // One entry per school day this month so far, oldest first, for the kiosk's day strip.
+    const days = activeDaysUntilToday.map((date) => (
+        lateDateSet.has(date) ? 'late' : presentDateSet.has(date) ? 'present' : 'absent'
+    ));
+
+    return { present, late, absent, days };
 };
 
 // Badge config is small and changes rarely, so kiosks reuse it for a minute between scans.
@@ -109,7 +114,7 @@ export const getSantriBadgeIds = async (santriId) => {
 
 export const getSantriLearningHighlights = async (santriId) => {
     if (!santriId) {
-        return { hafalanCount: 0, characterStrength: null, strongestHafalanCategory: null, badges: [] };
+        return { hafalanCount: 0, hafalanBreakdown: {}, characterStrength: null, strongestHafalanCategory: null, badges: [] };
     }
 
     const [progressResult, strengthResult, badgeConfig] = await Promise.all([
@@ -135,7 +140,14 @@ export const getSantriLearningHighlights = async (santriId) => {
             : row.status === 'lulus' ? 4 : null;
         return { ...row, score };
     });
-    const hafalanCount = scoredRows.filter((row) => row.status === 'lulus' || row.score === 4).length;
+    const completedRows = scoredRows.filter((row) => row.status === 'lulus' || row.score === 4);
+    const hafalanCount = completedRows.length;
+    // Completed items per category (Doa, Sholat, Surat, Tahfizh), so the total can be broken down.
+    const hafalanBreakdown = completedRows.reduce((acc, row) => {
+        const category = String(row.category || '').trim() || 'Lainnya';
+        acc[category] = (acc[category] || 0) + 1;
+        return acc;
+    }, {});
     const categoryStats = new Map();
 
     scoredRows.forEach((row) => {
@@ -162,6 +174,7 @@ export const getSantriLearningHighlights = async (santriId) => {
 
     return {
         hafalanCount,
+        hafalanBreakdown,
         characterStrength: strengthResult.error ? null : (strengthResult.data?.strength_key || null),
         strongestHafalanCategory: strongest ? `${strongest.category} · ${averageLabel}` : null,
         badges: badgesForSantri(badgeConfig, santriId).map((badge) => badge.id),

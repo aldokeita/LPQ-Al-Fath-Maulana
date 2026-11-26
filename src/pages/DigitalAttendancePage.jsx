@@ -4,7 +4,6 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import {
   Fingerprint,
-  Camera,
   Search,
   CheckCircle,
   XCircle,
@@ -12,10 +11,6 @@ import {
   Clock,
   ArrowLeft,
   Activity,
-  Sun,
-  Moon,
-  Tv,
-  Gamepad2,
   Crown,
   Globe2,
   Book,
@@ -23,8 +18,6 @@ import {
   Briefcase,
   Star,
   ArrowRight,
-  Dices,
-  Trophy,
   Library,
 } from 'lucide-react';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -38,7 +31,6 @@ import {
   getJakartaTimeString,
   resolveSantriAttendanceSession,
 } from '@/utils/AttendanceStatusLogic';
-import { enableGameFeatures } from '@/lib/featureFlags';
 import {
   buildSantriAttendancePayload,
   getAttendanceErrorMessage,
@@ -57,6 +49,11 @@ import { computeAttendancePointAward } from '@/lib/attendancePointRules';
 import { facePilotEnabled, faceAttendanceRequest } from '@/lib/faceAttendanceApi';
 import { adultQuotes, guruScanCardProps, runGuruAttendanceScan } from '@/lib/guruAttendanceScan';
 import '@/styles/admin-dashboard.css';
+import AttendanceMenu from '@/components/attendance-themes/AttendanceMenu';
+import ThemedAttendanceKiosk from '@/components/attendance-themes/ThemedAttendanceKiosk';
+import { useAttendanceThemePreference } from '@/components/attendance-themes/useAttendanceThemePreference';
+import { toKioskView } from '@/components/attendance-themes/kioskView';
+import { fetchTodayKioskStats } from '@/lib/attendanceKioskStats';
 
 // --- Data (unchanged) ---
 const motivationalMessages = [
@@ -113,6 +110,31 @@ const DigitalAttendancePage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [levelConfig, setLevelConfig] = useState(null);
   const inputRef = useRef(null);
+  const { theme, mode, setTheme, toggleMode } = useAttendanceThemePreference();
+  const isThemed = theme !== 'klasik';
+  const [kioskStats, setKioskStats] = useState(null);
+  const [mediaOpen, setMediaOpen] = useState(false);
+
+  // Today's numbers and the last check-ins for the themed kiosks. Refreshed every minute and after
+  // each successful scan; the Klasik theme does not show them, so it never queries.
+  const refreshKioskStats = useCallback(async () => {
+    try {
+      setKioskStats(await fetchTodayKioskStats({ supabase, today: getLocalDateString(new Date()) }));
+    } catch (error) {
+      console.error('[Absensi] Gagal memuat ringkasan hari ini:', error?.message);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isThemed) return undefined;
+    refreshKioskStats();
+    const id = setInterval(refreshKioskStats, 60 * 1000);
+    return () => clearInterval(id);
+  }, [isThemed, refreshKioskStats]);
+
+  useEffect(() => {
+    if (isThemed && lastScan?.type === 'success') refreshKioskStats();
+  }, [isThemed, lastScan, refreshKioskStats]);
 
   useEffect(() => {
       const fetchConfig = async () => {
@@ -675,6 +697,38 @@ const DigitalAttendancePage = () => {
   };
 
   // --- Render ---
+  if (isThemed) {
+    return (
+      <>
+        <Helmet><title>Absensi Digital - LPQ Al-Fath Maulana</title></Helmet>
+        <ThemedAttendanceKiosk
+          theme={theme}
+          mode={mode}
+          view={toKioskView(lastScan, { levelConfig })}
+          sessionTimes={sessionTimes}
+          stats={kioskStats}
+          input={{
+            ref: inputRef,
+            value: rfidTag,
+            onChange: (e) => setRfidTag(e.target.value),
+            onSubmit: handleRfidSubmit,
+            isLoading,
+          }}
+          menu={{
+            theme,
+            setTheme,
+            isDark: mode === 'dark',
+            onToggleMode: toggleMode,
+            mediaOpen,
+            onToggleMedia: () => setMediaOpen((v) => !v),
+          }}
+        />
+        {/* Kept mounted so audio keeps playing while hidden. */}
+        <div className="atk-media" hidden={!mediaOpen}><MediaPlayerWidget /></div>
+      </>
+    );
+  }
+
   return (
     <>
       <Helmet><title>Absensi Digital - LPQ Al-Fath Maulana</title></Helmet>
@@ -695,67 +749,18 @@ const DigitalAttendancePage = () => {
             </button>
           </div>
           <div className="attendance-header__right">
-            {facePilotEnabled && (
-              <button type="button" className="attendance-header__action-btn attendance-header__action-btn--face" onClick={() => navigate('/absensi-wajah')}>
-                <Camera className="w-4 h-4" aria-hidden="true" /><span>Absensi Wajah</span>
-              </button>
-            )}
-            {enableGameFeatures && (
-              <>
-                <button
-                  className="attendance-header__action-btn attendance-header__action-btn--gatcha"
-                  onClick={() => navigate('/gatcha-game')}
-                  title="Play Gatcha"
-                  aria-label="Play Gatcha"
-                >
-                  <Gamepad2 className="w-4 h-4" />
-                  <span>Gatcha</span>
-                </button>
-                <button
-                  className="attendance-header__action-btn attendance-header__action-btn--quiz"
-                  onClick={() => navigate('/quiz-hafalan')}
-                  title="Play Quiz"
-                  aria-label="Play Quiz"
-                >
-                  <Library className="w-4 h-4" />
-                  <span>Quiz</span>
-                </button>
-                <button
-                  className="attendance-header__action-btn attendance-header__action-btn--random"
-                  onClick={() => navigate('/random-name')}
-                  title="Acak Nama"
-                  aria-label="Acak Nama"
-                >
-                  <Dices className="w-4 h-4" />
-                  <span>Acak Nama</span>
-                </button>
-                <button
-                  className="attendance-header__action-btn attendance-header__action-btn--leaderboard"
-                  onClick={() => navigate('/top-score')}
-                  title="Leaderboard"
-                  aria-label="Leaderboard"
-                >
-                  <Trophy className="w-4 h-4" />
-                  <span>Leaderboard</span>
-                </button>
-              </>
-            )}
-            <button
-              className="attendance-header__action-btn attendance-header__action-btn--tv"
-              onClick={() => navigate('/tv-display-mode')}
-              title="TV Display Mode"
-              aria-label="TV Display Mode"
-            >
-              <Tv className="w-4 h-4" />
-              <span>TV Display</span>
-            </button>
-            <button className="attendance-header__icon-btn" onClick={toggleTheme} title={isDark ? 'Mode Terang' : 'Mode Gelap'} aria-label={isDark ? 'Mode Terang' : 'Mode Gelap'}>
-              {isDark ? <Sun className="w-4 h-4" style={{ color: 'hsl(var(--att-amber))' }} /> : <Moon className="w-4 h-4" />}
-            </button>
             <div className="attendance-header__system-chip">
               <span className="attendance-header__system-dot" />
               <span>SYSTEM ONLINE</span>
             </div>
+            <AttendanceMenu
+              variant="klasik"
+              buttonClassName="attendance-header__icon-btn"
+              theme={theme}
+              setTheme={setTheme}
+              isDark={isDark}
+              onToggleMode={toggleTheme}
+            />
           </div>
         </header>
 
