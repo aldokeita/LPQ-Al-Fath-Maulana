@@ -170,7 +170,10 @@ const SantriBadgeManager = () => {
     win.document.write('<p style="font-family:system-ui,sans-serif;padding:32px;color:#0f2f36">Menyiapkan halaman cetak…</p>');
     setIsPrinting(true);
     try {
-      const ids = [...new Set(posterPages.flatMap((page) => page.badges.flatMap((entry) => entry.winners.map((w) => w.santri.id))))];
+      // Slot kosong (santri null) dilewati di sini; poster mencetaknya sebagai siluet "???".
+      const ids = [...new Set(posterPages
+        .flatMap((page) => page.badges.flatMap((entry) => entry.winners.map((w) => w.santri?.id)))
+        .filter(Boolean))];
       const [logo, building, ...photoList] = await Promise.all([
         toDataUrl('/logo-lpq-al-fath-maulana.webp'),
         toDataUrl('/institution/gedung-lpq-blur.webp'),
