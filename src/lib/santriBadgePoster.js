@@ -39,6 +39,7 @@ const badgePlaque = (badge, logo) => {
     <div class="plaque-body" style="--from:${badge.from};--to:${badge.to}">
       <span class="plaque-kicker">${escapeHtml(kicker)}</span>
       <span class="plaque-title">${escapeHtml(rest.join(' ') || kicker)}</span>
+      <svg class="plaque-sparkle" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l2.2 7.8L22 12l-7.8 2.2L12 22l-2.2-7.8L2 12l7.8-2.2z" fill="${badge.to}" opacity="0.85"/></svg>
     </div>
   </div>`;
 };
@@ -108,10 +109,12 @@ body { background: #e7ecef; font-family: 'Outfit', 'Poppins', system-ui, sans-se
 .plaque-star { position: absolute; left: 0; top: 0; width: 17mm; height: 17mm; object-fit: contain; z-index: 2; }
 /* Tanpa CSS filter: Chrome merasterisasi elemen ber-filter di resolusi layar saat cetak sehingga logo pecah.
    Halo putih sudah dipanggang di aset logoHalo (1024px). */
-.plaque-body { display: inline-flex; flex-direction: column; justify-content: center; height: 13mm; padding: 0 6mm 0 9mm;
+.plaque-body { position: relative; display: inline-flex; flex-direction: column; justify-content: center; height: 13mm; padding: 0 6mm 0 9mm;
   border-radius: 0 9999px 9999px 0; border: 0.6mm solid transparent;
   background: linear-gradient(#fff, #fff) padding-box, linear-gradient(120deg, var(--from), var(--to)) border-box;
   font-family: 'Fredoka', 'Outfit', sans-serif; text-transform: uppercase; white-space: nowrap; }
+/* Bintang kecil di pojok kanan atas plakat, sama seperti badge di dashboard. */
+.plaque-sparkle { position: absolute; top: 1.8mm; right: 2.3mm; width: 3.5mm; height: 3.5mm; }
 .plaque-kicker { font-size: 7.5pt; font-weight: 600; letter-spacing: 2pt; line-height: 1; color: var(--from); }
 .plaque-title { margin-top: 0.6mm; font-size: 14pt; font-weight: 700; line-height: 1; color: var(--to); }
 .winners { display: flex; justify-content: center; gap: 5mm; width: 100%; }
