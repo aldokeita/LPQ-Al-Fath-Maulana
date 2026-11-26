@@ -119,11 +119,13 @@ body { background: #e7ecef; font-family: 'Outfit', 'Poppins', system-ui, sans-se
 .winner figcaption { margin-top: 2.6mm; display: flex; flex-direction: column; gap: 0.8mm; }
 .winner strong { font-size: 11.5pt; line-height: 1.2; font-weight: 700; color: #0f2f36; }
 .winner figcaption span { font-size: 8pt; font-weight: 700; letter-spacing: 1.4pt; text-transform: uppercase; color: var(--from); }
-.sesi-pill { display: inline-flex; align-items: baseline; gap: 2.4mm; margin-top: 3mm; padding: 2.4mm 9mm; border-radius: 9999px;
+.sesi-pill { display: inline-flex; align-items: center; gap: 2.6mm; margin-top: 3mm; padding: 1.4mm 1.4mm 1.4mm 6.5mm; border-radius: 9999px;
   background: linear-gradient(120deg, #0d9488, #0284c7); color: #fff; box-shadow: 0 2.5mm 7mm rgba(2,132,199,0.3), inset 0 0.4mm 0 rgba(255,255,255,0.35);
-  font-family: 'Fredoka', 'Outfit', sans-serif; line-height: 1; }
-.sesi-pill small { font-size: 11pt; font-weight: 600; letter-spacing: 2.4pt; text-transform: uppercase; opacity: 0.85; }
-.sesi-pill b { font-size: 22pt; font-weight: 700; }
+  font-family: 'Fredoka', 'Outfit', sans-serif; font-size: 17pt; line-height: 1; }
+/* "Sesi" dan nama sesi berukuran sama; nama sesi disorot lewat kapsul putih, bukan ukuran huruf. */
+.sesi-pill small { font-size: inherit; font-weight: 500; opacity: 0.92; }
+.sesi-pill b { font-size: inherit; font-weight: 700; padding: 1.6mm 5.5mm; border-radius: 9999px; background: #fff; color: #0369a1;
+  box-shadow: 0 0.6mm 1.6mm rgba(3,105,161,0.25); }
 .heading .periode { margin-top: 2.6mm; font-size: 10.5pt; color: #3f5f64; }
 .mystery .photo { background: linear-gradient(135deg, #94a3b8, #475569); }
 .photo .mystery-face { position: relative; width: 100%; height: 100%; border-radius: 50%; border: 0.8mm solid #fff; overflow: hidden;
