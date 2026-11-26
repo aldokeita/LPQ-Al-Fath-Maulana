@@ -174,13 +174,14 @@ const SantriBadgeManager = () => {
       const ids = [...new Set(posterPages
         .flatMap((page) => page.badges.flatMap((entry) => entry.winners.map((w) => w.santri?.id)))
         .filter(Boolean))];
-      const [logo, building, ...photoList] = await Promise.all([
+      const [logo, logoHalo, building, ...photoList] = await Promise.all([
         toDataUrl('/logo-lpq-al-fath-maulana.webp'),
+        toDataUrl('/logo-lpq-al-fath-maulana-halo.webp'),
         toDataUrl('/institution/gedung-lpq-blur.webp'),
         ...ids.map((id) => loadAvatar(id).catch(() => null)),
       ]);
       const photos = new Map(ids.map((id, index) => [id, photoList[index]]).filter(([, url]) => url));
-      const html = buildBadgePosterHtml({ pages: posterPages, photos, assets: { logo, building }, address: OFFICIAL_CONTACT.address, privileges });
+      const html = buildBadgePosterHtml({ pages: posterPages, photos, assets: { logo, logoHalo, building }, address: OFFICIAL_CONTACT.address, privileges });
       win.document.open();
       win.document.write(html);
       win.document.close();

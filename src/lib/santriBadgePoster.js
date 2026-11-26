@@ -103,8 +103,9 @@ body { background: #e7ecef; font-family: 'Outfit', 'Poppins', system-ui, sans-se
 .block { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6mm; padding: 6mm 4mm 5mm; border-radius: 6mm;
   background: rgba(255,255,255,0.86); border: 0.35mm solid rgba(15,47,54,0.08); box-shadow: 0 3mm 9mm rgba(15,47,54,0.08); }
 .plaque { position: relative; display: inline-flex; align-items: center; height: 17mm; padding-left: 9.6mm; }
-.plaque-star { position: absolute; left: 0; top: 0; width: 17mm; height: 17mm; object-fit: contain; z-index: 2;
-  filter: drop-shadow(0 0 0.4mm #fff) drop-shadow(0 0 0.4mm #fff); }
+.plaque-star { position: absolute; left: 0; top: 0; width: 17mm; height: 17mm; object-fit: contain; z-index: 2; }
+/* Tanpa CSS filter: Chrome merasterisasi elemen ber-filter di resolusi layar saat cetak sehingga logo pecah.
+   Halo putih sudah dipanggang di aset logoHalo (1024px). */
 .plaque-body { display: inline-flex; flex-direction: column; justify-content: center; height: 13mm; padding: 0 6mm 0 9mm;
   border-radius: 0 9999px 9999px 0; border: 0.6mm solid transparent;
   background: linear-gradient(#fff, #fff) padding-box, linear-gradient(120deg, var(--from), var(--to)) border-box;
@@ -177,6 +178,7 @@ document.getElementById('save-btn').addEventListener('click', function () {
 export const buildBadgePosterHtml = ({ pages, photos = new Map(), assets = {}, date = new Date(), address = '', privileges = null }) => {
   const periode = formatPeriode(date);
   const logo = assets.logo || '';
+  const logoHalo = assets.logoHalo || logo;
   const background = assets.building ? `<img class="bg-building" src="${assets.building}" alt="">` : '';
   const brand = `<div class="brand">
         ${logo ? `<img src="${logo}" alt="Logo LPQ Al-Fath Maulana">` : ''}
@@ -202,7 +204,7 @@ export const buildBadgePosterHtml = ({ pages, photos = new Map(), assets = {}, d
       </ol>
       <div class="badge-row">
         <p>Berlaku untuk peraih badge</p>
-        <div class="plaques">${SANTRI_BADGES.map((badge) => badgePlaque(badge, logo)).join('')}</div>
+        <div class="plaques">${SANTRI_BADGES.map((badge) => badgePlaque(badge, logoHalo)).join('')}</div>
       </div>
       ${footer}
     </div>
@@ -227,7 +229,7 @@ export const buildBadgePosterHtml = ({ pages, photos = new Map(), assets = {}, d
       <div class="grid">
         ${page.badges.map(({ badge, winners }) => `
         <article class="block">
-          ${badgePlaque(badge, logo)}
+          ${badgePlaque(badge, logoHalo)}
           <div class="winners">${winners.map((w) => winnerCard(w, photos, badge)).join('')}</div>
         </article>`).join('')}
       </div>
