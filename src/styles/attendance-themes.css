@@ -689,3 +689,14 @@
 .atk .ctr>.bn-grid{flex:none}
 /* Klasik: header (with its menu) must stack above the main column */
 .attendance-header:has(.atk-klasik-menu-wrap){z-index:30}
+
+/* LPQ logo in the kiosk header: the real logo replaces the generic mark, framed per theme */
+.atk .brand-mark.atk-logo{width:52px;height:52px;padding:5px;background:none!important;box-shadow:none!important;border-radius:16px}
+.atk .brand-mark.atk-logo img{width:100%;height:100%;object-fit:contain;display:block;filter:drop-shadow(0 4px 10px rgba(14,116,144,.28))}
+.atk .t-glass .brand-mark.atk-logo{background:rgba(255,255,255,.6)!important;border:1px solid rgba(255,255,255,.9);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);box-shadow:0 8px 24px -10px rgba(37,99,235,.45)!important}
+.atk .t-glass.m-dark .brand-mark.atk-logo{background:rgba(255,255,255,.1)!important;border-color:rgba(255,255,255,.18)}
+.atk .t-bento .brand-mark.atk-logo{background:#fff!important;border:1px solid #e2e4e9;border-radius:14px}
+.atk .t-bento.m-dark .brand-mark.atk-logo{background:#17191e!important;border-color:#262a31}
+.atk .t-spatial .brand-mark.atk-logo img{filter:drop-shadow(0 0 10px rgba(96,165,250,.55))}
+.atk .t-spatial.m-light .brand-mark.atk-logo img{filter:drop-shadow(0 4px 10px rgba(37,99,235,.3))}
+.atk .t-aurora.m-dark .brand-mark.atk-logo img{filter:drop-shadow(0 0 12px rgba(94,234,212,.35))}
