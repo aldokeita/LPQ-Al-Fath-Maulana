@@ -78,6 +78,8 @@ body { background: #e7ecef; font-family: 'Outfit', 'Poppins', system-ui, sans-se
 .toolbar button { min-height: 40px; padding: 0 18px; border: 0; border-radius: 9999px; font: 600 14px 'Outfit', system-ui, sans-serif; cursor: pointer; }
 .toolbar .primary { background: #14b8a6; color: #04201c; }
 .toolbar .secondary { background: rgba(255,255,255,0.14); color: #fff; }
+.toolbar .print-tip { flex-basis: 100%; margin: 0; text-align: center; font-size: 12.5px; line-height: 1.5; opacity: 0.82; }
+.toolbar .print-tip b { font-weight: 600; color: #fde68a; }
 .toolbar button:focus-visible { outline: 3px solid #fde68a; outline-offset: 2px; }
 .sheet { position: relative; width: 210mm; height: 297mm; margin: 12mm auto; overflow: hidden; background: #fbfdfc;
   box-shadow: 0 18px 50px rgba(15,47,54,0.22); display: flex; flex-direction: column; padding: 14mm 14mm 10mm; page-break-after: always; break-after: page; }
@@ -255,6 +257,7 @@ export const buildBadgePosterHtml = ({ pages, photos = new Map(), assets = {}, d
   <span>${pages.length + (privilegeSheet ? 1 : 0)} halaman A4 · Periode ${escapeHtml(periode)}</span>
   <button type="button" class="primary" id="print-btn">Cetak / Simpan PDF</button>
   <button type="button" class="secondary" id="save-btn">Unduh HTML</button>
+  <p class="print-tip">Biar warna pas: Kertas A4 · Margin <b>Tidak ada</b> · Skala <b>100%</b> · centang <b>Grafis latar belakang</b> · Kualitas printer <b>Tinggi/Best</b>. PDF yang tersimpan berwarna RGB (paling cocok buat printer rumah/kantor).</p>
 </div>
 ${sheets}
 ${privilegeSheet}
